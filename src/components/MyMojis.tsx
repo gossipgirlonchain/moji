@@ -7,7 +7,6 @@ import { useAccount } from "wagmi";
 import type { MojiRow } from "@/lib/supabase";
 import type { MojiFees } from "@/lib/fees";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
-import { feePct } from "@/config/fees";
 import { ClaimButton } from "./FeesCard";
 import { Button, Label } from "./ui";
 import { MOJI_TREASURY } from "@/config/fees";
@@ -141,7 +140,6 @@ function MyMojisInner() {
               </Link>
               <div className="text-[12px] text-ink-soft">
                 {m.token_address ? "unclaimed fees" : "on-chain data pending"}
-                {m.fees.schedule?.decaying && <span className="text-coral"> · fee {feePct(m.fees.schedule.currentFee)} → {feePct(m.fees.schedule.endFee)}</span>}
               </div>
             </div>
           </div>

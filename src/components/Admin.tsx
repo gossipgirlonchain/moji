@@ -8,7 +8,7 @@ import { useAccount } from "wagmi";
 import type { MojiRow } from "@/lib/supabase";
 import type { MojiFees } from "@/lib/fees";
 import type { Market } from "@/lib/market";
-import { MOJI_TREASURY, feePct } from "@/config/fees";
+import { MOJI_TREASURY } from "@/config/fees";
 import { DEFAULT_CHAIN } from "@/config/chains";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { short, usd } from "@/lib/format";
@@ -201,12 +201,6 @@ function PoolRow({ p, i, claim }: { p: Pool; i: number; claim?: boolean }) {
           </Link>
           <div className="text-[12px] text-ink-soft">
             mcap {usd(p.market.marketCapUsd)} · vol24 {usd(p.market.volume24Usd)} · by {p.creator_handle ? `@${p.creator_handle}` : short(p.creator_address)}
-            {p.fees.schedule && (
-              <span className={p.fees.schedule.decaying ? "text-coral" : ""}>
-                {" "}· fee {feePct(p.fees.schedule.currentFee)}
-                {p.fees.schedule.decaying ? ` → ${feePct(p.fees.schedule.endFee)}` : ""}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -297,7 +291,6 @@ function StatsView({ s }: { s: Stats }) {
           <Tile v={usd(s.volume24)} k="volume 24h" />
           <Tile v={String(s.txns24)} k="trades 24h" />
           <Tile v={usd(s.liquidity)} k="liquidity" />
-          <Tile v={String(s.decaying)} k="fees decaying" tone="coral" />
           <Tile v={String(s.combosClaimed)} k="combos claimed" />
         </div>
       </Card>
