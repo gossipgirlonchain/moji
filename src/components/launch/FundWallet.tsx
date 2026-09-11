@@ -13,10 +13,10 @@ export function FundWalletCard({ address, chain, balance, needed }: { address: s
         <CopyButton text={address} />
       </div>
       <p className="text-[14px] text-ink">
-        Send a little <b>{chain.gasSymbol}</b> to this address to cover gas. Moji doesn&apos;t cover it for you.
+        Send a little <b>{chain.gasSymbol}</b> on <b>{chain.name}</b> to this address to cover gas. Moji doesn&apos;t cover it for you.
       </p>
       <p className="mt-2 text-[12px] text-ink-soft">
-        balance {balance} {chain.gasSymbol} · need about {needed} {chain.gasSymbol} on {chain.name}
+        {chain.name} balance {balance} {chain.gasSymbol} · need about {needed} {chain.gasSymbol}. ETH on another chain does not count.
       </p>
     </section>
   );

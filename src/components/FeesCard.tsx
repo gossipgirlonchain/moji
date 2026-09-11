@@ -107,7 +107,7 @@ function ClaimDisabled({ tokenAddress }: { tokenAddress: string | null }) {
   );
 }
 
-function ClaimButton(p: FeesCardProps) {
+export function ClaimButton(p: FeesCardProps & { compact?: boolean }) {
   const router = useRouter();
   const { address } = useAccount();
   const { wallets } = useWallets();
@@ -168,7 +168,7 @@ function ClaimButton(p: FeesCardProps) {
   const label = busy ?? (nothing ? "nothing to claim yet" : isCreator ? "Claim" : "Distribute fees");
   return (
     <div>
-      <button onClick={run} disabled={Boolean(busy) || nothing || !address} className="press clay heading w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white disabled:opacity-60">
+      <button onClick={run} disabled={Boolean(busy) || nothing || !address} className={`press clay heading w-full bg-sky-500 text-white disabled:opacity-60 ${p.compact ? "px-4 py-2.5 text-[14px]" : "px-5 py-3.5 text-[17px]"}`}>
         {label}
       </button>
       {!address && !nothing && <p className="mt-2 text-center text-[12px] text-ink-soft">log in to {isCreator ? "claim" : "distribute"}</p>}

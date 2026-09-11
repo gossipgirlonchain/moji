@@ -73,7 +73,7 @@ export default async function Home() {
       </Card>
 
       <p className="mt-2 text-center text-[13px] text-ink-soft">
-        built on <Link href="/about" className="text-sky-600">Doppler</Link>. moji never trades. you launch here, the market happens elsewhere.
+        built on <Link href="/about" className="text-sky-600">Doppler</Link>.
       </p>
     </main>
   );

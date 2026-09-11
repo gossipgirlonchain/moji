@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Stock } from "@/config/stocks";
+import { StockLogo } from "@/components/StockLogo";
 
 export function StockList({ stocks, value, onChange }: { stocks: Stock[]; value?: Stock; onChange: (s: Stock) => void }) {
   const [q, setQ] = useState("");
@@ -34,8 +35,7 @@ export function StockList({ stocks, value, onChange }: { stocks: Stock[]; value?
               className={`press flex items-center gap-3 px-3 py-2.5 text-left ${active ? "clay-sm bg-sky-500 text-white" : "bg-transparent text-ink"}`}
               style={{ borderRadius: "var(--r-sm)" }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.logo} alt="" width={32} height={32} className="h-8 w-8 shrink-0 bg-white object-cover" style={{ borderRadius: 999 }} loading="lazy" />
+              <StockLogo ticker={s.ticker} logo={s.logo} size={34} />
               <span className="heading w-[64px] shrink-0 text-[16px]">{s.ticker}</span>
               <span className={`truncate text-[13px] ${active ? "text-white/85" : "text-ink-soft"}`}>{s.name}</span>
             </button>

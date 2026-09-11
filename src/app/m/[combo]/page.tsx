@@ -11,7 +11,6 @@ import { feePct } from "@/config/fees";
 import { decodeCombo } from "@/lib/emoji";
 import { dateShort, num, short } from "@/lib/format";
 import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/lib/links";
-import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
 import { PostIt } from "@/components/PostIt";
 import { SITE_URL } from "@/lib/network";
@@ -40,7 +39,6 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
   if (!m) notFound();
   const market = await getMarket(m);
   const fees = await getMojiFees(m, { stockUsd: market.stockPriceUsd, mojiUsd: market.priceUsd });
-  const chain = chainById(m.chain_id);
   const stock = findStock(m.chain_id, m.stock_address);
   const creator = m.creator_handle
     ? { label: `@${m.creator_handle}`, href: xUrl(m.creator_handle) }
@@ -57,7 +55,6 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         </h1>
         <div className="mt-2 flex items-center justify-center gap-2">
           <Badge tone="mint">claimed forever</Badge>
-          <Badge>{chain?.short ?? `chain ${m.chain_id}`}</Badge>
         </div>
         <p className="heading mt-3 text-[17px] text-ink-soft">
           paired to <span className="text-ink">${m.stock_ticker}</span>

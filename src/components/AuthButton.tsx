@@ -8,6 +8,7 @@ import { formatUnits } from "viem";
 import { DEFAULT_CHAIN, chainById } from "@/config/chains";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
+import Link from "next/link";
 
 /** Deterministic sky-toned dot for wallet-only users. */
 function dotColor(addr: string): string {
@@ -92,6 +93,9 @@ export function AuthButton() {
               {bal ? Number(formatUnits(bal.value, bal.decimals)).toFixed(5) : "0.00000"}{" "}
               <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
             </div>
+            <Link href="/me" onClick={() => setOpen(false)} className="press clay-sm heading mb-2 block w-full bg-sky-500 px-4 py-2.5 text-center text-[15px] text-white">
+              your mojis + fees
+            </Link>
             <button
               onClick={() => {
                 setOpen(false);
