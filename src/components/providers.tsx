@@ -2,6 +2,7 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider, createConfig } from "@privy-io/wagmi";
+import { WagmiProvider as PlainWagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { mainnet, arbitrum, base, monad } from "viem/chains";
 import { useState } from "react";
@@ -29,8 +30,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   if (!PRIVY_APP_ID) {
-    // Still render the app so the pages work without auth configured.
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    // No auth configured: still mount wagmi so read-only hooks work and pages render.
+    return (
+      <QueryClientProvider client={queryClient}>
+        <PlainWagmiProvider config={wagmiConfig}>{children}</PlainWagmiProvider>
+      </QueryClientProvider>
+    );
   }
 
   return (
