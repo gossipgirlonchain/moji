@@ -15,7 +15,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { DopplerSDK, MulticurveBuilder, getAirlockOwner, getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { robinhoodChain } from "../src/config/chains";
 import { findStock } from "../src/config/stocks";
-import { CURVE_DEFAULTS, sellWei, supplyWei } from "../src/config/curve";
+import { CURVE_DEFAULTS, curvesFor, sellWei, supplyWei } from "../src/config/curve";
 import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, MOJI_INTEGRATOR, WAD, assertSharesSumToWad, buildBeneficiaries } from "../src/config/fees";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -60,10 +60,7 @@ async function main() {
         numeraireDecimals: stock.decimals,
         fee: FEE_END,
         tickSpacing: FEE_TICK_SPACING,
-        curves: [
-          { marketCap: { start: curve.mcapStart, end: curve.mcapEnd }, numPositions: 11, shares: parseEther((1 - curve.tailShare).toFixed(6)) },
-          { marketCap: { start: curve.mcapEnd, end: "max" }, numPositions: 5, shares: parseEther(curve.tailShare.toFixed(6)) },
-        ],
+        curves: curvesFor(curve.mcapStart),
         beneficiaries,
       })
       .withRehypeDopplerHookInitializer({

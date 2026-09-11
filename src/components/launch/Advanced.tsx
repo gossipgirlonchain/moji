@@ -28,10 +28,8 @@ export function Advanced({ value, onChange }: { value: CurveDefaults; onChange: 
       {open && (
         <div className="pop mt-3 flex flex-col gap-2.5">
           <Field label="Market cap start ($)" value={value.mcapStart} onChange={(n) => onChange({ ...value, mcapStart: n })} step={100} />
-          <Field label="Market cap end ($)" value={value.mcapEnd} onChange={(n) => onChange({ ...value, mcapEnd: n })} step={1000} />
-          <Field label="Tail curve share (0 to 1)" value={value.tailShare} onChange={(n) => onChange({ ...value, tailShare: Math.min(0.9, Math.max(0.01, n)) })} step={0.05} />
           <p className="text-[12px] text-ink-soft">
-            Supply {value.supply.toLocaleString()}, all of it on the curve. 70% of fees stream to you.
+            Supply {value.supply.toLocaleString()}, all of it on the curve from ${value.mcapStart.toLocaleString()} up. 70% of fees stream to you.
           </p>
         </div>
       )}

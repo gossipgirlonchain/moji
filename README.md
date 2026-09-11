@@ -121,11 +121,11 @@ There is no name and no upload, so every moji gets a rendered image:
 `src/lib/doppler.ts` builds a Doppler multicurve auction with the selected stock token as `saleConfig.numeraire`:
 
 - 1B supply, 100% on the curve (with noOp governance the Airlock burns anything not put on the curve; the first launch lost 10% that way)
-- two curves: `$5k → $2M` (90% of shares, 11 positions) and `$2M → max` tail (10%)
+- three curves (per Doppler's guidance): `$5K → $100M` 1 position 50%, `$5K → $50M` 4 positions 47.5%, `$100M → max` tail 1 position 2.5%
 - `noOp` governance, `noOp` migration, pool locked with beneficiaries
 - token type `dopplerERC20V1` (Robinhood Chain has no standard TokenFactory in the SDK map)
 
-Numeraire price comes from the stock's Chainlink feed on Robinhood Chain, falling back to Robinhood's public `rhj/prices` API. Curve start/end and tail share live behind the "advanced" disclosure on `/launch`.
+Numeraire price comes from the stock's Chainlink feed on Robinhood Chain, falling back to Robinhood's public `rhj/prices` API. The launch market cap lives behind the "advanced" disclosure on `/launch`.
 
 Before enabling LAUNCH the app simulates the create and compares `gasEstimate * gasPrice * 1.2` (or the per-chain floor in `src/config/chains.ts`) with the wallet's native balance.
 
