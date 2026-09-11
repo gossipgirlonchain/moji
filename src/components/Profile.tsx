@@ -156,9 +156,42 @@ function ProfileInner() {
   );
 }
 
+type Resolved = { handle: string; address: string; mojis: string[] };
+
 function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset & { balance: bigint })[]; onSent: () => void }) {
   const [assetKey, setAssetKey] = useState("eth");
   const [to, setTo] = useState("");
+  const [resolved, setResolved] = useState<Resolved | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [resolveErr, setResolveErr] = useState<string | null>(null);
+  const isHandle = to.startsWith("@");
+  const target = isHandle ? resolved?.address ?? "" : to;
+
+  // @handle → launcher wallet, debounced
+  useEffect(() => {
+    setResolved(null);
+    setResolveErr(null);
+    if (!isHandle || to.length < 2) return;
+    let alive = true;
+    setResolving(true);
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/resolve?handle=${encodeURIComponent(to.slice(1))}`, { cache: "no-store" });
+        const j = (await r.json()) as Resolved & { error?: string };
+        if (!alive) return;
+        if (!r.ok) setResolveErr(j.error ?? "not found");
+        else setResolved(j);
+      } catch {
+        if (alive) setResolveErr("couldn't look that up");
+      } finally {
+        if (alive) setResolving(false);
+      }
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [to, isHandle]);
   const [amount, setAmount] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [hash, setHash] = useState<`0x${string}` | undefined>();
@@ -190,7 +223,7 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
     setErr(null);
     setHash(undefined);
     if (!asset) return;
-    if (!isAddress(to)) return setErr("That's not a valid address");
+    if (!isAddress(target)) return setErr(isHandle ? "Pick a launcher's @handle or paste a 0x address" : "That's not a valid address");
     let value: bigint;
     try {
       value = asset.key === "eth" ? parseEther(amount) : parseUnits(amount, asset.decimals);
@@ -202,8 +235,8 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
     try {
       const h =
         asset.key === "eth"
-          ? await sendTransactionAsync({ to: to as Address, value, chainId })
-          : await writeContractAsync({ address: asset.address!, abi: erc20Abi, functionName: "transfer", args: [to as Address, value], chainId });
+          ? await sendTransactionAsync({ to: target as Address, value, chainId })
+          : await writeContractAsync({ address: asset.address!, abi: erc20Abi, functionName: "transfer", args: [target as Address, value], chainId });
       setHash(h);
     } catch (e) {
       const msg = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
@@ -230,7 +263,17 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
           </button>
         ))}
       </div>
-      <input className="clay-input mb-2" placeholder="Recipient 0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} autoComplete="off" spellCheck={false} />
+      <input className="clay-input mb-1" placeholder="Recipient 0x… or @handle of a launcher" value={to} onChange={(e) => setTo(e.target.value.trim())} autoComplete="off" spellCheck={false} />
+      <div className="mb-2 min-h-[18px] px-1 text-[12px]">
+        {isHandle && resolving && <span className="text-ink-soft">looking up {to}…</span>}
+        {isHandle && resolveErr && <span className="text-coral">{resolveErr}</span>}
+        {isHandle && resolved && (
+          <span className="text-ink">
+            <span className="heading text-mint">@{resolved.handle}</span> → <span className="mono">{resolved.address.slice(0, 6)}…{resolved.address.slice(-4)}</span> · launched {resolved.mojis.slice(0, 4).join(" ")}
+            {resolved.mojis.length > 4 ? ` +${resolved.mojis.length - 4}` : ""}
+          </span>
+        )}
+      </div>
       <div className="relative mb-3">
         <input className="clay-input num pr-20" placeholder="Amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
         <button type="button" onClick={setMax} className="press clay-pill heading absolute right-2 top-1/2 -translate-y-1/2 bg-white px-3 py-1 text-[12px] text-sky-600">
@@ -238,9 +281,9 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
         </button>
       </div>
       <p className="mb-3 text-[12px] text-ink-soft">
-        {asset ? `${Number(formatUnits(asset.balance, asset.decimals)).toLocaleString(undefined, { maximumFractionDigits: 5 })} ${asset.symbol} available` : ""} · sends on {DEFAULT_CHAIN.name} only. Double check the address, this can&apos;t be undone.
+        {asset ? `${Number(formatUnits(asset.balance, asset.decimals)).toLocaleString(undefined, { maximumFractionDigits: 5 })} ${asset.symbol} available` : ""} · sends on {DEFAULT_CHAIN.name} only. @handles resolve to the wallet that launched under them. This can&apos;t be undone.
       </p>
-      <Button onClick={send} disabled={busy || !asset || !to || !amount}>
+      <Button onClick={send} disabled={busy || !asset || !target || !amount}>
         {sendingEth || sendingToken ? "Confirm in wallet…" : confirming ? "Confirming…" : `Send ${asset?.symbol ?? ""}`}
       </Button>
       {hash && (
