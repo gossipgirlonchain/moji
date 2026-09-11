@@ -29,11 +29,12 @@ export function PriceChart({ combo, marketCapUsd, priceUsd }: { combo: string; m
   useEffect(() => {
     if (!ref.current) return;
     const el = ref.current;
+    const hasData = (points?.length ?? 0) > 0 || priceUsd > 0;
     const chart = createChart(el, {
       height: 180,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#5A8AA6", fontFamily: "var(--font-fredoka), Fredoka, sans-serif", fontSize: 11 },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#5A8AA6", fontFamily: "var(--font-fredoka), Fredoka, sans-serif", fontSize: 11, attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.15, bottom: 0.1 } },
+      rightPriceScale: { visible: hasData, borderVisible: false, scaleMargins: { top: 0.15, bottom: 0.1 } },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
       crosshair: { horzLine: { visible: false }, vertLine: { color: "#9BD2F4", width: 1, style: 2 } },
       handleScroll: false,

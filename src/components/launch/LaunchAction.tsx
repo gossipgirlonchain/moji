@@ -148,11 +148,11 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   );
 }
 
-export function LaunchActionDisabled({ combo, stock }: { combo: string; stock?: Stock }) {
+export function LaunchActionDisabled({ combo, stock, available }: { combo: string; stock?: Stock; available: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <Button size="lg" disabled className="pop pop-4">
-        {combo && stock ? `LAUNCH ${combo} / ${stock.ticker}` : "pick a stock and an emoji"}
+        {combo && stock && available ? `LAUNCH ${combo} / ${stock.ticker}` : combo && !available ? "that combo is taken" : "pick a stock and an emoji"}
       </Button>
       <p className="text-center text-[12px] text-ink-soft">login is off until NEXT_PUBLIC_PRIVY_APP_ID is set.</p>
     </div>

@@ -36,7 +36,9 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
     <main className="flex flex-col gap-4">
       <div className="pop text-center">
         <div className="wobble text-[96px] leading-none">{m.display}</div>
-        <h1 className="mt-2 text-[34px] leading-tight text-ink">{m.display}</h1>
+        <h1 className="mt-2 text-[34px] leading-tight text-ink">
+          {m.display} <span className="text-ink-soft">/</span> {m.stock_ticker}
+        </h1>
         <div className="mt-2 flex items-center justify-center gap-2">
           <Badge tone="mint">claimed forever</Badge>
           <Badge>{chain?.short ?? `chain ${m.chain_id}`}</Badge>

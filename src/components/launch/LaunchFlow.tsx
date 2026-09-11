@@ -56,7 +56,7 @@ export function LaunchFlow() {
       {PRIVY_ENABLED ? (
         <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} />
       ) : (
-        <LaunchActionDisabled combo={combo} stock={stock} />
+        <LaunchActionDisabled combo={combo} stock={stock} available={available} />
       )}
 
       <Advanced value={curve} onChange={setCurve} />
