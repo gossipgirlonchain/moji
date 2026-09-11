@@ -32,7 +32,7 @@ export default function AboutPage() {
       <Card pop={3}>
         <Label className="mb-2">The stocks</Label>
         <p className="text-[15px] leading-relaxed">
-          Pairs are Robinhood Stock Tokens on Robinhood Chain, the same list the LONG app loads. More chains light up as inventory is confirmed.
+          Every moji is paired to a real tokenized stock: Robinhood Stock Tokens on Robinhood Chain, Dinari dShares on Base and Arbitrum, Ondo and Backed xStocks on Ethereum, Anchored aStocks on Monad. Every contract is verified on-chain before it can be picked.
         </p>
       </Card>
       <Card pop={4}>

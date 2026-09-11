@@ -100,7 +100,7 @@ export function FeesCard(initial: FeesCardProps) {
         </div>
       )}
       <p className={`mt-2 text-center text-[11px] ${p.error ? "text-coral" : "text-ink-soft"}`}>
-        {p.error ? "couldn't read the pool just now, retrying…" : p.live ? "read live from the pool" : "no on-chain data yet"} · creator 70% · moji treasury 25% · Doppler 5%
+        {p.error ? "couldn't read the pool just now, retrying…" : p.live ? "read live from the pool" : "no on-chain data yet"}
       </p>
     </section>
   );
