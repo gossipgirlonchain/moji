@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useWallets } from "@privy-io/react-auth";
@@ -138,6 +138,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const running = useRef(false);
   const target = p.beneficiary ?? p.creatorAddress;
   const isCreator = Boolean(address && target && address.toLowerCase() === target.toLowerCase());
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
@@ -147,6 +148,8 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
   async function run() {
     const chain = chainById(p.chainId);
     if (!wallet || !address || !chain?.viem || !p.tokenAddress) return;
+    if (running.current) return; // ignore double taps before React re-renders the disabled state
+    running.current = true;
     setErr(null);
     setNote(null);
     try {
@@ -199,6 +202,8 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       setBusy(null);
       setErr(friendly(e));
       router.refresh();
+    } finally {
+      running.current = false;
     }
   }
 

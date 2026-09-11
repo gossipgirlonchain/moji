@@ -30,7 +30,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ combo: string 
   // one row per claim; dedupe on the last tx hash
   const { data: existing } = await sb.from("fee_claims").select("id").eq("tx_hash", hashes[hashes.length - 1]).maybeSingle();
   if (existing) return NextResponse.json({ ok: true, duplicate: true });
-  await sb.from("fee_claims").insert({
+  const { error: insErr } = await sb.from("fee_claims").insert({
     combo: m.combo,
     network: m.network,
     beneficiary,
@@ -42,6 +42,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ combo: string 
     moji_usd: sum.mojiUsd,
     tx_hash: hashes[hashes.length - 1],
   });
+  if (insErr) return NextResponse.json({ ok: true, duplicate: insErr.code === "23505", error: insErr.code === "23505" ? undefined : insErr.message });
   if (role === "creator") {
     await sb.from("mojis").update({ fees_claimed_usd: Number(m.fees_claimed_usd ?? 0) + sum.stockUsd + sum.mojiUsd, fees_unclaimed_usd: 0 }).eq("id", m.id);
   }
