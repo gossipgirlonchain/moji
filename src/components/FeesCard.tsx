@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useWallets } from "@privy-io/react-auth";
-import { createPublicClient, createWalletClient, custom, http, type Address, type EIP1193Provider, type Hex } from "viem";
+import { createPublicClient, createWalletClient, custom, type Address, type EIP1193Provider, type Hex } from "viem";
+import { transportFor } from "@/lib/rpc";
 import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
 import { Label } from "./ui";
 import { chainById } from "@/config/chains";
@@ -26,7 +27,37 @@ export type FeesCardProps = {
   sources: { pool: boolean; hook: boolean };
   schedule: { startFee: number; endFee: number; currentFee: number; startingTime: number; durationSeconds: number; decaying: boolean } | null;
   live: boolean;
+  error?: string;
 };
+
+type FeesPayload = Pick<FeesCardProps, "pending" | "pendingUsd" | "claimedUsd" | "sources" | "schedule" | "live" | "error">;
+
+/**
+ * Keeps the numbers fresh: refetches from /api/mojis/[combo]/fees on mount and every 20s,
+ * so a transient RPC failure on the server render heals itself instead of sticking at 0.
+ */
+function useLiveFees(initial: FeesCardProps): FeesCardProps {
+  const [state, setState] = useState<FeesCardProps>(initial);
+  useEffect(() => {
+    if (!initial.tokenAddress) return;
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch(`/api/mojis/${encodeURIComponent(initial.combo)}/fees`, { cache: "no-store" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { fees: FeesPayload };
+        if (alive && j.fees) setState((s) => ({ ...s, ...j.fees }));
+      } catch {}
+    };
+    void load();
+    const t = setInterval(load, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [initial.combo, initial.tokenAddress]);
+  return state;
+}
 
 function fmt(n: number): string {
   if (n === 0) return "0";
@@ -35,7 +66,8 @@ function fmt(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function FeesCard(p: FeesCardProps) {
+export function FeesCard(initial: FeesCardProps) {
+  const p = useLiveFees(initial);
   return (
     <section className="clay pop pop-2 bg-sky-50 p-5">
       <div className="flex items-start justify-between">
@@ -69,8 +101,8 @@ export function FeesCard(p: FeesCardProps) {
       </div>
 
       <div className="mt-4">{PRIVY_ENABLED && p.tokenAddress ? <ClaimButton {...p} /> : <ClaimDisabled tokenAddress={p.tokenAddress} />}</div>
-      <p className="mt-2 text-center text-[11px] text-ink-soft">
-        {p.live ? "read live from the pool" : "no on-chain data yet"} · creator 70% · moji treasury 25% · Doppler 5%
+      <p className={`mt-2 text-center text-[11px] ${p.error ? "text-coral" : "text-ink-soft"}`}>
+        {p.error ? "couldn't read the pool just now, retrying…" : p.live ? "read live from the pool" : "no on-chain data yet"} · creator 70% · moji treasury 25% · Doppler 5%
       </p>
     </section>
   );
@@ -124,7 +156,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean }) {
     try {
       await wallet.switchChain(chain.chainId);
       const provider = (await wallet.getEthereumProvider()) as EIP1193Provider;
-      const publicClient = createPublicClient({ chain: chain.viem, transport: http() });
+      const publicClient = createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) });
       const walletClient = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
       const sdk = new DopplerSDK({ publicClient, walletClient, chainId: chain.viem.id });
       const steps: { label: string; go: () => Promise<{ transactionHash: Hex }> }[] = [];

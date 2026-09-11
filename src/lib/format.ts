@@ -6,7 +6,7 @@ export function short(addr?: string | null, head = 4, tail = 4): string {
 
 export function usd(n?: number | null, opts: { compact?: boolean } = { compact: true }): string {
   const v = Number(n ?? 0);
-  if (!isFinite(v)) return "$0";
+  if (!isFinite(v) || v === 0) return "$0.00";
   if (opts.compact) {
     if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
     if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;

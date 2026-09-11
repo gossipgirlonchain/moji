@@ -1,5 +1,6 @@
 import "server-only";
-import { createPublicClient, http, formatUnits } from "viem";
+import { formatUnits } from "viem";
+import { publicClientFor } from "./rpc";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
 import type { MojiRow } from "./supabase";
@@ -35,7 +36,7 @@ export async function stockPriceServer(chainId: number, stockAddress: string): P
   const chain = chainById(chainId);
   if (stock?.chainlinkFeed && chain?.viem) {
     try {
-      const pc = createPublicClient({ chain: chain.viem, transport: http() });
+      const pc = publicClientFor(chain.viem);
       const abi = [
         { type: "function", name: "latestRoundData", stateMutability: "view", inputs: [], outputs: [{ type: "uint80" }, { type: "int256" }, { type: "uint256" }, { type: "uint256" }, { type: "uint80" }] },
         { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },

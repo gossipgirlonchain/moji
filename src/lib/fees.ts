@@ -1,5 +1,6 @@
 import "server-only";
-import { createPublicClient, http, formatUnits, type Address, type Hex } from "viem";
+import { formatUnits, type Address, type Hex } from "viem";
+import { publicClientFor } from "./rpc";
 import { DopplerSDK, getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
@@ -32,6 +33,8 @@ export type MojiFees = {
   schedule: FeeSchedule | null;
   /** true when the numbers came from chain, false when they are the stored fallback */
   live: boolean;
+  /** set when a chain read failed; the numbers are not trustworthy */
+  error?: string;
   assetIsToken0: boolean | null;
 };
 
@@ -65,7 +68,7 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
   const stockDecimals = stock?.decimals ?? 18;
 
   try {
-    const pc = createPublicClient({ chain: chain.viem, transport: http() });
+    const pc = publicClientFor(chain.viem);
     const sdk = new DopplerSDK({ publicClient: pc, chainId: chain.viem.id });
     const token = m.token_address as Address;
     const creator = m.creator_address as Address;
@@ -77,23 +80,30 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
     let fees0 = 0n;
     let fees1 = 0n;
     const sources = { pool: false, hook: false };
+    const failures: string[] = [];
     try {
-      const p = await pool.getPendingFees(creator);
+      const p = await withRetry(() => pool.getPendingFees(creator));
       fees0 += p.fees0;
       fees1 += p.fees1;
       sources.pool = p.fees0 > 0n || p.fees1 > 0n;
-    } catch {}
+    } catch (e) {
+      failures.push("pool: " + short(e));
+    }
 
     let schedule: FeeSchedule | null = null;
     const hookAddr = rehypeHook(m.chain_id);
     if (hookAddr && m.pool_id) {
       try {
         const hook = await sdk.getRehypeDopplerHookInitializer(hookAddr);
-        const p = await hook.getPendingFees(m.pool_id as Hex, creator);
-        fees0 += p.fees0;
-        fees1 += p.fees1;
-        sources.hook = p.fees0 > 0n || p.fees1 > 0n;
-        const s = await hook.getFeeSchedule(m.pool_id as Hex);
+        try {
+          const p = await withRetry(() => hook.getPendingFees(m.pool_id as Hex, creator));
+          fees0 += p.fees0;
+          fees1 += p.fees1;
+          sources.hook = p.fees0 > 0n || p.fees1 > 0n;
+        } catch (e) {
+          failures.push("hook: " + short(e));
+        }
+        const s = await withRetry(() => hook.getFeeSchedule(m.pool_id as Hex));
         const sched = { startingTime: Number(s.startingTime), startFee: Number(s.startFee), endFee: Number(s.endFee), durationSeconds: Number(s.durationSeconds) };
         const now = Date.now() / 1000;
         schedule = { ...sched, currentFee: currentFee(sched, now), decaying: now < sched.startingTime + sched.durationSeconds && sched.startFee > sched.endFee };
@@ -120,10 +130,29 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
       claimedUsd,
       earnedUsd: pendingUsd + claimedUsd,
       schedule,
-      live: true,
+      live: failures.length === 0,
+      error: failures.length ? failures.join("; ") : undefined,
       assetIsToken0,
     };
-  } catch {
-    return fallback;
+  } catch (e) {
+    return { ...fallback, error: short(e) };
   }
+}
+
+function short(e: unknown): string {
+  const msg = e instanceof Error ? (e as Error & { shortMessage?: string }).shortMessage ?? e.message : String(e);
+  return msg.split("\n")[0].slice(0, 120);
+}
+
+async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+    }
+  }
+  throw last;
 }

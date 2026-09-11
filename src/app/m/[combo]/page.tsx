@@ -99,6 +99,7 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         sources={fees.sources}
         schedule={fees.schedule}
         live={fees.live}
+        error={fees.error}
       />
 
       <div className="grid grid-cols-2 gap-3">

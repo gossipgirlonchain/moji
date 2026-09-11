@@ -1,4 +1,5 @@
-import { createPublicClient, http, parseAbi } from "viem";
+import { createPublicClient, parseAbi } from "viem";
+import { transportFor } from "@/lib/rpc";
 import type { Stock } from "@/config/stocks";
 import { robinhoodChain } from "@/config/chains";
 
@@ -14,7 +15,7 @@ const feedAbi = parseAbi([
 export async function stockPriceUsd(stock: Stock): Promise<number> {
   if (stock.chainlinkFeed) {
     try {
-      const pc = createPublicClient({ chain: robinhoodChain, transport: http() });
+      const pc = createPublicClient({ chain: robinhoodChain, transport: transportFor(robinhoodChain) });
       const [round, dec] = await Promise.all([
         pc.readContract({ address: stock.chainlinkFeed, abi: feedAbi, functionName: "latestRoundData" }),
         pc.readContract({ address: stock.chainlinkFeed, abi: feedAbi, functionName: "decimals" }),

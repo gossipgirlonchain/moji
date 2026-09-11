@@ -1,6 +1,7 @@
 "use client";
 
-import { createPublicClient, createWalletClient, custom, http, parseEther, type Address, type EIP1193Provider } from "viem";
+import { createPublicClient, createWalletClient, custom, parseEther, type Address, type EIP1193Provider } from "viem";
+import { transportFor } from "@/lib/rpc";
 import { DopplerSDK, MulticurveBuilder, getAddresses, getAirlockOwner } from "@whetstone-research/doppler-sdk/evm";
 import type { MojiChain } from "@/config/chains";
 import type { Stock } from "@/config/stocks";
@@ -48,7 +49,7 @@ export async function buildParams(input: LaunchInput) {
   const chainId = input.chain.chainId as 4663;
   const curve = input.curve ?? CURVE_DEFAULTS;
   const mainShare = 1 - curve.tailShare;
-  const publicClient = createPublicClient({ chain: input.chain.viem!, transport: http() });
+  const publicClient = createPublicClient({ chain: input.chain.viem!, transport: transportFor(input.chain.viem!) });
   const protocolOwner = await getAirlockOwner(publicClient);
   const beneficiaries = buildBeneficiaries(input.creator, protocolOwner);
   assertSharesSumToWad(beneficiaries, protocolOwner); // fail loudly before anything is signed
@@ -104,7 +105,7 @@ export async function buildParams(input: LaunchInput) {
 
 export function makeSdk(input: Pick<LaunchInput, "chain" | "creator" | "provider">) {
   const chain = input.chain.viem!;
-  const publicClient = createPublicClient({ chain, transport: http() });
+  const publicClient = createPublicClient({ chain, transport: transportFor(chain) });
   const walletClient = createWalletClient({ chain, account: input.creator, transport: custom(input.provider) });
   return new DopplerSDK({ publicClient, walletClient, chainId: chain.id });
 }
@@ -117,7 +118,7 @@ export async function estimateLaunchGasWei(input: LaunchInput): Promise<bigint |
     const sim = await sdk.factory.simulateCreateMulticurve(params);
     if (!sim.gasEstimate) return null;
     const chain = input.chain.viem!;
-    const pc = createPublicClient({ chain, transport: http() });
+    const pc = createPublicClient({ chain, transport: transportFor(chain) });
     const gasPrice = await pc.getGasPrice();
     return (sim.gasEstimate * gasPrice * 12n) / 10n;
   } catch {

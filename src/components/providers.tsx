@@ -7,6 +7,7 @@ import { http } from "viem";
 import { mainnet, arbitrum, base } from "viem/chains";
 import { useState } from "react";
 import { SUPPORTED_EVM_CHAINS, robinhoodChain } from "@/config/chains";
+import { transportFor } from "@/lib/rpc";
 
 /**
  * Privy + wagmi. No paymaster, no smart wallets, no gas sponsorship.
@@ -15,7 +16,7 @@ import { SUPPORTED_EVM_CHAINS, robinhoodChain } from "@/config/chains";
 export const wagmiConfig = createConfig({
   chains: SUPPORTED_EVM_CHAINS,
   transports: {
-    [robinhoodChain.id]: http(),
+    [robinhoodChain.id]: transportFor(robinhoodChain),
     [base.id]: http(),
     [arbitrum.id]: http(),
     [mainnet.id]: http(),

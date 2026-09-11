@@ -51,7 +51,6 @@ export default async function Home() {
             </div>
           ))}
         </div>
-        <p className="mt-4 text-[14px] text-ink-soft">your combo is yours forever. once it&apos;s gone, it&apos;s gone.</p>
       </Card>
 
       <Card pop={4}>
