@@ -126,7 +126,7 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         )}
       </div>
 
-      <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}/m/${encodeURIComponent(m.display)}`} />
+      <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}/m/${encodeURIComponent(m.display)}`} ca={m.token_address} />
 
       <Card pop={4}>
         <Label className="mb-3">Details</Label>

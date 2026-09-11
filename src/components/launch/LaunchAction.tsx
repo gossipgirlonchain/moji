@@ -30,7 +30,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null);
-  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string } | null>(null);
+  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string } | null>(null);
   const hasX = Boolean(user?.twitter?.username);
 
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
@@ -104,7 +104,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
       if (!r.ok) throw new Error(j.error ?? "Could not record launch");
       setPhase("done");
       const href = j.href ?? `/m/${encodeURIComponent(combo)}`;
-      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker });
+      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker, ca: res.tokenAddress });
       router.prefetch(href);
     } catch (e) {
       setPhase("idle");
@@ -133,7 +133,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
         <p className="heading text-[22px] text-ink">
           {done.combo} / {done.ticker} is live.
         </p>
-        <PostIt combo={done.combo} ticker={done.ticker} url={done.url} size="lg" />
+        <PostIt combo={done.combo} ticker={done.ticker} url={done.url} ca={done.ca} size="lg" />
         <Link href={done.href} className="press clay heading block w-full bg-sky-500 px-6 py-3.5 text-[17px] text-white">
           view your moji
         </Link>

@@ -113,7 +113,7 @@ There is no name and no upload, so every moji gets a rendered image:
 - On launch the PNG is stored in the public Supabase Storage bucket `moji-images` at `<network>/<hex of normalized combo>.png` and its URL goes on the row (`image_url`).
 - The on-chain `tokenURI` is `${NEXT_PUBLIC_SITE_URL}/api/meta/[combo]`, which returns `{ name, symbol, description, image, external_url }`. `image` is the Storage URL once recorded, and the live renderer before that.
 - `/m/[combo]/opengraph-image` renders a 1200x630 card with the combo, the pair as "🍏 / AAPL" and the moji wordmark. `generateMetadata` on the moji page sets Open Graph and `twitter:card = summary_large_image`, so links posted to X unfurl with it.
-- "Post it" (on the launch success state and permanently on the moji page) opens the X web intent prefilled with `just claimed {combo} on moji, paired to ${TICKER} 🫡 {url}`.
+- "Post it" (on the launch success state and permanently on the moji page) opens the X web intent prefilled with `just claimed {combo} paired to ${TICKER} on @mojidotwtf 🫡`, the contract address, and the moji link.
 
 ## Launch flow
 
