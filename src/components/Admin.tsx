@@ -235,6 +235,7 @@ function PoolRow({ p, i, claim }: { p: Pool; i: number; claim?: boolean }) {
             pendingMojiUsd={p.fees.pendingMojiUsd}
             claimedUsd={0}
             sources={p.fees.sources}
+            bySource={p.fees.bySource}
             schedule={p.fees.schedule}
             live={p.fees.live}
           />

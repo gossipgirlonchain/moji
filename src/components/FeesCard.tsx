@@ -23,6 +23,7 @@ export type FeesCardProps = {
   pendingUsd: number;
   claimedUsd: number;
   sources: { pool: boolean; hook: boolean };
+  bySource?: { pool: { stock: number; moji: number }; hook: { stock: number; moji: number } };
   pendingStockUsd?: number;
   pendingMojiUsd?: number;
   schedule: { startFee: number; endFee: number; currentFee: number; startingTime: number; durationSeconds: number; decaying: boolean } | null;
@@ -30,7 +31,7 @@ export type FeesCardProps = {
   error?: string;
 };
 
-type FeesPayload = Pick<FeesCardProps, "pending" | "pendingUsd" | "claimedUsd" | "sources" | "schedule" | "live" | "error">;
+type FeesPayload = Pick<FeesCardProps, "pending" | "pendingUsd" | "claimedUsd" | "sources" | "bySource" | "pendingStockUsd" | "pendingMojiUsd" | "schedule" | "live" | "error">;
 
 /**
  * Keeps the numbers fresh: refetches from /api/mojis/[combo]/fees on mount and every 20s,
@@ -134,18 +135,19 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       const walletClient = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
       const sdk = new DopplerSDK({ publicClient, walletClient, chainId: chain.viem.id });
       const steps: { label: string; go: () => Promise<{ transactionHash: Hex }> }[] = [];
+      const amt = (a?: { stock: number; moji: number }) => (a ? `${fmt(a.stock)} ${p.ticker} + ${fmt(a.moji)} ${p.combo}` : "");
 
       if (p.sources.pool) {
         // MulticurvePool.collectFees(): anyone can call, payout routes to the locked beneficiaries.
         const pool = await sdk.getMulticurvePool(p.tokenAddress as Address);
-        steps.push({ label: "pool fees", go: () => pool.collectFees() });
+        steps.push({ label: `pool fees · ${amt(p.bySource?.pool)}`, go: () => pool.collectFees() });
       }
       if (p.sources.hook && p.poolId) {
         const hook = await sdk.getRehypeDopplerHookInitializer(rehypeHookAddress(p.chainId));
         steps.push(
           isCreator
-            ? { label: "hook fees", go: () => hook.claimFees(p.poolId as Hex) } // collect + release caller's share
-            : { label: "hook fees", go: () => hook.collectFees(p.tokenAddress as Address) }, // collect for beneficiaries
+            ? { label: `swap fees · ${amt(p.bySource?.hook)}`, go: () => hook.claimFees(p.poolId as Hex) } // collect + release caller's share
+            : { label: `swap fees · ${amt(p.bySource?.hook)}`, go: () => hook.collectFees(p.tokenAddress as Address) }, // collect for beneficiaries
         );
       }
       if (steps.length === 0) return;
@@ -156,7 +158,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
           ? fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes }) })
           : Promise.resolve();
       for (let i = 0; i < steps.length; i++) {
-        setBusy(steps.length > 1 ? `sign ${i + 1} of ${steps.length}…` : "confirm in wallet…");
+        setBusy(steps.length > 1 ? `sign ${i + 1} of ${steps.length}: ${steps[i].label}` : `confirm: ${steps[i].label}`);
         try {
           const r = await steps[i].go();
           hashes.push(r.transactionHash);
@@ -190,6 +192,11 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       </button>
       {!address && !nothing && <p className="mt-2 text-center text-[12px] text-ink-soft">log in to claim</p>}
 
+      {!busy && !nothing && p.sources.pool && p.sources.hook && p.bySource && (
+        <p className="mt-2 text-center text-[11px] text-ink-soft">
+          two transactions: {fmt(p.bySource.pool.stock)} {p.ticker} + {fmt(p.bySource.pool.moji)} {p.combo} from the pool, then {fmt(p.bySource.hook.stock)} {p.ticker} + {fmt(p.bySource.hook.moji)} {p.combo} from swap fees. your wallet simulates each one on its own.
+        </p>
+      )}
       {note && <p className="mt-2 text-center text-[12px] text-ink">{note}</p>}
       {err && (
         <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">

@@ -30,6 +30,8 @@ export type MojiFees = {
   pendingMojiUsd: number;
   /** raw pending split by source, so the Claim button knows which calls to make */
   sources: { pool: boolean; hook: boolean };
+  /** per-source amounts (whole tokens), so the UI can say what each transaction pays */
+  bySource: { pool: FeeAmounts; hook: FeeAmounts };
   pendingUsd: number;
   claimedUsd: number;
   earnedUsd: number;
@@ -60,6 +62,7 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
     pendingStockUsd: 0,
     pendingMojiUsd: 0,
     sources: { pool: false, hook: false },
+    bySource: { pool: { stock: 0, moji: 0 }, hook: { stock: 0, moji: 0 } },
     pendingUsd: Number(m.fees_unclaimed_usd ?? 0),
     claimedUsd: Number(m.fees_claimed_usd ?? 0),
     earnedUsd: Number(m.fees_unclaimed_usd ?? 0) + Number(m.fees_claimed_usd ?? 0),
@@ -86,11 +89,13 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
     let fees0 = 0n;
     let fees1 = 0n;
     const sources = { pool: false, hook: false };
+    const raw = { pool: { f0: 0n, f1: 0n }, hook: { f0: 0n, f1: 0n } };
     const failures: string[] = [];
     try {
       const p = await withRetry(() => pool.getPendingFees(creator));
       fees0 += p.fees0;
       fees1 += p.fees1;
+      raw.pool = { f0: p.fees0, f1: p.fees1 };
       sources.pool = p.fees0 > 0n || p.fees1 > 0n;
     } catch (e) {
       failures.push("pool: " + short(e));
@@ -105,6 +110,7 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
           const p = await withRetry(() => hook.getPendingFees(m.pool_id as Hex, creator));
           fees0 += p.fees0;
           fees1 += p.fees1;
+          raw.hook = { f0: p.fees0, f1: p.fees1 };
           sources.hook = p.fees0 > 0n || p.fees1 > 0n;
         } catch (e) {
           failures.push("hook: " + short(e));
@@ -127,12 +133,15 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
 
     const asset = Number(formatUnits(assetIsToken0 ? fees0 : fees1, 18));
     const num = Number(formatUnits(assetIsToken0 ? fees1 : fees0, stockDecimals));
+    const split = (r: { f0: bigint; f1: bigint }) => ({ moji: Number(formatUnits(assetIsToken0 ? r.f0 : r.f1, 18)), stock: Number(formatUnits(assetIsToken0 ? r.f1 : r.f0, stockDecimals)) });
+    const bySource = { pool: split(raw.pool), hook: split(raw.hook) };
     const pendingStockUsd = num * prices.stockUsd;
     const pendingMojiUsd = asset * prices.mojiUsd;
     const pendingUsd = pendingStockUsd + pendingMojiUsd;
     const claimedUsd = Number(m.fees_claimed_usd ?? 0);
     return {
       pending: { stock: num, moji: asset },
+      bySource,
       pendingStockUsd,
       pendingMojiUsd,
       sources,

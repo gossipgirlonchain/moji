@@ -43,6 +43,7 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
     pendingMojiUsd: 0,
     claimedUsd: Number(m.fees_claimed_usd ?? 0),
     sources: { pool: Number(m.fees_stock_pending ?? 0) > 0 || Number(m.fees_moji_pending ?? 0) > 0, hook: false },
+    bySource: undefined as undefined | { pool: { stock: number; moji: number }; hook: { stock: number; moji: number } },
     schedule: null as null | { startFee: number; endFee: number; currentFee: number; startingTime: number; durationSeconds: number; decaying: boolean },
     live: Boolean(m.snapshot_at),
     error: undefined as string | undefined,
