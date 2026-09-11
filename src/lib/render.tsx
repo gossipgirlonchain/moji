@@ -1,0 +1,115 @@
+import "server-only";
+import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
+/**
+ * Deterministic emoji rendering: next/og (satori) with Noto Color Emoji, so the PNG is identical
+ * on every OS. The sky gradient and clay shadow mirror the CSS tokens in globals.css.
+ */
+const SKY_GRADIENT = "linear-gradient(145deg, #F2FAFF 0%, #C3E3F8 55%, #9BD2F4 100%)";
+const CLAY_SHADOW = "8px 8px 24px rgba(18,64,92,0.15), inset -8px -8px 16px rgba(18,64,92,0.10), inset 8px 8px 16px rgba(255,255,255,0.45)";
+
+let wordmarkCache: string | null = null;
+async function wordmarkDataUrl(): Promise<string> {
+  if (wordmarkCache) return wordmarkCache;
+  const buf = await readFile(path.join(process.cwd(), "public", "moji.png"));
+  wordmarkCache = `data:image/png;base64,${buf.toString("base64")}`;
+  return wordmarkCache;
+}
+
+/** 512x512 token image: emoji centered on a sky clay circle, transparent outside. */
+export function renderTokenImage(combo: string, size = 512): ImageResponse {
+  const count = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(combo)).length;
+  const fontSize = count === 1 ? size * 0.52 : count === 2 ? size * 0.34 : size * 0.24;
+  return new ImageResponse(
+    (
+      <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent" }}>
+        <div
+          style={{
+            width: size * 0.9,
+            height: size * 0.9,
+            borderRadius: 9999,
+            background: SKY_GRADIENT,
+            boxShadow: CLAY_SHADOW,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize,
+            lineHeight: 1,
+            letterSpacing: count > 1 ? "-0.04em" : "0",
+          }}
+        >
+          {combo}
+        </div>
+      </div>
+    ),
+    { width: size, height: size, emoji: "noto" },
+  );
+}
+
+/** 1200x630 Open Graph card: combo, "🍏 / AAPL", wordmark. */
+export async function renderOgImage(combo: string, ticker: string): Promise<ImageResponse> {
+  const wordmark = await wordmarkDataUrl();
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: 1200,
+          height: 630,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#DCEEFB",
+          fontFamily: "sans-serif",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            width: 1040,
+            height: 470,
+            borderRadius: 64,
+            background: "#FFFFFF",
+            boxShadow: CLAY_SHADOW,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 72px",
+          }}
+        >
+          <div
+            style={{
+              width: 330,
+              height: 330,
+              borderRadius: 9999,
+              background: SKY_GRADIENT,
+              boxShadow: CLAY_SHADOW,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 180,
+              lineHeight: 1,
+            }}
+          >
+            {combo}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 18 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={wordmark} width={300} height={155} alt="moji" style={{ objectFit: "contain" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 84, fontWeight: 700, color: "#12405C" }}>
+              <span>{combo}</span>
+              <span style={{ color: "#5A8AA6" }}>/</span>
+              <span>{ticker}</span>
+            </div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ background: "#5FD3AE", color: "#fff", borderRadius: 999, padding: "8px 22px", fontSize: 22, fontWeight: 700, letterSpacing: 2 }}>CLAIMED FOREVER</div>
+              <div style={{ color: "#5A8AA6", fontSize: 26, fontWeight: 700 }}>moji.wtf</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+    { width: 1200, height: 630, emoji: "noto" },
+  );
+}

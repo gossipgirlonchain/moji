@@ -11,12 +11,11 @@ function privy(): PrivyClient | null {
   return client;
 }
 
+export const PRIVY_SERVER_CONFIGURED = Boolean(appId && appSecret);
+
 export type VerifiedUser = { did: string };
 
-/**
- * Verify a Privy access token from the Authorization header.
- * Returns null when Privy is not configured server-side (dev mode) or the token is invalid.
- */
+/** Verify a Privy access token from the Authorization header. Null when missing/invalid, "unconfigured" when no secret. */
 export async function verifyPrivyToken(authHeader: string | null): Promise<VerifiedUser | null | "unconfigured"> {
   const p = privy();
   if (!p) return "unconfigured";
@@ -26,6 +25,22 @@ export async function verifyPrivyToken(authHeader: string | null): Promise<Verif
     const claims = await p.utils().auth().verifyAccessToken(token);
     const did = (claims as { user_id?: string; userId?: string }).user_id ?? (claims as { userId?: string }).userId;
     return did ? { did } : null;
+  } catch {
+    return null;
+  }
+}
+
+export type LinkedTwitter = { username: string; subject: string };
+
+/** The X account linked to a Privy DID, read server-side so the client cannot fake it. */
+export async function getLinkedTwitter(did: string): Promise<LinkedTwitter | null> {
+  const p = privy();
+  if (!p) return null;
+  try {
+    const user = await p.users()._get(did);
+    const tw = user.linked_accounts.find((a) => a.type === "twitter_oauth") as { username?: string | null; subject?: string } | undefined;
+    if (!tw?.username) return null;
+    return { username: tw.username.replace(/^@/, ""), subject: tw.subject ?? "" };
   } catch {
     return null;
   }

@@ -7,7 +7,7 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
   return (
     <div className="scroll-x -mx-5 flex gap-2.5 px-5 pb-1">
       {CHAINS.map((c) => {
-        const soon = c.comingSoon || stocksFor(c.chainId).length === 0;
+        const soon = !c.live || stocksFor(c.chainId).length === 0;
         const active = c.key === value.key;
         return (
           <button

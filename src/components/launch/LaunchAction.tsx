@@ -13,6 +13,9 @@ import type { CurveDefaults } from "@/config/curve";
 import { estimateLaunchGasWei, launchMoji } from "@/lib/doppler";
 import { stockPriceUsd } from "@/lib/price";
 import { FundWalletCard } from "./FundWallet";
+import { PostIt } from "@/components/PostIt";
+import Link from "next/link";
+import { SITE_URL } from "@/lib/network";
 
 type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults };
 
@@ -20,13 +23,15 @@ type Phase = "idle" | "pricing" | "signing" | "confirming" | "recording" | "done
 
 export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const router = useRouter();
-  const { ready, authenticated, user, login, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, login, linkTwitter, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null);
+  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string } | null>(null);
+  const hasX = Boolean(user?.twitter?.username);
 
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
   useEffect(() => {
@@ -91,14 +96,15 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
           poolId: res.poolId,
           txHash: res.txHash,
           supply: res.supply,
-          creatorHandle: user?.twitter?.username ?? null,
           creatorAddress: address,
         }),
       });
-      const j = (await r.json()) as { href?: string; error?: string };
+      const j = (await r.json()) as { href?: string; url?: string; error?: string };
       if (!r.ok) throw new Error(j.error ?? "Could not record launch");
       setPhase("done");
-      router.push(j.href ?? "/explore");
+      const href = j.href ?? `/m/${encodeURIComponent(combo)}`;
+      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker });
+      router.prefetch(href);
     } catch (e) {
       setPhase("idle");
       const msg = e instanceof Error ? e.message : String(e);
@@ -116,6 +122,33 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
       <Button size="lg" onClick={login}>
         Log in to launch
       </Button>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="clay pop flex flex-col items-center gap-3 bg-white p-5 text-center">
+        <div className="wobble text-[64px] leading-none">{done.combo}</div>
+        <p className="heading text-[22px] text-ink">
+          {done.combo} / {done.ticker} is yours. forever.
+        </p>
+        <PostIt combo={done.combo} ticker={done.ticker} url={done.url} size="lg" />
+        <Link href={done.href} className="press clay heading block w-full bg-sky-500 px-6 py-3.5 text-[17px] text-white">
+          view your moji
+        </Link>
+      </div>
+    );
+  }
+
+  // X is required to claim. Wallet-only users can browse and trade, not launch.
+  if (!hasX) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Button size="lg" onClick={linkTwitter} className="pop pop-4">
+          Link X to claim
+        </Button>
+        <p className="text-center text-[12px] text-ink-soft">claims need an X account. one claim per account per hour.</p>
+      </div>
     );
   }
 

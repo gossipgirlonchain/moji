@@ -13,13 +13,25 @@ import { dateShort, num, short } from "@/lib/format";
 import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/lib/links";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
+import { PostIt } from "@/components/PostIt";
+import { SITE_URL } from "@/lib/network";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ combo: string }> }) {
   const { combo } = await params;
   const d = decodeCombo(combo);
-  return { title: `${d} · moji`, description: `${d} is a moji.` };
+  const m = await getMoji(d);
+  const title = m ? `${m.display} / ${m.stock_ticker} · moji` : `${d} · moji`;
+  const description = m ? `${m.display} is a moji, paired to $${m.stock_ticker}. Claimed forever.` : `${d} is a moji.`;
+  const url = `${SITE_URL}/m/${encodeURIComponent(d)}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: "moji", type: "website" },
+    twitter: { card: "summary_large_image", title, description, site: "@moji" },
+  };
 }
 
 export default async function MojiPage({ params }: { params: Promise<{ combo: string }> }) {
@@ -106,6 +118,8 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
           <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
         )}
       </div>
+
+      <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}/m/${encodeURIComponent(m.display)}`} />
 
       <Card pop={4}>
         <Label className="mb-3">Details</Label>

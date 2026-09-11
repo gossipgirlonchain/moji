@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { validateCombo } from "@/lib/emoji";
 import { hasSupabase, supabaseServer } from "@/lib/supabase";
-import { verifyPrivyToken } from "@/lib/privy-server";
+import { getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
 import { findStock } from "@/config/stocks";
 import { chainById } from "@/config/chains";
+import { NETWORK, SITE_URL } from "@/lib/network";
+import { storeMojiImage } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const CLAIM_WINDOW_MS = 60 * 60 * 1000;
 
 type Body = {
   combo: string;
@@ -15,18 +20,25 @@ type Body = {
   poolId?: string;
   txHash: string;
   supply?: string;
-  creatorHandle?: string | null;
   creatorAddress: string;
 };
 
 /**
  * POST /api/launch
- * Records a successful on-chain launch: inserts the claim (unique index enforces permanence)
- * and the moji row with creator DID / X handle / wallet address.
+ * Records a successful on-chain launch. Rules enforced here, not on the client:
+ *  - caller must present a valid Privy access token (DID)
+ *  - that DID must have a linked X account (read from Privy server-side)
+ *  - one claim per DID per hour
+ *  - chain must be live, stock must be on the curated list
+ * Inserts the claim (unique index on (combo, network) is the permanence guarantee) and the moji row,
+ * then renders the token image into Supabase Storage.
  */
 export async function POST(req: Request) {
   if (!hasSupabase() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Supabase service role key not configured" }, { status: 500 });
+  }
+  if (!PRIVY_SERVER_CONFIGURED) {
+    return NextResponse.json({ error: "Privy app secret not configured; claims require X verification" }, { status: 500 });
   }
   const body = (await req.json()) as Body;
 
@@ -34,7 +46,7 @@ export async function POST(req: Request) {
   if (!v.ok) return NextResponse.json({ error: v.reason }, { status: 400 });
 
   const chain = chainById(Number(body.chainId));
-  if (!chain || chain.comingSoon) return NextResponse.json({ error: "Unsupported chain" }, { status: 400 });
+  if (!chain || !chain.live) return NextResponse.json({ error: "That chain is not live yet" }, { status: 400 });
 
   const stock = findStock(chain.chainId, body.stockAddress);
   if (!stock) return NextResponse.json({ error: "Stock must be from the curated list" }, { status: 400 });
@@ -42,27 +54,39 @@ export async function POST(req: Request) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.tokenAddress ?? "") || !/^0x[0-9a-fA-F]{64}$/.test(body.txHash ?? "")) {
     return NextResponse.json({ error: "Bad token address or tx hash" }, { status: 400 });
   }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(body.creatorAddress ?? "")) return NextResponse.json({ error: "Bad creator address" }, { status: 400 });
 
   const verified = await verifyPrivyToken(req.headers.get("authorization"));
-  if (verified === null) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
-  const creatorDid = verified === "unconfigured" ? null : verified.did;
+  if (!verified || verified === "unconfigured") return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  const did = verified.did;
+
+  const twitter = await getLinkedTwitter(did);
+  if (!twitter) return NextResponse.json({ error: "Link X to claim" }, { status: 403 });
 
   const sb = supabaseServer();
-  const { error: claimErr } = await sb.from("claims").insert({
-    combo: v.normalized,
-    display: v.display,
-    chain_id: chain.chainId,
-  });
+
+  // Rate limit: one claim per X account (DID) per hour.
+  const since = new Date(Date.now() - CLAIM_WINDOW_MS).toISOString();
+  const { data: recent } = await sb.from("mojis").select("launched_at").eq("creator_did", did).gte("launched_at", since).order("launched_at", { ascending: false }).limit(1);
+  if (recent && recent.length > 0) {
+    const next = new Date(new Date(recent[0].launched_at).getTime() + CLAIM_WINDOW_MS);
+    const mins = Math.max(1, Math.ceil((next.getTime() - Date.now()) / 60000));
+    return NextResponse.json({ error: `One claim per hour. Try again in ${mins} min.` }, { status: 429 });
+  }
+
+  const { error: claimErr } = await sb.from("claims").insert({ combo: v.normalized, display: v.display, chain_id: chain.chainId, network: NETWORK });
   if (claimErr) {
     const conflict = claimErr.code === "23505";
     return NextResponse.json({ error: conflict ? "That combo was just claimed" : claimErr.message }, { status: conflict ? 409 : 500 });
   }
 
+  const metadataUrl = `${SITE_URL}/api/meta/${encodeURIComponent(v.display)}`;
   const { data, error } = await sb
     .from("mojis")
     .insert({
       combo: v.normalized,
       display: v.display,
+      network: NETWORK,
       chain_id: chain.chainId,
       stock_ticker: stock.ticker,
       stock_address: stock.address,
@@ -70,13 +94,24 @@ export async function POST(req: Request) {
       pool_id: body.poolId ?? null,
       tx_hash: body.txHash,
       supply: body.supply ?? null,
-      creator_did: creatorDid,
-      creator_handle: body.creatorHandle?.replace(/^@/, "") ?? null,
+      creator_did: did,
+      creator_handle: twitter.username,
       creator_address: body.creatorAddress,
+      metadata_url: metadataUrl,
     })
     .select("*")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ moji: data, href: `/m/${encodeURIComponent(v.display)}` });
+  // Token image into Storage (best effort; the metadata route falls back to a live render).
+  let imageUrl: string | null = null;
+  try {
+    imageUrl = await storeMojiImage(v.display, v.normalized);
+    if (imageUrl) await sb.from("mojis").update({ image_url: imageUrl }).eq("id", data.id);
+  } catch (e) {
+    console.error("image store failed", e);
+  }
+
+  const href = `/m/${encodeURIComponent(v.display)}`;
+  return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter.username });
 }

@@ -36,6 +36,9 @@ export type MojiRow = {
   creator_did: string | null;
   creator_handle: string | null;
   creator_address: string | null;
+  network: "mainnet" | "testnet";
+  image_url: string | null;
+  metadata_url: string | null;
   launched_at: string;
 };
 
@@ -43,5 +46,6 @@ export type ClaimRow = {
   combo: string;
   display: string;
   chain_id: number;
+  network: "mainnet" | "testnet";
   created_at: string;
 };

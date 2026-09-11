@@ -52,7 +52,7 @@ async function main() {
     const hookAddress = (getAddresses(4663) as unknown as { rehypeDopplerHookInitializer: `0x${string}` }).rehypeDopplerHookInitializer;
     const curve = CURVE_DEFAULTS;
     const params = MulticurveBuilder.forChain(4663)
-      .tokenConfig({ type: "dopplerERC20V1", name: m.display, symbol: m.display, tokenURI: `https://moji.wtf/api/meta/${encodeURIComponent(m.display)}` })
+      .tokenConfig({ type: "dopplerERC20V1", name: m.display, symbol: m.display, tokenURI: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://moji.wtf"}/api/meta/${encodeURIComponent(m.display)}` })
       .saleConfig({ initialSupply: supplyWei(curve), numTokensToSell: sellWei(curve), numeraire: stock.address })
       .withCurves({
         numerairePrice: price,

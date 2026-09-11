@@ -40,7 +40,11 @@ export type MojiChain = {
   gasSymbol: string;
   /** Minimum native balance we require before enabling LAUNCH (fallback when simulation is unavailable). */
   minGasNative: string;
-  comingSoon?: boolean;
+  /**
+   * Chain staging. Only live chains are claimable; the rest render as disabled "soon" pills.
+   * Flip this one flag to switch a chain on. Nothing else needs to change.
+   */
+  live: boolean;
   /** Dexscreener chain slug */
   dexscreenerSlug?: string;
   /** Matcha chain slug */
@@ -57,6 +61,7 @@ export const CHAINS: MojiChain[] = [
     viem: robinhoodChain,
     gasSymbol: robinhoodChain.nativeCurrency.symbol,
     minGasNative: "0.0005",
+    live: true,
     dexscreenerSlug: "robinhood",
     matchaSlug: "robinhood",
   },
@@ -68,7 +73,7 @@ export const CHAINS: MojiChain[] = [
     emoji: "🟣",
     gasSymbol: "SOL",
     minGasNative: "0.01",
-    comingSoon: true,
+    live: false,
   },
   {
     key: "ethereum",
@@ -79,7 +84,7 @@ export const CHAINS: MojiChain[] = [
     viem: mainnet,
     gasSymbol: mainnet.nativeCurrency.symbol,
     minGasNative: "0.01",
-    comingSoon: true,
+    live: false,
     dexscreenerSlug: "ethereum",
     matchaSlug: "ethereum",
   },
@@ -92,7 +97,7 @@ export const CHAINS: MojiChain[] = [
     viem: arbitrum,
     gasSymbol: arbitrum.nativeCurrency.symbol,
     minGasNative: "0.001",
-    comingSoon: true,
+    live: false,
     dexscreenerSlug: "arbitrum",
     matchaSlug: "arbitrum",
   },
@@ -105,7 +110,7 @@ export const CHAINS: MojiChain[] = [
     viem: base,
     gasSymbol: base.nativeCurrency.symbol,
     minGasNative: "0.001",
-    comingSoon: true,
+    live: false,
     dexscreenerSlug: "base",
     matchaSlug: "base",
   },
@@ -117,7 +122,7 @@ export const CHAINS: MojiChain[] = [
     emoji: "🟪",
     gasSymbol: "MON",
     minGasNative: "0.1",
-    comingSoon: true,
+    live: false,
     dexscreenerSlug: "monad",
   },
 ];

@@ -5,6 +5,7 @@ import { DopplerSDK, MulticurveBuilder, getAddresses, getAirlockOwner } from "@w
 import type { MojiChain } from "@/config/chains";
 import type { Stock } from "@/config/stocks";
 import { CURVE_DEFAULTS, sellWei, supplyWei, type CurveDefaults } from "@/config/curve";
+import { SITE_URL } from "@/lib/network";
 import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, WAD, assertSharesSumToWad, buildBeneficiaries } from "@/config/fees";
 
 export type LaunchInput = {
@@ -57,7 +58,7 @@ export async function buildParams(input: LaunchInput) {
       type: "dopplerERC20V1", // 4663 has no standard TokenFactory, only DopplerERC20V1Factory
       name: input.combo,
       symbol: input.combo,
-      tokenURI: `https://moji.wtf/api/meta/${encodeURIComponent(input.combo)}`,
+      tokenURI: `${SITE_URL}/api/meta/${encodeURIComponent(input.combo)}`,
     })
     .saleConfig({
       initialSupply: supplyWei(curve),

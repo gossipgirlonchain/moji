@@ -37,6 +37,8 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | client + server | Optional RPC override for 4663 (default `https://rpc.mainnet.chain.robinhood.com`) |
 | `DOPPLER_INDEXER_URL` | server | Optional. Default `https://prod.indexer.doppler.lol/graphql` (indexes 4663) |
 | `NEXT_PUBLIC_MOJI_TREASURY` | client + server | Wallet that receives the 25% treasury share of every pool's fees. Launch fails loudly if unset |
+| `NEXT_PUBLIC_SITE_URL` | client + server | Public origin baked into token metadata URIs and share links. Default `https://moji.wtf` |
+| `NEXT_PUBLIC_NETWORK` | client + server | `mainnet` (default) or `testnet`. Claims are scoped per network so testnet never burns a mainnet combo |
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 
 ### Privy dashboard setup
@@ -82,9 +84,34 @@ There is no token name column anywhere. The combo is the name.
 
 ## How the claim works
 
-- `src/lib/emoji.ts` splits input into graphemes, rejects anything that is not exactly 1 to 3 emoji or contains a Latin letter, and normalizes by stripping `U+FE0F/U+FE0E` and skin tone modifiers (`U+1F3FB..U+1F3FF`) so 👍 and 👍🏽 are the same claim.
-- `GET /api/claims/check?combo=` runs live as you build the combo (debounced 200ms) and returns `AVAILABLE` or `CLAIMED` with a link to the owner. When a combo is taken it also returns 3 open extensions.
-- `POST /api/launch` inserts into `claims` first. The unique index is the permanence guarantee: a conflict returns 409 and nothing is written.
+Exact normalization rule, implemented in `src/lib/emoji.ts` and checked by `npx tsx scripts/check-emoji.ts`:
+
+- Segment with `Intl.Segmenter({ granularity: 'grapheme' })` and count graphemes, never string length. A combo is 1 to 3 graphemes.
+- A ZWJ sequence such as 👨‍👩‍👧 counts as one emoji.
+- Skin tone modifiers are preserved: 👍 and 👍🏽 are two distinct claims.
+- Variation selectors (`U+FE0F` / `U+FE0E`) are stripped before comparison: ✌️ and ✌ are the same claim.
+- Anything that is not an emoji grapheme is rejected: digits, keycap sequences (1️⃣, #️⃣), Latin characters.
+- `claims.combo` stores the normalized string, `display` stores the original. The unique index is `(combo, network)`.
+
+`GET /api/claims/check?combo=` runs live as you build the combo (debounced 200ms) and returns `AVAILABLE` or `CLAIMED` with a link to the owner, plus 3 open extensions when taken.
+
+### Who can claim
+
+- Launching requires a Privy account with a linked X account. Wallet-only users can browse, view any moji and open the trade links; their LAUNCH button reads "Link X to claim" and opens Privy's X link flow.
+- `POST /api/launch` verifies the Privy access token, reads the DID's linked accounts from Privy server-side (`@privy-io/node`), and refuses without `twitter_oauth`. The X handle written to the row comes from Privy, not the client.
+- Rate limit: one claim per DID per hour, enforced server-side against `mojis.creator_did`. Returns 429 with the minutes remaining.
+- Only chains with `live: true` in `src/config/chains.ts` are claimable. Flip that flag to switch a chain on; nothing else changes. Right now only Robinhood Chain is live.
+- The claim insert goes first; the unique index is the permanence guarantee. A conflict returns 409 and nothing else is written.
+
+## Token images and sharing
+
+There is no name and no upload, so every moji gets a rendered image:
+
+- `GET /api/img/[combo]` renders a 512x512 PNG: the emoji centered on a sky-gradient clay circle with the app's `--clay` shadow, transparent outside the circle. Rendered with `next/og` (satori) and Noto Color Emoji, so it is identical on every OS.
+- On launch the PNG is stored in the public Supabase Storage bucket `moji-images` at `<network>/<hex of normalized combo>.png` and its URL goes on the row (`image_url`).
+- The on-chain `tokenURI` is `${NEXT_PUBLIC_SITE_URL}/api/meta/[combo]`, which returns `{ name, symbol, description, image, external_url }`. `image` is the Storage URL once recorded, and the live renderer before that.
+- `/m/[combo]/opengraph-image` renders a 1200x630 card with the combo, the pair as "🍏 / AAPL" and the moji wordmark. `generateMetadata` on the moji page sets Open Graph and `twitter:card = summary_large_image`, so links posted to X unfurl with it.
+- "Post it" (on the launch success state and permanently on the moji page) opens the X web intent prefilled with `just claimed {combo} on moji, paired to ${TICKER} 🫡 {url}`.
 
 ## Launch flow
 
