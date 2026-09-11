@@ -135,6 +135,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
   const { wallets } = useWallets();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const target = p.beneficiary ?? p.creatorAddress;
   const isCreator = Boolean(address && target && address.toLowerCase() === target.toLowerCase());
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
@@ -145,6 +146,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
     const chain = chainById(p.chainId);
     if (!wallet || !address || !chain?.viem || !p.tokenAddress) return;
     setErr(null);
+    setNote(null);
     try {
       await wallet.switchChain(chain.chainId);
       const provider = (await wallet.getEthereumProvider()) as EIP1193Provider;
@@ -168,10 +170,18 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       }
       if (steps.length === 0) return;
       let last: Hex | null = null;
+      let done = 0;
       for (let i = 0; i < steps.length; i++) {
-        setBusy(steps.length > 1 ? `${steps[i].label} ${i + 1}/${steps.length}…` : "confirm in wallet…");
-        const r = await steps[i].go();
-        last = r.transactionHash;
+        setBusy(steps.length > 1 ? `sign ${i + 1} of ${steps.length}…` : "confirm in wallet…");
+        try {
+          const r = await steps[i].go();
+          last = r.transactionHash;
+          done++;
+        } catch (e) {
+          setBusy(null);
+          if (done > 0) setNote(`${done} of ${steps.length} done. tap Claim again to finish the rest.`);
+          throw e;
+        }
       }
       if (last) {
         await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, {
@@ -184,8 +194,8 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       router.refresh();
     } catch (e) {
       setBusy(null);
-      const msg = e instanceof Error ? e.message : String(e);
-      setErr(msg.length > 200 ? msg.slice(0, 200) + "…" : msg);
+      setErr(friendly(e));
+      router.refresh();
     }
   }
 
@@ -197,6 +207,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       </button>
       {!address && !nothing && <p className="mt-2 text-center text-[12px] text-ink-soft">log in to claim</p>}
 
+      {note && <p className="mt-2 text-center text-[12px] text-ink">{note}</p>}
       {err && (
         <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">
           {err}
@@ -204,4 +215,14 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       )}
     </div>
   );
+}
+
+/** Wallet errors are long and ugly. Say what happened in one line. */
+function friendly(e: unknown): string {
+  const raw = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
+  const m = raw.toLowerCase();
+  if (m.includes("rejected") || m.includes("denied") || m.includes("cancel")) return "cancelled in your wallet.";
+  if (m.includes("insufficient funds") || m.includes("gas")) return "not enough ETH on Robinhood Chain for gas.";
+  if (m.includes("chain") && m.includes("switch")) return "switch your wallet to Robinhood Chain and try again.";
+  return raw.split("\n")[0].slice(0, 90);
 }
