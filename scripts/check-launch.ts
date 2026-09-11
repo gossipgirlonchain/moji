@@ -38,6 +38,7 @@ async function main() {
     stockPriceUsd: Number(process.env.NUMERAIRE_PRICE ?? 230),
   });
   console.log("initializer", JSON.stringify(params.initializer, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2));
+  console.log("integrator", params.integrator);
   console.log("pool.fee", params.pool.fee, "tickSpacing", params.pool.tickSpacing, "curves", params.pool.curves.length, "beneficiaries", params.pool.beneficiaries?.length);
 
   const sdk = new DopplerSDK({ publicClient, chainId });

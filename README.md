@@ -37,6 +37,7 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | client + server | Optional RPC override for 4663 (default `https://rpc.mainnet.chain.robinhood.com`) |
 | `DOPPLER_INDEXER_URL` | server | Optional. Default `https://prod.indexer.doppler.lol/graphql` (indexes 4663) |
 | `NEXT_PUBLIC_MOJI_TREASURY` | client + server | Wallet that receives the 25% treasury share of every pool's fees. Launch fails loudly if unset |
+| `NEXT_PUBLIC_MOJI_INTEGRATOR` | client + server | Optional. Integrator address passed to the Airlock on every launch (`.withIntegrator`), which attributes mojis to moji in the Doppler app and collects Airlock integrator fees. Defaults to the treasury |
 | `NEXT_PUBLIC_SITE_URL` | client + server | Public origin baked into token metadata URIs and share links. Default `https://moji.wtf` |
 | `NEXT_PUBLIC_NETWORK` | client + server | `mainnet` (default) or `testnet`. Claims are scoped per network so testnet never burns a mainnet combo |
 | `CRON_SECRET` | server only | Protects `/api/cron/refresh`. Vercel cron (every 2 min, `vercel.json`) refreshes the per-moji snapshot: mcap, price, 24h volume, creator pending fees, current fee. Pages render from the snapshot; the client polls live numbers after paint |

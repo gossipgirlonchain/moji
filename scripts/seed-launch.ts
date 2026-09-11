@@ -16,7 +16,7 @@ import { DopplerSDK, MulticurveBuilder, getAirlockOwner, getAddresses } from "@w
 import { robinhoodChain } from "../src/config/chains";
 import { findStock } from "../src/config/stocks";
 import { CURVE_DEFAULTS, sellWei, supplyWei } from "../src/config/curve";
-import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, WAD, assertSharesSumToWad, buildBeneficiaries } from "../src/config/fees";
+import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, MOJI_INTEGRATOR, WAD, assertSharesSumToWad, buildBeneficiaries } from "../src/config/fees";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -87,6 +87,7 @@ async function main() {
       })
       .withGovernance({ type: "noOp" })
       .withMigration({ type: "noOp" })
+      .withIntegrator(MOJI_INTEGRATOR)
       .withUserAddress(account.address)
       .build();
 

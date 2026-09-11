@@ -30,6 +30,13 @@ export const SHARE_PROTOCOL = parseEther("0.05");
 
 export const MOJI_TREASURY = (process.env.NEXT_PUBLIC_MOJI_TREASURY ?? "") as Address;
 
+/**
+ * Integrator address passed to the Doppler Airlock on every launch (`.withIntegrator`). This is how
+ * mojis are attributed to moji in the Doppler app, and where Airlock-level integrator fees accrue.
+ * Defaults to the treasury.
+ */
+export const MOJI_INTEGRATOR = ((process.env.NEXT_PUBLIC_MOJI_INTEGRATOR || process.env.NEXT_PUBLIC_MOJI_TREASURY) ?? "") as Address;
+
 export type Beneficiary = { beneficiary: Address; shares: bigint };
 
 /**

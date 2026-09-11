@@ -7,7 +7,7 @@ import type { MojiChain } from "@/config/chains";
 import type { Stock } from "@/config/stocks";
 import { CURVE_DEFAULTS, sellWei, supplyWei, type CurveDefaults } from "@/config/curve";
 import { SITE_URL } from "@/lib/network";
-import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, WAD, assertSharesSumToWad, buildBeneficiaries } from "@/config/fees";
+import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, MOJI_INTEGRATOR, WAD, assertSharesSumToWad, buildBeneficiaries } from "@/config/fees";
 
 export type LaunchInput = {
   chain: MojiChain;
@@ -54,6 +54,7 @@ export async function buildParams(input: LaunchInput) {
   const protocolOwner = await getAirlockOwner(publicClient);
   const beneficiaries = buildBeneficiaries(input.creator, protocolOwner);
   assertSharesSumToWad(beneficiaries, protocolOwner); // fail loudly before anything is signed
+  if (!MOJI_INTEGRATOR) throw new Error("NEXT_PUBLIC_MOJI_INTEGRATOR / NEXT_PUBLIC_MOJI_TREASURY is not set");
 
   return MulticurveBuilder.forChain(chainId)
     .tokenConfig({
@@ -100,6 +101,7 @@ export async function buildParams(input: LaunchInput) {
     })
     .withGovernance({ type: "noOp" })
     .withMigration({ type: "noOp" })
+    .withIntegrator(MOJI_INTEGRATOR) // attribution in the Doppler app + Airlock integrator fees
     .withUserAddress(input.creator)
     .build();
 }
