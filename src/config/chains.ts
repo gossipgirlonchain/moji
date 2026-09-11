@@ -23,6 +23,8 @@ export const robinhoodChain = defineChain({
   blockExplorers: {
     default: { name: "Robinhood Chain Explorer", url: "https://robinhoodchain.blockscout.com" },
   },
+  // Canonical Multicall3 (verified deployed on 4663). The Doppler SDK batches pending-fee reads through it.
+  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
   testnet: false,
 });
 
