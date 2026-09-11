@@ -65,7 +65,27 @@ export async function stockPriceServer(chainId: number, stockAddress: string): P
       }
     } catch {}
   }
+  // Any US ticker: Yahoo's chart endpoint, no key.
+  if (stock) {
+    const y = await yahooPrice(stock.ticker);
+    if (y > 0) return y;
+  }
   return 0;
+}
+
+/** Last regular-market price from Yahoo Finance for any US ticker (BRK.B → BRK-B). */
+export async function yahooPrice(ticker: string): Promise<number> {
+  try {
+    const sym = ticker.replace(".", "-");
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`, { headers: { "user-agent": "Mozilla/5.0 moji.wtf" }, next: { revalidate: 60 } });
+    if (!r.ok) return 0;
+    const j = (await r.json()) as { chart?: { result?: { meta?: { regularMarketPrice?: number; previousClose?: number } }[] } };
+    const m = j.chart?.result?.[0]?.meta;
+    const p = Number(m?.regularMarketPrice ?? m?.previousClose ?? 0);
+    return isFinite(p) && p > 0 ? p : 0;
+  } catch {
+    return 0;
+  }
 }
 
 type IndexerToken = {

@@ -157,13 +157,13 @@ One caveat to know: the Rehype hook itself also skims a fixed 5% of raw hook fee
 | chain | id | gas | stock inventory |
 |---|---|---|---|
 | Robinhood Chain (default) | 4663 | ETH | 63 Robinhood Stock Tokens, the LONG list, all verified on-chain (`src/config/stocks.notes.md`) |
-| Base | 8453 | ETH | see `stocks.ts` |
-| Arbitrum One | 42161 | ETH | see `stocks.ts` |
-| Ethereum | 1 | ETH | see `stocks.ts` |
-| Monad | 143 | MON | see `stocks.ts` |
+| Base | 8453 | ETH | Backed xStocks where they exist (AAPLx, NVDAx, GLDx…), then Dinari dShares. `stocks-base.ts` |
+| Arbitrum One | 42161 | ETH | Dinari dShares first, then Backed xStocks. `stocks-arbitrum.ts` |
+| Ethereum | 1 | ETH | Ondo Global Markets first, then Backed xStocks. `stocks-ethereum.ts` |
+| Monad | 143 | MON | Anchored Finance aStocks. `stocks-monad.ts` |
 | Solana | | SOL | soon: needs the Solana Doppler SDK and Solana wallets, a separate integration |
 
-Stock prices for the numeraire come from the token's Chainlink feed where one exists (Robinhood Chain), otherwise Robinhood's public quote API by ticker. RPC reads go through per-chain fallback lists with retries (`src/lib/rpc.ts`).
+One issuer per ticker per chain (priority by where liquidity actually is), minted supply only, every address verified on-chain; research notes in `src/config/stocks-multichain.notes.md`. Stock prices for the numeraire come from the token's Chainlink feed where one exists (Robinhood Chain), then Robinhood's public quote API, then Yahoo Finance for any US ticker. RPC reads go through per-chain fallback lists with retries (`src/lib/rpc.ts`).
 
 ## Seeding
 
