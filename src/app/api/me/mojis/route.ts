@@ -5,6 +5,8 @@ import { NETWORK } from "@/lib/network";
 import { getMojiFees } from "@/lib/fees";
 import { stockPriceServer } from "@/lib/market";
 import { chainById } from "@/config/chains";
+import { MOJI_TREASURY } from "@/config/fees";
+import type { Address } from "viem";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,21 @@ export async function GET(req: Request) {
   if (!did && !/^0x[0-9a-f]{40}$/.test(address)) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
 
   const sb = supabaseServer();
+  const asTreasury = new URL(req.url).searchParams.get("as") === "treasury";
+  const isTreasury = Boolean(MOJI_TREASURY) && address === MOJI_TREASURY.toLowerCase();
+  if (asTreasury) {
+    if (!isTreasury) return NextResponse.json({ error: "Connect the treasury wallet to see treasury fees" }, { status: 403 });
+    const { data } = await sb.from("mojis").select("*").eq("network", NETWORK).not("token_address", "is", null).order("launched_at", { ascending: false }).limit(100);
+    const rows = (data ?? []) as MojiRow[];
+    const withFees = await Promise.all(
+      rows.map(async (m) => {
+        const [stockUsd, mojiUsd] = await Promise.all([stockPriceServer(m.chain_id, m.stock_address), mojiPriceUsd(m)]);
+        const fees = await getMojiFees(m, { stockUsd, mojiUsd }, MOJI_TREASURY as Address);
+        return { ...m, fees };
+      }),
+    );
+    return NextResponse.json({ mojis: withFees, treasury: true });
+  }
   const ors: string[] = [];
   if (did) ors.push(`creator_did.eq.${did}`);
   if (/^0x[0-9a-f]{40}$/.test(address)) ors.push(`creator_address.ilike.${address}`);
@@ -47,5 +64,5 @@ export async function GET(req: Request) {
       return { ...m, fees };
     }),
   );
-  return NextResponse.json({ mojis: withFees });
+  return NextResponse.json({ mojis: withFees, isTreasury });
 }

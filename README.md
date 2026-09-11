@@ -171,4 +171,4 @@ Vercel or Railway, Node 20+.
 
 ## Pages
 
-`/` home · `/launch` · `/m/[combo]` · `/explore` · `/claimed` · `/about`
+`/` home · `/launch` · `/m/[combo]` · `/explore` · `/claimed` · `/me` (your mojis + claim) · `/profile` (wallet, send ETH or claimed tokens out) · `/about`

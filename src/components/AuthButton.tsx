@@ -93,7 +93,10 @@ export function AuthButton() {
               {bal ? Number(formatUnits(bal.value, bal.decimals)).toFixed(5) : "0.00000"}{" "}
               <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
             </div>
-            <Link href="/me" onClick={() => setOpen(false)} className="press clay-sm heading mb-2 block w-full bg-sky-500 px-4 py-2.5 text-center text-[15px] text-white">
+            <Link href="/profile" onClick={() => setOpen(false)} className="press clay-sm heading mb-2 block w-full bg-sky-500 px-4 py-2.5 text-center text-[15px] text-white">
+              profile · send
+            </Link>
+            <Link href="/me" onClick={() => setOpen(false)} className="press clay-sm heading mb-2 block w-full bg-sky-50 px-4 py-2.5 text-center text-[15px] text-ink">
               your mojis + fees
             </Link>
             <button

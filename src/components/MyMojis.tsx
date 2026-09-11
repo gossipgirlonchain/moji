@@ -10,7 +10,8 @@ import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { usd } from "@/lib/format";
 import { feePct } from "@/config/fees";
 import { ClaimButton } from "./FeesCard";
-import { Button } from "./ui";
+import { Button, Label } from "./ui";
+import { MOJI_TREASURY } from "@/config/fees";
 
 type Row = MojiRow & { fees: MojiFees };
 
@@ -30,7 +31,9 @@ function MyMojisInner() {
   const { ready, authenticated, login, getAccessToken } = usePrivy();
   const { address } = useAccount();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [treasuryRows, setTreasuryRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const isTreasury = Boolean(address && MOJI_TREASURY && address.toLowerCase() === MOJI_TREASURY.toLowerCase());
 
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -42,6 +45,11 @@ function MyMojisInner() {
         const j = (await r.json()) as { mojis?: Row[]; error?: string };
         if (!r.ok) throw new Error(j.error ?? "failed");
         if (alive) setRows(j.mojis ?? []);
+        if (isTreasury) {
+          const rt = await fetch(`/api/me/mojis?as=treasury&address=${address}`, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+          const jt = (await rt.json()) as { mojis?: Row[] };
+          if (alive) setTreasuryRows(jt.mojis ?? []);
+        }
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : String(e));
       }
@@ -49,7 +57,7 @@ function MyMojisInner() {
     return () => {
       alive = false;
     };
-  }, [ready, authenticated, address, getAccessToken]);
+  }, [ready, authenticated, address, getAccessToken, isTreasury]);
 
   if (!ready) return <p className="text-center text-[14px] text-ink-soft">…</p>;
   if (!authenticated) {
@@ -61,7 +69,7 @@ function MyMojisInner() {
   }
   if (err) return <p className="text-center text-[14px] text-coral">{err}</p>;
   if (rows === null) return <p className="text-center text-[14px] text-ink-soft">loading…</p>;
-  if (rows.length === 0) {
+  if (rows.length === 0 && !isTreasury) {
     return (
       <div className="clay pop flex flex-col items-center gap-3 bg-white p-6 text-center">
         <div className="text-[56px]">🫥</div>
@@ -78,6 +86,28 @@ function MyMojisInner() {
 
   return (
     <div className="flex flex-col gap-3">
+      {isTreasury && treasuryRows && (
+        <div className="flex flex-col gap-3">
+          <Label>Treasury · 25% of every pool</Label>
+          {treasuryRows.length === 0 && <p className="text-[13px] text-ink-soft">no pools yet.</p>}
+          {treasuryRows.map((m) => (
+            <section key={"t" + m.id} className="clay pop bg-white p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-[32px] leading-none">{m.display}</span>
+                <div className="flex-1">
+                  <div className="heading text-[16px] text-ink">{m.display} / {m.stock_ticker}</div>
+                  <div className="text-[12px] text-ink-soft">{fmt(m.fees.pending.stock)} ${m.stock_ticker} · {fmt(m.fees.pending.moji)} {m.display}</div>
+                </div>
+                <div className="num text-[17px] text-mint">{usd(m.fees.pendingUsd)}</div>
+              </div>
+              <div className="mt-3">
+                <ClaimButton compact beneficiary={MOJI_TREASURY} combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} poolId={m.pool_id} creatorAddress={m.creator_address} pending={m.fees.pending} pendingUsd={m.fees.pendingUsd} claimedUsd={0} sources={m.fees.sources} schedule={m.fees.schedule} live={m.fees.live} />
+              </div>
+            </section>
+          ))}
+          {rows.length > 0 && <Label className="mt-2">Your launches</Label>}
+        </div>
+      )}
       <div className="clay pop grid grid-cols-2 gap-3 bg-sky-50 p-4 text-center">
         <div>
           <div className="num text-[26px] leading-none text-mint">{usd(totalPending)}</div>

@@ -51,7 +51,7 @@ function rehypeHook(chainId: number): Address | null {
  * the initializer-side locked positions (MulticurvePool.getPendingFees) and the Rehype hook bucket
  * (RehypeDopplerHookInitializer.getPendingFees). Plus the live fee schedule.
  */
-export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUsd: number }): Promise<MojiFees> {
+export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUsd: number }, beneficiary?: Address): Promise<MojiFees> {
   const fallback: MojiFees = {
     pending: { stock: 0, moji: 0 },
     sources: { pool: false, hook: false },
@@ -63,7 +63,8 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
     assetIsToken0: null,
   };
   const chain = chainById(m.chain_id);
-  if (!m.token_address || !m.creator_address || !chain?.viem) return fallback;
+  const who = beneficiary ?? (m.creator_address as Address | null);
+  if (!m.token_address || !who || !chain?.viem) return fallback;
   const stock = findStock(m.chain_id, m.stock_address);
   const stockDecimals = stock?.decimals ?? 18;
 
@@ -71,7 +72,7 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
     const pc = publicClientFor(chain.viem);
     const sdk = new DopplerSDK({ publicClient: pc, chainId: chain.viem.id });
     const token = m.token_address as Address;
-    const creator = m.creator_address as Address;
+    const creator = who;
 
     const pool = await sdk.getMulticurvePool(token);
     const state = await pool.getState();

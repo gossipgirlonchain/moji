@@ -139,13 +139,14 @@ function ClaimDisabled({ tokenAddress }: { tokenAddress: string | null }) {
   );
 }
 
-export function ClaimButton(p: FeesCardProps & { compact?: boolean }) {
+export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?: string | null }) {
   const router = useRouter();
   const { address } = useAccount();
   const { wallets } = useWallets();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const isCreator = Boolean(address && p.creatorAddress && address.toLowerCase() === p.creatorAddress.toLowerCase());
+  const target = p.beneficiary ?? p.creatorAddress;
+  const isCreator = Boolean(address && target && address.toLowerCase() === target.toLowerCase());
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
   const nothing = !p.sources.pool && !p.sources.hook;
 
@@ -197,13 +198,16 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean }) {
     }
   }
 
-  const label = busy ?? (nothing ? "nothing to claim yet" : isCreator ? "Claim" : "Distribute fees");
+  const label = busy ?? (nothing ? "nothing to claim yet" : isCreator ? "Claim" : "Collect fees");
   return (
     <div>
       <button onClick={run} disabled={Boolean(busy) || nothing || !address} className={`press clay heading w-full bg-sky-500 text-white disabled:opacity-60 ${p.compact ? "px-4 py-2.5 text-[14px]" : "px-5 py-3.5 text-[17px]"}`}>
         {label}
       </button>
-      {!address && !nothing && <p className="mt-2 text-center text-[12px] text-ink-soft">log in to {isCreator ? "claim" : "distribute"}</p>}
+      {!address && !nothing && <p className="mt-2 text-center text-[12px] text-ink-soft">log in to claim</p>}
+      {address && !isCreator && !nothing && (
+        <p className="mt-2 text-center text-[12px] text-ink-soft">each beneficiary claims their own share from their own wallet. collecting just settles the pool.</p>
+      )}
       {err && (
         <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">
           {err}
