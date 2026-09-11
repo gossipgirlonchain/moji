@@ -13,7 +13,7 @@ import { findStock } from "@/config/stocks";
 import { PostIt } from "@/components/PostIt";
 import { SITE_URL } from "@/lib/network";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 15;
 
 export async function generateMetadata({ params }: { params: Promise<{ combo: string }> }) {
   const { combo } = await params;

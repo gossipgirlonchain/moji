@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { hasSupabase, supabaseServer, type MojiRow, type ClaimRow } from "./supabase";
 import { normalizeCombo } from "./emoji";
 import { NETWORK } from "./network";
@@ -31,13 +32,14 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
   return (data ?? []) as MojiRow[];
 }
 
-export async function getMoji(comboInput: string): Promise<MojiRow | null> {
+/** Deduped per request so generateMetadata + the page share one query. */
+export const getMoji = cache(async (comboInput: string): Promise<MojiRow | null> => {
   if (!hasSupabase()) return null;
   const combo = normalizeCombo(comboInput);
   const sb = supabaseServer();
   const { data } = await sb.from("mojis").select("*").eq("combo", combo).eq("network", NETWORK).maybeSingle();
   return (data as MojiRow) ?? null;
-}
+});
 
 export async function listClaims(): Promise<ClaimRow[]> {
   if (!hasSupabase()) return [];
