@@ -2,13 +2,13 @@ import Link from "next/link";
 import { Card, Label, LinkButton, Circle } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
 import { ClaimsCounter } from "@/components/ClaimsCounter";
-import { EarnerRow, MojiTile } from "@/components/MojiBits";
-import { claimsCount, listMojis, topEarnersFast } from "@/lib/data";
+import { McapRow, MojiTile } from "@/components/MojiBits";
+import { claimsCount, listMojis } from "@/lib/data";
 
 export const revalidate = 30;
 
 export default async function Home() {
-  const [count, earners, recent] = await Promise.all([claimsCount(), topEarnersFast(3), listMojis({ sort: "newest", limit: 6 })]);
+  const [count, top, recent] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 3 }), listMojis({ sort: "newest", limit: 6 })]);
 
   return (
     <main className="flex flex-col gap-4">
@@ -25,11 +25,11 @@ export default async function Home() {
       </LinkButton>
 
       <Card pop={2}>
-        <Label className="mb-3">Top earners</Label>
+        <Label className="mb-3">Top market cap</Label>
         <div className="flex flex-col gap-2.5">
-          {earners.length === 0 && <p className="text-[14px] text-ink-soft">No fees yet. First mover gets the spot.</p>}
-          {earners.map((m, i) => (
-            <EarnerRow key={m.id} m={m} rank={i + 1} />
+          {top.length === 0 && <p className="text-[14px] text-ink-soft">Nothing yet. Be first.</p>}
+          {top.map((m, i) => (
+            <McapRow key={m.id} m={m} rank={i + 1} />
           ))}
         </div>
       </Card>
