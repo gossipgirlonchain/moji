@@ -12,6 +12,7 @@ import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { explorerTx } from "@/lib/links";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
+import { WalletSwitcher } from "./WalletSwitcher";
 import { Button, Card, Label } from "./ui";
 import type { MojiRow } from "@/lib/supabase";
 
@@ -30,9 +31,10 @@ function ProfileInner() {
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
+  // Only pick a default once; never override a wallet the user switched to.
   useEffect(() => {
-    if (wallet && authenticated) void setActiveWallet(wallet);
-  }, [wallet, authenticated, setActiveWallet]);
+    if (wallet && authenticated && !address) void setActiveWallet(wallet);
+  }, [wallet, authenticated, address, setActiveWallet]);
 
   const { data: eth, refetch: refetchEth } = useBalance({ address, chainId, query: { enabled: Boolean(address), refetchInterval: 12_000 } });
 
@@ -123,6 +125,9 @@ function ProfileInner() {
           <div className="num mt-2 text-[28px] leading-none text-ink">
             {eth ? Number(formatUnits(eth.value, 18)).toFixed(5) : "0.00000"} <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
           </div>
+        </div>
+        <div className="mt-4">
+          <WalletSwitcher />
         </div>
         <div className="mt-4">
           <Label>Tokens · claimed fees land here</Label>

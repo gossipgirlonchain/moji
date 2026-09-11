@@ -9,6 +9,7 @@ import { DEFAULT_CHAIN, chainById } from "@/config/chains";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
 import Link from "next/link";
+import { WalletSwitcher } from "./WalletSwitcher";
 
 /** Deterministic sky-toned dot for wallet-only users. */
 function dotColor(addr: string): string {
@@ -32,9 +33,10 @@ export function AuthButton() {
     return wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0];
   }, [wallets]);
 
+  // Only pick a default once; never override a wallet the user switched to.
   useEffect(() => {
-    if (primary && authenticated) void setActiveWallet(primary);
-  }, [primary, authenticated, setActiveWallet]);
+    if (primary && authenticated && !address) void setActiveWallet(primary);
+  }, [primary, authenticated, address, setActiveWallet]);
 
   const chain = chainById(chainId ?? DEFAULT_CHAIN.chainId) ?? DEFAULT_CHAIN;
   const { data: bal } = useBalance({
@@ -93,6 +95,11 @@ export function AuthButton() {
               {bal ? Number(formatUnits(bal.value, bal.decimals)).toFixed(5) : "0.00000"}{" "}
               <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
             </div>
+            {wallets.length > 0 && (
+              <div className="mb-3">
+                <WalletSwitcher compact />
+              </div>
+            )}
             <Link href="/profile" onClick={() => setOpen(false)} className="press clay-sm heading mb-2 block w-full bg-sky-500 px-4 py-2.5 text-center text-[15px] text-white">
               profile · send
             </Link>

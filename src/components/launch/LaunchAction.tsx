@@ -34,9 +34,10 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const hasX = Boolean(user?.twitter?.username);
 
   const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
+  // Only pick a default once; never override a wallet the user switched to.
   useEffect(() => {
-    if (wallet && authenticated) void setActiveWallet(wallet);
-  }, [wallet, authenticated, setActiveWallet]);
+    if (wallet && authenticated && !address) void setActiveWallet(wallet);
+  }, [wallet, authenticated, address, setActiveWallet]);
 
   const chainId = chain.viem?.id ?? chain.chainId;
   const { data: bal, refetch } = useBalance({

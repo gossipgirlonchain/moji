@@ -12,7 +12,6 @@ import { chainById } from "@/config/chains";
 import { feePct } from "@/config/fees";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { rehypeHookAddress } from "@/lib/doppler";
-import { usd } from "@/lib/format";
 
 export type FeesCardProps = {
   combo: string;
@@ -61,8 +60,10 @@ function useLiveFees(initial: FeesCardProps): FeesCardProps {
 
 function fmt(n: number): string {
   if (n === 0) return "0";
-  if (n < 0.0001) return n.toExponential(2);
+  if (n < 0.0001) return n.toFixed(6);
   if (n < 1) return n.toFixed(4);
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e4) return `${(n / 1e3).toFixed(1)}K`;
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
@@ -80,24 +81,15 @@ export function FeesCard(initial: FeesCardProps) {
         <FeeRate schedule={p.schedule} />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="clay-sm bg-white p-4 text-center">
-          <div className="num text-[26px] leading-none text-mint">{fmt(p.pending.stock)}</div>
-          <div className="heading mt-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">${p.ticker} unclaimed</div>
+      <div className="mt-3 flex flex-col gap-3">
+        <div className="clay-sm flex items-baseline justify-between bg-white px-5 py-4">
+          <span className="num text-[34px] leading-none text-mint">{fmt(p.pending.stock)}</span>
+          <span className="heading text-[15px] text-ink">{p.ticker} <span className="text-[11px] uppercase tracking-[0.12em] text-ink-soft">unclaimed</span></span>
         </div>
-        <div className="clay-sm bg-white p-4 text-center">
-          <div className="num text-[26px] leading-none text-mint">{fmt(p.pending.moji)}</div>
-          <div className="heading mt-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">{p.combo} unclaimed</div>
+        <div className="clay-sm flex items-baseline justify-between bg-white px-5 py-4">
+          <span className="num text-[34px] leading-none text-mint">{fmt(p.pending.moji)}</span>
+          <span className="heading text-[15px] text-ink">{p.combo} <span className="text-[11px] uppercase tracking-[0.12em] text-ink-soft">unclaimed</span></span>
         </div>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between px-1 text-[13px]">
-        <span className="text-ink-soft">
-          unclaimed <span className="num text-mint">{usd(p.pendingUsd)}</span>
-        </span>
-        <span className="text-ink-soft">
-          claimed <span className="num text-mint">{usd(p.claimedUsd)}</span>
-        </span>
       </div>
 
       <div className="mt-4">{PRIVY_ENABLED && p.tokenAddress ? <ClaimButton {...p} /> : <ClaimDisabled tokenAddress={p.tokenAddress} />}</div>

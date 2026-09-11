@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { WalletSwitcher } from "./WalletSwitcher";
 import { useAccount } from "wagmi";
 import type { MojiRow } from "@/lib/supabase";
 import type { MojiFees } from "@/lib/fees";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
-import { usd } from "@/lib/format";
 import { feePct } from "@/config/fees";
 import { ClaimButton } from "./FeesCard";
 import { Button, Label } from "./ui";
@@ -22,13 +22,31 @@ export function MyMojis() {
 
 function fmt(n: number): string {
   if (n === 0) return "0";
-  if (n < 0.0001) return n.toExponential(2);
+  if (n < 0.0001) return n.toFixed(6);
   if (n < 1) return n.toFixed(4);
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e4) return `${(n / 1e3).toFixed(1)}K`;
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function Amounts({ stock, ticker, moji, combo }: { stock: number; ticker: string; moji: number; combo: string }) {
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="clay-sm bg-sky-50 px-3 py-2.5 text-center">
+        <div className="num text-[22px] leading-none text-mint">{fmt(stock)}</div>
+        <div className="heading mt-1 text-[11px] text-ink">{ticker}</div>
+      </div>
+      <div className="clay-sm bg-sky-50 px-3 py-2.5 text-center">
+        <div className="num text-[22px] leading-none text-mint">{fmt(moji)}</div>
+        <div className="heading mt-1 text-[11px] text-ink">{combo}</div>
+      </div>
+    </div>
+  );
 }
 
 function MyMojisInner() {
   const { ready, authenticated, login, getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
   const { address } = useAccount();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [treasuryRows, setTreasuryRows] = useState<Row[] | null>(null);
@@ -70,6 +88,14 @@ function MyMojisInner() {
   if (err) return <p className="text-center text-[14px] text-coral">{err}</p>;
   if (rows === null) return <p className="text-center text-[14px] text-ink-soft">loading…</p>;
   if (rows.length === 0 && !isTreasury) {
+    if (MOJI_TREASURY && wallets.some((w) => w.address.toLowerCase() === MOJI_TREASURY.toLowerCase())) {
+      return (
+        <div className="clay pop flex flex-col gap-3 bg-white p-5 text-center">
+          <p className="text-[14px] text-ink">the treasury wallet is connected but not active. pick it to see treasury fees.</p>
+          <WalletSwitcher compact />
+        </div>
+      );
+    }
     return (
       <div className="clay pop flex flex-col items-center gap-3 bg-white p-6 text-center">
         <div className="text-[56px]">🫥</div>
@@ -81,8 +107,7 @@ function MyMojisInner() {
     );
   }
 
-  const totalPending = rows.reduce((s, r) => s + r.fees.pendingUsd, 0);
-  const totalClaimed = rows.reduce((s, r) => s + r.fees.claimedUsd, 0);
+  const claimable = rows.filter((r) => r.fees.sources.pool || r.fees.sources.hook).length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -96,10 +121,10 @@ function MyMojisInner() {
                 <span className="text-[32px] leading-none">{m.display}</span>
                 <div className="flex-1">
                   <div className="heading text-[16px] text-ink">{m.display} / {m.stock_ticker}</div>
-                  <div className="text-[12px] text-ink-soft">{fmt(m.fees.pending.stock)} ${m.stock_ticker} · {fmt(m.fees.pending.moji)} {m.display}</div>
+                  <div className="text-[12px] text-ink-soft">unclaimed</div>
                 </div>
-                <div className="num text-[17px] text-mint">{usd(m.fees.pendingUsd)}</div>
               </div>
+              <Amounts stock={m.fees.pending.stock} ticker={m.stock_ticker} moji={m.fees.pending.moji} combo={m.display} />
               <div className="mt-3">
                 <ClaimButton compact beneficiary={MOJI_TREASURY} combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} poolId={m.pool_id} creatorAddress={m.creator_address} pending={m.fees.pending} pendingUsd={m.fees.pendingUsd} claimedUsd={0} sources={m.fees.sources} schedule={m.fees.schedule} live={m.fees.live} />
               </div>
@@ -108,16 +133,11 @@ function MyMojisInner() {
           {rows.length > 0 && <Label className="mt-2">Your launches</Label>}
         </div>
       )}
-      <div className="clay pop grid grid-cols-2 gap-3 bg-sky-50 p-4 text-center">
-        <div>
-          <div className="num text-[26px] leading-none text-mint">{usd(totalPending)}</div>
-          <div className="heading mt-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">unclaimed</div>
-        </div>
-        <div>
-          <div className="num text-[26px] leading-none text-mint">{usd(totalClaimed)}</div>
-          <div className="heading mt-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">claimed</div>
-        </div>
-      </div>
+      {rows.length > 0 && (
+        <p className="text-center text-[13px] text-ink-soft">
+          {rows.length} {rows.length === 1 ? "moji" : "mojis"} · {claimable} with fees to claim. fees are paid in the stock token and your moji token.
+        </p>
+      )}
 
       {rows.map((m, i) => (
         <section key={m.id} className={`clay pop pop-${Math.min(5, i + 1)} bg-white p-4`}>
@@ -130,15 +150,12 @@ function MyMojisInner() {
                 {m.display} / {m.stock_ticker}
               </Link>
               <div className="text-[12px] text-ink-soft">
-                {m.token_address ? `fees ${fmt(m.fees.pending.stock)} $${m.stock_ticker} · ${fmt(m.fees.pending.moji)} ${m.display}` : "on-chain data pending"}
+                {m.token_address ? "unclaimed fees" : "on-chain data pending"}
                 {m.fees.schedule?.decaying && <span className="text-coral"> · fee {feePct(m.fees.schedule.currentFee)} → {feePct(m.fees.schedule.endFee)}</span>}
               </div>
             </div>
-            <div className="text-right">
-              <div className="num text-[17px] text-mint">{usd(m.fees.pendingUsd)}</div>
-              <div className="heading text-[10px] uppercase tracking-[0.1em] text-ink-soft">unclaimed</div>
-            </div>
           </div>
+          {m.token_address && <Amounts stock={m.fees.pending.stock} ticker={m.stock_ticker} moji={m.fees.pending.moji} combo={m.display} />}
           <div className="mt-3">
             <ClaimButton
               compact
