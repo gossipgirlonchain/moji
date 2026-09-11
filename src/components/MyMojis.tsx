@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { WalletSwitcher } from "./WalletSwitcher";
+import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import type { MojiRow } from "@/lib/supabase";
 import type { MojiFees } from "@/lib/fees";
@@ -46,7 +45,6 @@ function Amounts({ stock, ticker, moji, combo }: { stock: number; ticker: string
 
 function MyMojisInner() {
   const { ready, authenticated, login, getAccessToken } = usePrivy();
-  const { wallets } = useWallets();
   const { address } = useAccount();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [treasuryRows, setTreasuryRows] = useState<Row[] | null>(null);
@@ -88,14 +86,6 @@ function MyMojisInner() {
   if (err) return <p className="text-center text-[14px] text-coral">{err}</p>;
   if (rows === null) return <p className="text-center text-[14px] text-ink-soft">loading…</p>;
   if (rows.length === 0 && !isTreasury) {
-    if (MOJI_TREASURY && wallets.some((w) => w.address.toLowerCase() === MOJI_TREASURY.toLowerCase())) {
-      return (
-        <div className="clay pop flex flex-col gap-3 bg-white p-5 text-center">
-          <p className="text-[14px] text-ink">the treasury wallet is connected but not active. pick it to see treasury fees.</p>
-          <WalletSwitcher compact />
-        </div>
-      );
-    }
     return (
       <div className="clay pop flex flex-col items-center gap-3 bg-white p-6 text-center">
         <div className="text-[56px]">🫥</div>

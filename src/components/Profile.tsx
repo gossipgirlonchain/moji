@@ -12,7 +12,6 @@ import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { explorerTx } from "@/lib/links";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
-import { WalletSwitcher } from "./WalletSwitcher";
 import { Button, Card, Label } from "./ui";
 import type { MojiRow } from "@/lib/supabase";
 
@@ -125,9 +124,6 @@ function ProfileInner() {
           <div className="num mt-2 text-[28px] leading-none text-ink">
             {eth ? Number(formatUnits(eth.value, 18)).toFixed(5) : "0.00000"} <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
           </div>
-        </div>
-        <div className="mt-4">
-          <WalletSwitcher />
         </div>
         <div className="mt-4">
           <Label>Tokens · claimed fees land here</Label>
