@@ -20,7 +20,7 @@ export function ClaimsCounter({ initial }: { initial: number }) {
   }, [initial]);
   return (
     <span className="heading text-ink">
-      <span className="num text-[18px]">{n.toLocaleString()}</span> combos claimed
+      <span className="num text-[18px]">{n.toLocaleString()}</span> {n === 1 ? "moji" : "mojis"} launched
     </span>
   );
 }

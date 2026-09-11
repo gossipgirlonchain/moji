@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
-import { ClaimsCounter } from "@/components/ClaimsCounter";
 import { listClaims } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
@@ -13,9 +12,7 @@ export default async function ClaimedPage() {
     <main className="flex flex-col gap-4">
       <div className="pop text-center">
         <h1 className="text-[30px] text-sky-600">claimed</h1>
-        <p className="mt-1">
-          <ClaimsCounter initial={claims.length} />
-        </p>
+        <p className="heading mt-1 text-[18px] text-ink">{claims.length.toLocaleString()} combos claimed</p>
         <p className="text-[13px] text-ink-soft">once it&apos;s gone, it&apos;s gone. across every chain.</p>
       </div>
       <Card pop={1}>

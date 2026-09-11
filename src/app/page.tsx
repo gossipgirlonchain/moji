@@ -15,7 +15,7 @@ export default async function Home() {
       <div className="pop text-center">
         <Wordmark />
         <p className="heading text-[20px] text-ink">pick an emoji. pick a stock. launch.</p>
-        <Link href="/claimed" className="press clay-pill mt-3 inline-block bg-white px-4 py-2">
+        <Link href="/explore" className="press clay-pill mt-3 inline-block bg-white px-4 py-2">
           <ClaimsCounter initial={count} />
         </Link>
       </div>
