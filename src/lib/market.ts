@@ -11,6 +11,9 @@ export type Market = {
   priceUsd: number;
   marketCapUsd: number;
   stockPriceUsd: number;
+  volume24Usd: number;
+  txns24: number;
+  liquidityUsd: number;
   live: boolean;
 };
 
@@ -77,7 +80,7 @@ type IndexerToken = {
  * Falls back to the stored Supabase market cap when the token has no on-chain data yet.
  */
 export async function getMarket(m: MojiRow): Promise<Market> {
-  const fallback: Market = { priceUsd: 0, marketCapUsd: Number(m.market_cap_usd ?? 0), stockPriceUsd: 0, live: false };
+  const fallback: Market = { priceUsd: 0, marketCapUsd: Number(m.market_cap_usd ?? 0), stockPriceUsd: 0, volume24Usd: 0, txns24: 0, liquidityUsd: 0, live: false };
   if (!m.token_address) return fallback;
   const chain = chainById(m.chain_id);
   if (!chain?.viem) return fallback;
@@ -87,14 +90,20 @@ export async function getMarket(m: MojiRow): Promise<Market> {
 
   let priceUsd = 0;
   let marketCapUsd = 0;
+  let volume24Usd = 0;
+  let txns24 = 0;
+  let liquidityUsd = 0;
   try {
     const r = await fetch(`https://api.dexscreener.com/token-pairs/v1/${chain.dexscreenerSlug}/${m.token_address}`, { next: { revalidate: 30 } });
     if (r.ok) {
-      const pairs = (await r.json()) as { priceUsd?: string; marketCap?: number; fdv?: number }[];
+      const pairs = (await r.json()) as { priceUsd?: string; marketCap?: number; fdv?: number; volume?: { h24?: number }; txns?: { h24?: { buys?: number; sells?: number } }; liquidity?: { usd?: number } }[];
       const p = pairs?.[0];
       if (p) {
         priceUsd = Number(p.priceUsd ?? 0);
         marketCapUsd = Number(p.marketCap ?? p.fdv ?? 0) || priceUsd * supply;
+        volume24Usd = Number(p.volume?.h24 ?? 0);
+        txns24 = Number(p.txns?.h24?.buys ?? 0) + Number(p.txns?.h24?.sells ?? 0);
+        liquidityUsd = Number(p.liquidity?.usd ?? 0);
       }
     }
   } catch {}
@@ -111,7 +120,7 @@ export async function getMarket(m: MojiRow): Promise<Market> {
     }
   }
 
-  return { priceUsd, marketCapUsd: marketCapUsd || fallback.marketCapUsd, stockPriceUsd: stockPrice, live: Boolean(priceUsd) };
+  return { priceUsd, marketCapUsd: marketCapUsd || fallback.marketCapUsd, stockPriceUsd: stockPrice, volume24Usd, txns24, liquidityUsd, live: Boolean(priceUsd) };
 }
 
 export type Point = { time: number; value: number };

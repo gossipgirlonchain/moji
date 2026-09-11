@@ -25,6 +25,9 @@ export type FeeSchedule = {
 
 export type MojiFees = {
   pending: FeeAmounts;
+  /** USD split: what the stock-token side is worth vs the moji-token side */
+  pendingStockUsd: number;
+  pendingMojiUsd: number;
   /** raw pending split by source, so the Claim button knows which calls to make */
   sources: { pool: boolean; hook: boolean };
   pendingUsd: number;
@@ -54,6 +57,8 @@ function rehypeHook(chainId: number): Address | null {
 export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUsd: number }, beneficiary?: Address): Promise<MojiFees> {
   const fallback: MojiFees = {
     pending: { stock: 0, moji: 0 },
+    pendingStockUsd: 0,
+    pendingMojiUsd: 0,
     sources: { pool: false, hook: false },
     pendingUsd: Number(m.fees_unclaimed_usd ?? 0),
     claimedUsd: Number(m.fees_claimed_usd ?? 0),
@@ -122,10 +127,14 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
 
     const asset = Number(formatUnits(assetIsToken0 ? fees0 : fees1, 18));
     const num = Number(formatUnits(assetIsToken0 ? fees1 : fees0, stockDecimals));
-    const pendingUsd = asset * prices.mojiUsd + num * prices.stockUsd;
+    const pendingStockUsd = num * prices.stockUsd;
+    const pendingMojiUsd = asset * prices.mojiUsd;
+    const pendingUsd = pendingStockUsd + pendingMojiUsd;
     const claimedUsd = Number(m.fees_claimed_usd ?? 0);
     return {
       pending: { stock: num, moji: asset },
+      pendingStockUsd,
+      pendingMojiUsd,
       sources,
       pendingUsd,
       claimedUsd,

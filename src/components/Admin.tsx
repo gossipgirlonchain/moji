@@ -40,8 +40,21 @@ export function AdminGate() {
   );
 }
 
-type Pool = MojiRow & { fees: MojiFees; market: Market };
-type Payload = { treasury: string; pools: Pool[]; totals: { pendingUsd: number; mcap: number; claimable: number }; count: number };
+type Pool = MojiRow & { fees: MojiFees; creatorFees: MojiFees; market: Market };
+type Bucket = { stockUsd: number; mojiUsd: number; totalUsd?: number; claimable?: number; count?: number };
+type Stats = {
+  pools: number; combosClaimed: number; launches24h: number; launches7d: number; uniqueCreators: number; withX: number;
+  totalMcap: number; volume24: number; txns24: number; liquidity: number; decaying: number; distinctStocks: number;
+  launchesPerDay: { day: string; n: number }[];
+  stocks: { ticker: string; count: number; mcap: number; volume24: number }[];
+  top: { mcap: TopRow[]; volume: TopRow[]; treasury: TopRow[] };
+  treasury: Bucket; creators: Bucket; claimed: { treasury: Bucket; creator: Bucket };
+  recentClaims: { role: string; combo: string; stock_ticker: string | null; stock_amount: number; moji_amount: number; stock_usd: number; moji_usd: number; created_at: string }[];
+};
+type TopRow = { display: string; ticker: string; v: number };
+type Payload = { treasury: string; pools: Pool[]; stats: Stats };
+const [tabs] = [["treasury", "stats", "pools"] as const];
+type Tab = (typeof tabs)[number];
 
 function fmt(n: number): string {
   if (n === 0) return "0";
@@ -56,6 +69,7 @@ export function AdminDashboard() {
   const router = useRouter();
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("treasury");
   const load = useCallback(async () => {
     try {
       const r = await fetch("/api/admin/pools", { cache: "no-store" });
@@ -70,90 +84,28 @@ export function AdminDashboard() {
   }, [router]);
   useEffect(() => {
     void load();
-    const t = setInterval(load, 30_000);
+    const t = setInterval(load, 45_000);
     return () => clearInterval(t);
   }, [load]);
 
   return (
     <div className="flex flex-col gap-4">
-      <TreasuryWallet />
+      <div className="flex justify-center gap-2">
+        {tabs.map((t) => (
+          <button key={t} type="button" onClick={() => setTab(t)} data-pressed={tab === t ? "true" : undefined} className={`press clay-pill heading px-4 py-2 text-[14px] ${tab === t ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`}>
+            {t}
+          </button>
+        ))}
+      </div>
       {err && <p className="text-center text-[13px] text-coral">{err}</p>}
       {!data ? (
         <p className="text-center text-[14px] text-ink-soft">reading every pool…</p>
+      ) : tab === "stats" ? (
+        <StatsView s={data.stats} />
+      ) : tab === "pools" ? (
+        <PoolsView pools={data.pools} />
       ) : (
-        <>
-          <Card tone="sky" pop={1}>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="num text-[24px] leading-none text-ink">{data.count}</div>
-                <div className="heading mt-1 text-[10px] uppercase tracking-[0.12em] text-ink-soft">pools</div>
-              </div>
-              <div>
-                <div className="num text-[24px] leading-none text-mint">{usd(data.totals.pendingUsd)}</div>
-                <div className="heading mt-1 text-[10px] uppercase tracking-[0.12em] text-ink-soft">treasury unclaimed</div>
-              </div>
-              <div>
-                <div className="num text-[24px] leading-none text-ink">{usd(data.totals.mcap)}</div>
-                <div className="heading mt-1 text-[10px] uppercase tracking-[0.12em] text-ink-soft">total mcap</div>
-              </div>
-            </div>
-            <p className="mt-3 text-center text-[11px] text-ink-soft">{data.totals.claimable} pools with something to claim · usd is an estimate, the tokens are exact</p>
-          </Card>
-
-          {data.pools.map((p, i) => (
-            <section key={p.id} className={`clay pop pop-${Math.min(5, (i % 5) + 1)} bg-white p-4`}>
-              <div className="flex items-center gap-3">
-                <Link href={`/m/${encodeURIComponent(p.display)}`} className="text-[34px] leading-none">
-                  {p.display}
-                </Link>
-                <div className="flex-1">
-                  <Link href={`/m/${encodeURIComponent(p.display)}`} className="heading block text-[16px] text-ink">
-                    {p.display} / {p.stock_ticker}
-                  </Link>
-                  <div className="text-[12px] text-ink-soft">
-                    mcap {usd(p.market.marketCapUsd)} · by {p.creator_handle ? `@${p.creator_handle}` : short(p.creator_address)}
-                    {p.fees.schedule && (
-                      <span className={p.fees.schedule.decaying ? "text-coral" : ""}>
-                        {" "}· fee {feePct(p.fees.schedule.currentFee)}
-                        {p.fees.schedule.decaying ? ` → ${feePct(p.fees.schedule.endFee)}` : ""}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="num text-[15px] text-mint">{usd(p.fees.pendingUsd)}</div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="clay-sm bg-sky-50 px-3 py-2.5 text-center">
-                  <div className="num text-[20px] leading-none text-mint">{fmt(p.fees.pending.stock)}</div>
-                  <div className="heading mt-1 text-[11px] text-ink">{p.stock_ticker}</div>
-                </div>
-                <div className="clay-sm bg-sky-50 px-3 py-2.5 text-center">
-                  <div className="num text-[20px] leading-none text-mint">{fmt(p.fees.pending.moji)}</div>
-                  <div className="heading mt-1 text-[11px] text-ink">{p.display}</div>
-                </div>
-              </div>
-              {p.fees.error && <p className="mt-2 text-center text-[11px] text-coral">read failed, retrying</p>}
-              <div className="mt-3">
-                <ClaimButton
-                  compact
-                  beneficiary={MOJI_TREASURY}
-                  combo={p.display}
-                  ticker={p.stock_ticker}
-                  chainId={p.chain_id}
-                  tokenAddress={p.token_address}
-                  poolId={p.pool_id}
-                  creatorAddress={p.creator_address}
-                  pending={p.fees.pending}
-                  pendingUsd={p.fees.pendingUsd}
-                  claimedUsd={0}
-                  sources={p.fees.sources}
-                  schedule={p.fees.schedule}
-                  live={p.fees.live}
-                />
-              </div>
-            </section>
-          ))}
-        </>
+        <TreasuryView data={data} />
       )}
       <button
         onClick={async () => {
@@ -165,6 +117,231 @@ export function AdminDashboard() {
         lock admin
       </button>
     </div>
+  );
+}
+
+function Tile({ v, k, tone = "ink" }: { v: string; k: string; tone?: "ink" | "mint" | "coral" }) {
+  const c = { ink: "text-ink", mint: "text-mint", coral: "text-coral" }[tone];
+  return (
+    <div className="clay-sm bg-white px-3 py-3 text-center">
+      <div className={`num text-[22px] leading-none ${c}`}>{v}</div>
+      <div className="heading mt-1 text-[10px] uppercase tracking-[0.12em] text-ink-soft">{k}</div>
+    </div>
+  );
+}
+
+function Split({ title, b, hint }: { title: string; b: Bucket; hint?: string }) {
+  const total = b.totalUsd ?? b.stockUsd + b.mojiUsd;
+  const pct = total > 0 ? Math.round((b.stockUsd / total) * 100) : 0;
+  return (
+    <Card tone="sky">
+      <div className="flex items-baseline justify-between">
+        <Label>{title}</Label>
+        <span className="num text-[22px] text-mint">{usd(total)}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="clay-sm bg-white px-3 py-3 text-center">
+          <div className="num text-[22px] leading-none text-ink">{usd(b.stockUsd)}</div>
+          <div className="heading mt-1 text-[10px] uppercase tracking-[0.12em] text-ink-soft">in stock tokens</div>
+        </div>
+        <div className="clay-sm bg-white px-3 py-3 text-center">
+          <div className="num text-[22px] leading-none text-ink-soft">{usd(b.mojiUsd)}</div>
+          <div className="heading mt-1 text-[10px] uppercase tracking-[0.12em] text-ink-soft">in moji tokens</div>
+        </div>
+      </div>
+      <div className="mt-3 h-3 w-full overflow-hidden bg-white" style={{ borderRadius: 999, boxShadow: "var(--clay-press)" }}>
+        <div className="h-full bg-mint" style={{ width: `${pct}%`, borderRadius: 999 }} />
+      </div>
+      <p className="mt-2 text-[11px] text-ink-soft">
+        {pct}% real stock value · {100 - pct}% moji tokens (illiquid, priced at spot){hint ? ` · ${hint}` : ""}
+      </p>
+    </Card>
+  );
+}
+
+function TreasuryView({ data }: { data: Payload }) {
+  const s = data.stats;
+  return (
+    <>
+      <TreasuryWallet />
+      <Split title="Treasury unclaimed" b={s.treasury} hint={`${s.treasury.claimable} pools to claim`} />
+      <Split title="Treasury claimed" b={s.claimed.treasury} hint={`${s.claimed.treasury.count} claims recorded`} />
+      {data.pools
+        .filter((p) => p.fees.sources.pool || p.fees.sources.hook)
+        .sort((a, b) => b.fees.pendingUsd - a.fees.pendingUsd)
+        .map((p, i) => (
+          <PoolRow key={p.id} p={p} i={i} claim />
+        ))}
+      {s.treasury.claimable === 0 && <p className="text-center text-[13px] text-ink-soft">nothing to claim right now.</p>}
+    </>
+  );
+}
+
+function PoolsView({ pools }: { pools: Pool[] }) {
+  return (
+    <>
+      {pools.map((p, i) => (
+        <PoolRow key={p.id} p={p} i={i} claim />
+      ))}
+    </>
+  );
+}
+
+function PoolRow({ p, i, claim }: { p: Pool; i: number; claim?: boolean }) {
+  return (
+    <section className={`clay pop pop-${Math.min(5, (i % 5) + 1)} bg-white p-4`}>
+      <div className="flex items-center gap-3">
+        <Link href={`/m/${encodeURIComponent(p.display)}`} className="text-[34px] leading-none">
+          {p.display}
+        </Link>
+        <div className="flex-1">
+          <Link href={`/m/${encodeURIComponent(p.display)}`} className="heading block text-[16px] text-ink">
+            {p.display} / {p.stock_ticker}
+          </Link>
+          <div className="text-[12px] text-ink-soft">
+            mcap {usd(p.market.marketCapUsd)} · vol24 {usd(p.market.volume24Usd)} · by {p.creator_handle ? `@${p.creator_handle}` : short(p.creator_address)}
+            {p.fees.schedule && (
+              <span className={p.fees.schedule.decaying ? "text-coral" : ""}>
+                {" "}· fee {feePct(p.fees.schedule.currentFee)}
+                {p.fees.schedule.decaying ? ` → ${feePct(p.fees.schedule.endFee)}` : ""}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="clay-sm bg-sky-50 px-3 py-2.5 text-center">
+          <div className="num text-[20px] leading-none text-mint">{fmt(p.fees.pending.stock)}</div>
+          <div className="heading mt-1 text-[11px] text-ink">{p.stock_ticker} <span className="text-ink-soft">≈ {usd(p.fees.pendingStockUsd)}</span></div>
+        </div>
+        <div className="clay-sm bg-sky-50 px-3 py-2.5 text-center">
+          <div className="num text-[20px] leading-none text-mint">{fmt(p.fees.pending.moji)}</div>
+          <div className="heading mt-1 text-[11px] text-ink">{p.display} <span className="text-ink-soft">≈ {usd(p.fees.pendingMojiUsd)}</span></div>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-ink-soft">
+        treasury share above · creator has {fmt(p.creatorFees.pending.stock)} {p.stock_ticker} + {fmt(p.creatorFees.pending.moji)} {p.display} unclaimed
+      </p>
+      {p.fees.error && <p className="mt-1 text-center text-[11px] text-coral">read failed, retrying</p>}
+      {claim && (
+        <div className="mt-3">
+          <ClaimButton
+            compact
+            beneficiary={MOJI_TREASURY}
+            combo={p.display}
+            ticker={p.stock_ticker}
+            chainId={p.chain_id}
+            tokenAddress={p.token_address}
+            poolId={p.pool_id}
+            creatorAddress={p.creator_address}
+            pending={p.fees.pending}
+            pendingUsd={p.fees.pendingUsd}
+            pendingStockUsd={p.fees.pendingStockUsd}
+            pendingMojiUsd={p.fees.pendingMojiUsd}
+            claimedUsd={0}
+            sources={p.fees.sources}
+            schedule={p.fees.schedule}
+            live={p.fees.live}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatsView({ s }: { s: Stats }) {
+  const max = Math.max(1, ...s.launchesPerDay.map((d) => d.n));
+  const Top = ({ title, rows }: { title: string; rows: TopRow[] }) => (
+    <Card>
+      <Label className="mb-2">{title}</Label>
+      <div className="flex flex-col gap-1.5">
+        {rows.map((r, i) => (
+          <Link key={r.display + i} href={`/m/${encodeURIComponent(r.display)}`} className="flex items-center justify-between text-[14px]">
+            <span className="heading text-ink">
+              <span className="mr-2 text-ink-soft">{i + 1}</span>
+              {r.display} / {r.ticker}
+            </span>
+            <span className="num text-mint">{usd(r.v)}</span>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  );
+  return (
+    <>
+      <Card tone="sky">
+        <Label className="mb-3">Launches</Label>
+        <div className="grid grid-cols-3 gap-2">
+          <Tile v={String(s.pools)} k="live pools" />
+          <Tile v={String(s.launches24h)} k="last 24h" />
+          <Tile v={String(s.launches7d)} k="last 7d" />
+          <Tile v={String(s.uniqueCreators)} k="creators" />
+          <Tile v={String(s.withX)} k="with X linked" />
+          <Tile v={String(s.distinctStocks)} k="stocks used" />
+        </div>
+        <div className="mt-4 flex h-[72px] items-end gap-1">
+          {s.launchesPerDay.map((d) => (
+            <div key={d.day} className="flex flex-1 flex-col items-center gap-1" title={`${d.day}: ${d.n}`}>
+              <div className="w-full bg-sky-500" style={{ height: `${Math.max(3, (d.n / max) * 60)}px`, borderRadius: 999 }} />
+            </div>
+          ))}
+        </div>
+        <p className="mt-1 text-center text-[10px] text-ink-soft">launches per day · last 14 days</p>
+      </Card>
+
+      <Card tone="sky">
+        <Label className="mb-3">Markets</Label>
+        <div className="grid grid-cols-3 gap-2">
+          <Tile v={usd(s.totalMcap)} k="total mcap" />
+          <Tile v={usd(s.volume24)} k="volume 24h" />
+          <Tile v={String(s.txns24)} k="trades 24h" />
+          <Tile v={usd(s.liquidity)} k="liquidity" />
+          <Tile v={String(s.decaying)} k="fees decaying" tone="coral" />
+          <Tile v={String(s.combosClaimed)} k="combos claimed" />
+        </div>
+      </Card>
+
+      <Split title="Treasury unclaimed" b={s.treasury} />
+      <Split title="Creators unclaimed (all pools)" b={s.creators} />
+      <Split title="Treasury claimed" b={s.claimed.treasury} hint={`${s.claimed.treasury.count} claims`} />
+      <Split title="Creators claimed" b={s.claimed.creator} hint={`${s.claimed.creator.count} claims`} />
+
+      <Top title="Top by market cap" rows={s.top.mcap} />
+      <Top title="Top by 24h volume" rows={s.top.volume} />
+      <Top title="Top treasury earners" rows={s.top.treasury} />
+
+      <Card>
+        <Label className="mb-2">Pools by stock</Label>
+        <div className="flex flex-col gap-1.5">
+          {s.stocks.map((r) => (
+            <div key={r.ticker} className="flex items-center justify-between text-[14px]">
+              <span className="heading text-ink">{r.ticker}</span>
+              <span className="text-ink-soft">
+                {r.count} {r.count === 1 ? "pool" : "pools"} · mcap <span className="num text-ink">{usd(r.mcap)}</span> · vol24 <span className="num text-ink">{usd(r.volume24)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {s.recentClaims.length > 0 && (
+        <Card>
+          <Label className="mb-2">Recent claims</Label>
+          <div className="flex flex-col gap-1.5">
+            {s.recentClaims.map((c, i) => (
+              <div key={i} className="flex items-center justify-between text-[13px]">
+                <span className="text-ink">
+                  <span className="heading">{c.role}</span> · {c.combo} / {c.stock_ticker}
+                </span>
+                <span className="num text-ink-soft">
+                  {fmt(Number(c.stock_amount))} {c.stock_ticker} + {fmt(Number(c.moji_amount))} {c.combo}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </>
   );
 }
 

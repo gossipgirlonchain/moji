@@ -92,6 +92,8 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         creatorAddress={m.creator_address}
         pending={fees.pending}
         pendingUsd={fees.pendingUsd}
+        pendingStockUsd={fees.pendingStockUsd}
+        pendingMojiUsd={fees.pendingMojiUsd}
         claimedUsd={fees.claimedUsd}
         sources={fees.sources}
         schedule={fees.schedule}

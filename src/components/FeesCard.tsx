@@ -24,6 +24,8 @@ export type FeesCardProps = {
   pendingUsd: number;
   claimedUsd: number;
   sources: { pool: boolean; hook: boolean };
+  pendingStockUsd?: number;
+  pendingMojiUsd?: number;
   schedule: { startFee: number; endFee: number; currentFee: number; startingTime: number; durationSeconds: number; decaying: boolean } | null;
   live: boolean;
   error?: string;
@@ -187,7 +189,15 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
         await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ txHash: last, amountUsd: p.pendingUsd }),
+          body: JSON.stringify({
+            txHash: last,
+            amountUsd: p.pendingUsd,
+            beneficiary: target,
+            stockAmount: p.pending.stock,
+            mojiAmount: p.pending.moji,
+            stockUsd: p.pendingStockUsd ?? 0,
+            mojiUsd: p.pendingMojiUsd ?? 0,
+          }),
         });
       }
       setBusy(null);

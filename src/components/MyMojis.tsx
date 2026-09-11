@@ -116,7 +116,7 @@ function MyMojisInner() {
               </div>
               <Amounts stock={m.fees.pending.stock} ticker={m.stock_ticker} moji={m.fees.pending.moji} combo={m.display} />
               <div className="mt-3">
-                <ClaimButton compact beneficiary={MOJI_TREASURY} combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} poolId={m.pool_id} creatorAddress={m.creator_address} pending={m.fees.pending} pendingUsd={m.fees.pendingUsd} claimedUsd={0} sources={m.fees.sources} schedule={m.fees.schedule} live={m.fees.live} />
+                <ClaimButton compact beneficiary={MOJI_TREASURY} combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} poolId={m.pool_id} creatorAddress={m.creator_address} pending={m.fees.pending} pendingUsd={m.fees.pendingUsd} pendingStockUsd={m.fees.pendingStockUsd} pendingMojiUsd={m.fees.pendingMojiUsd} claimedUsd={0} sources={m.fees.sources} schedule={m.fees.schedule} live={m.fees.live} />
               </div>
             </section>
           ))}
@@ -157,6 +157,8 @@ function MyMojisInner() {
               creatorAddress={m.creator_address}
               pending={m.fees.pending}
               pendingUsd={m.fees.pendingUsd}
+              pendingStockUsd={m.fees.pendingStockUsd}
+              pendingMojiUsd={m.fees.pendingMojiUsd}
               claimedUsd={m.fees.claimedUsd}
               sources={m.fees.sources}
               schedule={m.fees.schedule}
