@@ -37,17 +37,19 @@ function ProfileInner() {
   const { data: eth, refetch: refetchEth } = useBalance({ address, chainId, query: { enabled: Boolean(address), refetchInterval: 12_000 } });
 
   // Tokens this user's mojis pay fees in: each stock token + each moji token.
-  const [mojis, setMojis] = useState<MojiRow[]>([]);
+  const [mojis, setMojis] = useState<MojiRow[] | null>(null);
   useEffect(() => {
     if (!ready || !authenticated) return;
     let alive = true;
     (async () => {
       try {
         const token = await getAccessToken();
-        const r = await fetch(`/api/me/mojis${address ? `?address=${address}` : ""}`, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+        const r = await fetch(`/api/me/mojis?light=1${address ? `&address=${address}` : ""}`, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
         const j = (await r.json()) as { mojis?: MojiRow[] };
         if (alive) setMojis(j.mojis ?? []);
-      } catch {}
+      } catch {
+        if (alive) setMojis([]);
+      }
     })();
     return () => {
       alive = false;
@@ -56,7 +58,7 @@ function ProfileInner() {
 
   const tokenAssets = useMemo<Asset[]>(() => {
     const seen = new Map<string, Asset>();
-    for (const m of mojis) {
+    for (const m of mojis ?? []) {
       if (m.chain_id !== chainId) continue;
       const stock = findStock(m.chain_id, m.stock_address);
       if (stock && !seen.has(stock.address.toLowerCase())) seen.set(stock.address.toLowerCase(), { key: stock.address.toLowerCase(), symbol: stock.ticker, address: stock.address, decimals: stock.decimals, label: `$${stock.ticker}` });
@@ -122,19 +124,21 @@ function ProfileInner() {
             {eth ? Number(formatUnits(eth.value, 18)).toFixed(5) : "0.00000"} <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
           </div>
         </div>
-        {assets.length > 1 && (
-          <div className="mt-4">
-            <Label>Tokens</Label>
+        <div className="mt-4">
+          <Label>Tokens · claimed fees land here</Label>
+          {mojis === null && <p className="mt-1 text-[13px] text-ink-soft">loading…</p>}
+          {mojis !== null && assets.length === 1 && <p className="mt-1 text-[13px] text-ink-soft">nothing yet. fees arrive as the stock token and the moji token.</p>}
+          {assets.length > 1 && (
             <div className="mt-1 flex flex-col gap-1">
               {assets.slice(1).map((a) => (
                 <div key={a.key} className="flex items-center justify-between text-[14px]">
                   <span className="heading text-ink">{a.label}</span>
-                  <span className="num text-ink-soft">{Number(formatUnits(a.balance, a.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                  <span className="num text-ink">{Number(formatUnits(a.balance, a.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </Card>
 
       <SendCard chainId={chainId} assets={assets} onSent={() => { void refetchEth(); void refetchTokens(); }} />

@@ -36,7 +36,9 @@ export async function GET(req: Request) {
   if (!did && !/^0x[0-9a-f]{40}$/.test(address)) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
 
   const sb = supabaseServer();
-  const asTreasury = new URL(req.url).searchParams.get("as") === "treasury";
+  const url = new URL(req.url);
+  const light = url.searchParams.get("light") === "1"; // rows only, no fee reads (profile token list)
+  const asTreasury = url.searchParams.get("as") === "treasury";
   const isTreasury = Boolean(MOJI_TREASURY) && address === MOJI_TREASURY.toLowerCase();
   if (asTreasury) {
     if (!isTreasury) return NextResponse.json({ error: "Connect the treasury wallet to see treasury fees" }, { status: 403 });
@@ -56,6 +58,7 @@ export async function GET(req: Request) {
   if (/^0x[0-9a-f]{40}$/.test(address)) ors.push(`creator_address.ilike.${address}`);
   const { data } = await sb.from("mojis").select("*").eq("network", NETWORK).or(ors.join(",")).order("launched_at", { ascending: false }).limit(50);
   const rows = (data ?? []) as MojiRow[];
+  if (light) return NextResponse.json({ mojis: rows, isTreasury });
 
   const withFees = await Promise.all(
     rows.map(async (m) => {
