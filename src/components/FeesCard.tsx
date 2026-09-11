@@ -171,35 +171,28 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
         );
       }
       if (steps.length === 0) return;
-      let last: Hex | null = null;
+      const hashes: Hex[] = [];
       let done = 0;
+      const record = () =>
+        hashes.length
+          ? fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes }) })
+          : Promise.resolve();
       for (let i = 0; i < steps.length; i++) {
         setBusy(steps.length > 1 ? `sign ${i + 1} of ${steps.length}…` : "confirm in wallet…");
         try {
           const r = await steps[i].go();
-          last = r.transactionHash;
+          hashes.push(r.transactionHash);
           done++;
         } catch (e) {
           setBusy(null);
-          if (done > 0) setNote(`${done} of ${steps.length} done. tap Claim again to finish the rest.`);
+          if (done > 0) {
+            setNote(`${done} of ${steps.length} done. tap Claim again to finish the rest.`);
+            await record(); // what did land is still recorded from the receipts
+          }
           throw e;
         }
       }
-      if (last) {
-        await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            txHash: last,
-            amountUsd: p.pendingUsd,
-            beneficiary: target,
-            stockAmount: p.pending.stock,
-            mojiAmount: p.pending.moji,
-            stockUsd: p.pendingStockUsd ?? 0,
-            mojiUsd: p.pendingMojiUsd ?? 0,
-          }),
-        });
-      }
+      await record();
       setBusy(null);
       router.refresh();
     } catch (e) {
