@@ -18,7 +18,7 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
       query = query.order("market_cap_usd", { ascending: false, nullsFirst: false });
       break;
     case "fees":
-      query = query.order("fees_claimed_usd", { ascending: false, nullsFirst: false });
+      query = query.order("fees_unclaimed_usd", { ascending: false, nullsFirst: false }).order("fees_claimed_usd", { ascending: false, nullsFirst: false });
       break;
     default:
       query = query.order("launched_at", { ascending: false });
@@ -65,4 +65,14 @@ export async function claimedSet(normalizedList: string[]): Promise<Set<string>>
   const sb = supabaseServer();
   const { data } = await sb.from("claims").select("combo").eq("network", NETWORK).in("combo", normalizedList);
   return new Set(((data ?? []) as { combo: string }[]).map((r) => r.combo));
+}
+
+/** Top earners from the snapshot columns (pending + claimed), no chain reads. */
+export async function topEarnersFast(limit = 3): Promise<(MojiRow & { earnedUsd: number })[]> {
+  const rows = await listMojis({ sort: "fees", limit: 50 });
+  return rows
+    .map((r) => ({ ...r, earnedUsd: Number(r.fees_claimed_usd ?? 0) + Number(r.fees_unclaimed_usd ?? 0) }))
+    .filter((r) => r.token_address)
+    .sort((a, b) => b.earnedUsd - a.earnedUsd)
+    .slice(0, limit);
 }

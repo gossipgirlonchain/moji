@@ -6,6 +6,7 @@ import { findStock } from "@/config/stocks";
 import { chainById } from "@/config/chains";
 import { NETWORK, SITE_URL } from "@/lib/network";
 import { storeMojiImage } from "@/lib/images";
+import { refreshOne } from "@/lib/snapshot";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -111,6 +112,11 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("image store failed", e);
   }
+
+  // Snapshot so the new row shows a price on the next home/explore render (cron refreshes fees within 2 min).
+  try {
+    await refreshOne(data as never);
+  } catch {}
 
   const href = `/m/${encodeURIComponent(v.display)}`;
   return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter.username });

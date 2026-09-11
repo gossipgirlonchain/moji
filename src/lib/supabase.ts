@@ -37,6 +37,12 @@ export type MojiRow = {
   creator_handle: string | null;
   creator_address: string | null;
   network: "mainnet" | "testnet";
+  price_usd: number | null;
+  volume24_usd: number | null;
+  fees_stock_pending: number | null;
+  fees_moji_pending: number | null;
+  fee_current: number | null;
+  snapshot_at: string | null;
   image_url: string | null;
   metadata_url: string | null;
   launched_at: string;

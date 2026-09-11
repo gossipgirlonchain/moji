@@ -4,7 +4,7 @@ import { ClaimsCounter } from "@/components/ClaimsCounter";
 import { listClaims } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 export const metadata = { title: "claimed combos" };
 
 export default async function ClaimedPage() {

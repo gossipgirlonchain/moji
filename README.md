@@ -39,6 +39,7 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_MOJI_TREASURY` | client + server | Wallet that receives the 25% treasury share of every pool's fees. Launch fails loudly if unset |
 | `NEXT_PUBLIC_SITE_URL` | client + server | Public origin baked into token metadata URIs and share links. Default `https://moji.wtf` |
 | `NEXT_PUBLIC_NETWORK` | client + server | `mainnet` (default) or `testnet`. Claims are scoped per network so testnet never burns a mainnet combo |
+| `CRON_SECRET` | server only | Protects `/api/cron/refresh`. Vercel cron (every 2 min, `vercel.json`) refreshes the per-moji snapshot: mcap, price, 24h volume, creator pending fees, current fee. Pages render from the snapshot; the client polls live numbers after paint |
 | `ADMIN_PASSWORD` | server only | Gates `/admin`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected |
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 

@@ -4,10 +4,8 @@ import { Card, Label, LinkButton } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
 import { getMoji } from "@/lib/data";
-import { getMarket } from "@/lib/market";
-import { getMojiFees } from "@/lib/fees";
 import { FeesCard } from "@/components/FeesCard";
-import { feePct } from "@/config/fees";
+import { FEE_END, feePct } from "@/config/fees";
 import { decodeCombo } from "@/lib/emoji";
 import { dateShort, num, short } from "@/lib/format";
 import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/lib/links";
@@ -37,8 +35,20 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
   const { combo } = await params;
   const m = await getMoji(decodeCombo(combo));
   if (!m) notFound();
-  const market = await getMarket(m);
-  const fees = await getMojiFees(m, { stockUsd: market.stockPriceUsd, mojiUsd: market.priceUsd });
+  // Snapshot values for an instant first paint; FeesCard and PriceChart fetch live numbers after mount.
+  const market = { marketCapUsd: Number(m.market_cap_usd ?? 0), priceUsd: Number(m.price_usd ?? 0) };
+  const fees = {
+    pending: { stock: Number(m.fees_stock_pending ?? 0), moji: Number(m.fees_moji_pending ?? 0) },
+    pendingUsd: Number(m.fees_unclaimed_usd ?? 0),
+    pendingStockUsd: 0,
+    pendingMojiUsd: 0,
+    claimedUsd: Number(m.fees_claimed_usd ?? 0),
+    sources: { pool: Number(m.fees_stock_pending ?? 0) > 0 || Number(m.fees_moji_pending ?? 0) > 0, hook: false },
+    schedule: null as null | { startFee: number; endFee: number; currentFee: number; startingTime: number; durationSeconds: number; decaying: boolean },
+    live: Boolean(m.snapshot_at),
+    error: undefined as string | undefined,
+  };
+  const feeNow = m.fee_current != null ? Number(m.fee_current) : null;
   const stock = findStock(m.chain_id, m.stock_address);
   const creator = m.creator_handle
     ? { label: `@${m.creator_handle}`, href: xUrl(m.creator_handle) }
@@ -57,15 +67,15 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
           paired to <span className="text-ink">${m.stock_ticker}</span>
           {stock && <span className="text-[13px]"> · {stock.name}</span>}
         </p>
-        {fees.schedule && (
+        {feeNow != null && (
           <p className="heading mt-1 text-[13px] text-ink-soft">
             swap fee{" "}
-            {fees.schedule.decaying ? (
+            {feeNow > FEE_END ? (
               <span className="text-coral">
-                {feePct(fees.schedule.currentFee)} → {feePct(fees.schedule.endFee)}
+                {feePct(feeNow)} → {feePct(FEE_END)}
               </span>
             ) : (
-              <span className="text-ink">{feePct(fees.schedule.currentFee)}</span>
+              <span className="text-ink">{feePct(feeNow)}</span>
             )}
           </p>
         )}
