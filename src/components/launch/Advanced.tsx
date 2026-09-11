@@ -31,7 +31,7 @@ export function Advanced({ value, onChange }: { value: CurveDefaults; onChange: 
           <Field label="Market cap end ($)" value={value.mcapEnd} onChange={(n) => onChange({ ...value, mcapEnd: n })} step={1000} />
           <Field label="Tail curve share (0 to 1)" value={value.tailShare} onChange={(n) => onChange({ ...value, tailShare: Math.min(0.9, Math.max(0.01, n)) })} step={0.05} />
           <p className="text-[12px] text-ink-soft">
-            Supply {value.supply.toLocaleString()}, {Math.round(value.sellFraction * 100)}% sold on the curve, swap fee 3% decaying to 1% over the first hour. 70% of fees stream to you.
+            Supply {value.supply.toLocaleString()}, {Math.round(value.sellFraction * 100)}% sold on the curve, 100% of supply on the curve, nothing burned. anti-snipe swap fee 75% → 1% over the first 16 seconds, then 1%. 70% of fees stream to you.
           </p>
         </div>
       )}

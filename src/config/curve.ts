@@ -7,7 +7,10 @@ import { parseEther } from "viem";
 export type CurveDefaults = {
   /** Total supply, whole tokens */
   supply: number;
-  /** Fraction of supply sold on the curve (rest is held by the token / governance) */
+  /**
+   * Fraction of supply sold on the curve. Must be 1: with noOp governance the Airlock burns whatever
+   * is not put on the curve (the first launch burned 10% this way).
+   */
   sellFraction: number;
   /** Launch market cap in USD */
   mcapStart: number;
@@ -19,7 +22,7 @@ export type CurveDefaults = {
 
 export const CURVE_DEFAULTS: CurveDefaults = {
   supply: 1_000_000_000,
-  sellFraction: 0.9,
+  sellFraction: 1,
   mcapStart: 5_000,
   mcapEnd: 2_000_000,
   tailShare: 0.1,

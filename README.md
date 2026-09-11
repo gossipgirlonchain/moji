@@ -119,7 +119,7 @@ There is no name and no upload, so every moji gets a rendered image:
 
 `src/lib/doppler.ts` builds a Doppler multicurve auction with the selected stock token as `saleConfig.numeraire`:
 
-- 1B supply, 90% sold on the curve
+- 1B supply, 100% on the curve (with noOp governance the Airlock burns anything not put on the curve; the first launch lost 10% that way)
 - two curves: `$5k → $2M` (90% of shares, 11 positions) and `$2M → max` tail (10%)
 - `noOp` governance, `noOp` migration, pool locked with beneficiaries
 - token type `dopplerERC20V1` (Robinhood Chain has no standard TokenFactory in the SDK map)
@@ -134,7 +134,7 @@ Before enabling LAUNCH the app simulates the create and compares `gasEstimate * 
 
 Constants live in `src/config/fees.ts`. Units are Uniswap V4 pips, `1_000_000 = 100%`, verified against the SDK (`V4_MAX_FEE = 100_000`, `TICK_SPACINGS[10000] = 200`).
 
-**Swap fee decay: 3% → 1% over 3600s.** `startFee 30_000`, `endFee 10_000`. The SDK's `withDecay()` needs a `v4DecayMulticurveInitializer`, which only exists on Base and Base Sepolia in the SDK address map, so on Robinhood Chain it throws. The schedule is set on the `RehypeDopplerHookInitializer` instead (`withRehypeDopplerHookInitializer({ startFee, endFee, durationSeconds })`), which the SDK turns into a dynamic-fee pool that charges the decaying fee itself. The moji page reads `getFeeSchedule(poolId)` and shows `fee 2.4% → 1.0%` while the decay is running.
+**Anti-snipe swap fee: 75% → 1% over the first 16 seconds, then 1%.** `startFee 750_000`, `endFee 10_000`, `durationSeconds 16`. Snipers buying in the first blocks pay most of the trade to the beneficiaries. The SDK's `withDecay()` needs a `v4DecayMulticurveInitializer`, which only exists on Base and Base Sepolia in the SDK address map, so on Robinhood Chain it throws. The schedule is set on the `RehypeDopplerHookInitializer` instead (`withRehypeDopplerHookInitializer({ startFee, endFee, durationSeconds })`), which the SDK turns into a dynamic-fee pool that charges the decaying fee itself. The moji page reads `getFeeSchedule(poolId)` and shows the live rate while the decay is running.
 
 **Beneficiaries** (WAD shares, asserted to sum to exactly `1e18` and protocol share to exactly 5% before anything is signed):
 

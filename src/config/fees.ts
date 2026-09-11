@@ -3,7 +3,7 @@ import { parseEther, isAddress, type Address } from "viem";
 /**
  * Fee structure for every moji pool.
  *
- * Units: Uniswap V4 fee pips, 1_000_000 = 100%. So 30_000 = 3% and 10_000 = 1%.
+ * Units: Uniswap V4 fee pips, 1_000_000 = 100%. So 750_000 = 75% and 10_000 = 1%.
  * Verified against the SDK: V4_MAX_FEE = 100_000 (10%) for static tiers, DECAY_MAX_START_FEE = 800_000 (80%)
  * for hook fee schedules, TICK_SPACINGS[10000] = 200.
  *
@@ -11,9 +11,14 @@ import { parseEther, isAddress, type Address } from "viem";
  * The decay is delivered by the RehypeDopplerHookInitializer instead, whose fee schedule is
  * startFee → endFee over durationSeconds (same units).
  */
-export const FEE_START = 30_000; // 3%
+/**
+ * Anti-snipe schedule: 75% at launch decaying to 1% over the first 16 seconds, then 1% forever.
+ * Bots that buy in the first blocks pay most of their trade in fees to the beneficiaries.
+ * 750_000 is under both the Rehype contract cap (0.8e6) and the SDK's DECAY_MAX_START_FEE (800_000).
+ */
+export const FEE_START = 750_000; // 75%
 export const FEE_END = 10_000; // 1%, terminal
-export const FEE_DECAY_SECONDS = 3_600;
+export const FEE_DECAY_SECONDS = 16;
 /** Tick spacing for the terminal 1% tier (standard HIGH tier). */
 export const FEE_TICK_SPACING = 200;
 
@@ -66,5 +71,6 @@ export function currentFee(s: { startingTime: number; startFee: number; endFee: 
 }
 
 export function feePct(pips: number, digits = 1): string {
-  return `${(pips / 10_000).toFixed(digits)}%`;
+  const pct = pips / 10_000;
+  return `${pct >= 10 ? Math.round(pct) : pct.toFixed(digits)}%`;
 }
