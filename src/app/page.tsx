@@ -5,11 +5,12 @@ import { ClaimsCounter } from "@/components/ClaimsCounter";
 import { EarnerRow, MojiTile } from "@/components/MojiBits";
 import { claimsCount, listMojis } from "@/lib/data";
 import { topEarners } from "@/lib/earners";
+import { withLiveMcap } from "@/lib/mcap";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [count, earners, recent] = await Promise.all([claimsCount(), topEarners(3), listMojis({ sort: "newest", limit: 6 })]);
+  const [count, earners, recent] = await Promise.all([claimsCount(), topEarners(3), listMojis({ sort: "newest", limit: 6 }).then(withLiveMcap)]);
 
   return (
     <main className="flex flex-col gap-4">

@@ -152,17 +152,9 @@ One caveat to know: the Rehype hook itself also skims a fixed 5% of raw hook fee
 
 `src/config/stocks.ts` mirrors the market list the LONG app loads on Robinhood Chain: 63 stock/ETF tokens, every address cross-checked against Robinhood's registry (`GET https://api.robinhood.com/rhj/assets`) and verified on-chain via `symbol()/name()/decimals()`. Solana, Ethereum, Arbitrum, Base and Monad are present with `comingSoon: true` and render as disabled "soon" pills. See `src/config/stocks.notes.md` for sources.
 
-## Seed mojis
+## Seeding
 
-Six rows are seeded in Supabase so the home and explore pages look populated: 🍏/AAPL, 🐕/NVDA, 🍕/AMZN, 🚀/SPCX, ☕/COST, 🎢/COIN. (DPZ, SPCE, SBUX and SIX are not tokenized on Robinhood Chain, so the nearest real pairs were used.)
-
-The seed rows carry placeholder market cap and fee numbers and no `token_address` until you run the real launches:
-
-```bash
-SEED_PRIVATE_KEY=0x... SUPABASE_SERVICE_ROLE_KEY=... npm run seed
-```
-
-Doppler is deployed on Robinhood Chain mainnet (4663) but **not** on the Robinhood testnet (46630), so seeds launch on 4663 with real ETH gas. The script only touches rows whose `token_address` is null and writes back the token, pool id and tx hash.
+There are no placeholder rows in production. `npm run seed` (with `SEED_PRIVATE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_MOJI_TREASURY`) performs real launches on Robinhood Chain for any row whose `token_address` is null, using the same fee structure as the app. Doppler is not deployed on the Robinhood testnet (46630), so seeds cost real ETH gas.
 
 ## Market data
 
