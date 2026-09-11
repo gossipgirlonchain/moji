@@ -31,7 +31,8 @@ const sdk = new DopplerSDK({ publicClient, walletClient, chainId: robinhoodChain
 
 async function stockPrice(ticker: string): Promise<number> {
   const r = await fetch(`https://api.robinhood.com/rhj/prices/${ticker}`, { headers: { "user-agent": "moji-seed" } });
-  const j = (await r.json()) as Record<string, unknown>;
+  const raw = (await r.json()) as { quotes?: Record<string, unknown>[] } & Record<string, unknown>;
+  const j = raw.quotes?.[0] ?? raw;
   const mid = (Number(j.bid) + Number(j.ask)) / 2;
   if (!isFinite(mid) || mid <= 0) throw new Error("no price for " + ticker);
   return mid;

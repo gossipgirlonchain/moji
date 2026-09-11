@@ -56,7 +56,8 @@ export async function stockPriceServer(chainId: number, stockAddress: string): P
     try {
       const r = await fetch(`https://api.robinhood.com/rhj/prices/${stock.ticker}`, { headers: { "user-agent": "moji.wtf" }, next: { revalidate: 30 } });
       if (r.ok) {
-        const j = (await r.json()) as Record<string, unknown>;
+        const raw = (await r.json()) as { quotes?: Record<string, unknown>[] } & Record<string, unknown>;
+        const j = (raw.quotes?.[0] ?? raw) as Record<string, unknown>; // Robinhood nests under quotes[0]
         const n = (k: string) => Number(j[k] ?? NaN);
         const mid = (n("bid") + n("ask")) / 2;
         if (isFinite(mid) && mid > 0) return mid;

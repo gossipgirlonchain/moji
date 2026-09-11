@@ -12,8 +12,9 @@ export async function GET(req: Request) {
       next: { revalidate: 15 },
     });
     if (!r.ok) return NextResponse.json({ error: "upstream " + r.status }, { status: 502 });
-    const j = (await r.json()) as Record<string, unknown>;
-    const pick = (k: string) => Number((j as Record<string, unknown>)[k] ?? NaN);
+    const raw = (await r.json()) as { quotes?: Record<string, unknown>[] } & Record<string, unknown>;
+    const j = (raw.quotes?.[0] ?? raw) as Record<string, unknown>; // Robinhood nests under quotes[0]
+    const pick = (k: string) => Number(j[k] ?? NaN);
     const bid = pick("bid") || pick("bidPrice");
     const ask = pick("ask") || pick("askPrice");
     const price = isFinite(bid) && isFinite(ask) && bid > 0 && ask > 0 ? (bid + ask) / 2 : pick("price") || pick("lastPrice");
