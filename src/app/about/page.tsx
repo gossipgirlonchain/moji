@@ -11,7 +11,7 @@ export default function AboutPage() {
         <Label className="mb-2">What moji is</Label>
         <p className="text-[15px] leading-relaxed">
           A launcher, not an exchange. Pick a 1 to 3 emoji combo, pair it to a real tokenized stock, launch with one signature.
-          The combo is claimed forever. You never trade on moji. The market happens on Matcha and Dexscreener.
+          You never trade on moji. The market happens on Matcha and Dexscreener.
         </p>
       </Card>
       <Card tone="sky" pop={2}>

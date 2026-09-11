@@ -69,11 +69,13 @@ function fmt(n: number): string {
 
 export function FeesCard(initial: FeesCardProps) {
   const p = useLiveFees(initial);
+  const { address } = useAccount();
+  const isCreator = Boolean(address && p.creatorAddress && address.toLowerCase() === p.creatorAddress.toLowerCase());
   return (
     <section className="clay pop pop-2 bg-sky-50 p-5">
       <div className="flex items-start justify-between">
         <div>
-          <Label>Your fees</Label>
+          <Label>{isCreator ? "Your fees" : "Creator fees"}</Label>
           <p className="mt-0.5 text-[13px] text-ink-soft">
             paid in <b className="text-ink">${p.ticker}</b> and <b className="text-ink">{p.combo}</b>
           </p>
@@ -92,7 +94,11 @@ export function FeesCard(initial: FeesCardProps) {
         </div>
       </div>
 
-      <div className="mt-4">{PRIVY_ENABLED && p.tokenAddress ? <ClaimButton {...p} /> : <ClaimDisabled tokenAddress={p.tokenAddress} />}</div>
+      {isCreator && PRIVY_ENABLED && p.tokenAddress && (
+        <div className="mt-4">
+          <ClaimButton {...p} />
+        </div>
+      )}
       <p className={`mt-2 text-center text-[11px] ${p.error ? "text-coral" : "text-ink-soft"}`}>
         {p.error ? "couldn't read the pool just now, retrying…" : p.live ? "read live from the pool" : "no on-chain data yet"} · creator 70% · moji treasury 25% · Doppler 5%
       </p>
@@ -120,14 +126,6 @@ function FeeRate({ schedule }: { schedule: FeesCardProps["schedule"] }) {
       fee {feePct(fee)}
       {decaying && <> → {feePct(schedule.endFee)}</>}
     </span>
-  );
-}
-
-function ClaimDisabled({ tokenAddress }: { tokenAddress: string | null }) {
-  return (
-    <button disabled className="press clay heading w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white opacity-60">
-      {tokenAddress ? "Claim" : "nothing to claim yet"}
-    </button>
   );
 }
 
@@ -190,16 +188,14 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
     }
   }
 
-  const label = busy ?? (nothing ? "nothing to claim yet" : isCreator ? "Claim" : "Collect fees");
+  const label = busy ?? (nothing ? "nothing to claim yet" : "Claim");
   return (
     <div>
       <button onClick={run} disabled={Boolean(busy) || nothing || !address} className={`press clay heading w-full bg-sky-500 text-white disabled:opacity-60 ${p.compact ? "px-4 py-2.5 text-[14px]" : "px-5 py-3.5 text-[17px]"}`}>
         {label}
       </button>
       {!address && !nothing && <p className="mt-2 text-center text-[12px] text-ink-soft">log in to claim</p>}
-      {address && !isCreator && !nothing && (
-        <p className="mt-2 text-center text-[12px] text-ink-soft">each beneficiary claims their own share from their own wallet. collecting just settles the pool.</p>
-      )}
+
       {err && (
         <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">
           {err}

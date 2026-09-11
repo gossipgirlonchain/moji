@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, Card, Label, LinkButton } from "@/components/ui";
+import { Card, Label, LinkButton } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
 import { getMoji } from "@/lib/data";
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ combo: st
   const d = decodeCombo(combo);
   const m = await getMoji(d);
   const title = m ? `${m.display} / ${m.stock_ticker} · moji` : `${d} · moji`;
-  const description = m ? `${m.display} is a moji, paired to $${m.stock_ticker}. Claimed forever.` : `${d} is a moji.`;
+  const description = m ? `${m.display} is a moji, paired to $${m.stock_ticker}.` : `${d} is a moji.`;
   const url = `${SITE_URL}/m/${encodeURIComponent(d)}`;
   return {
     title,
@@ -53,9 +53,6 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         <h1 className="mt-2 text-[34px] leading-tight text-ink">
           {m.display} <span className="text-ink-soft">/</span> {m.stock_ticker}
         </h1>
-        <div className="mt-2 flex items-center justify-center gap-2">
-          <Badge tone="mint">claimed forever</Badge>
-        </div>
         <p className="heading mt-3 text-[17px] text-ink-soft">
           paired to <span className="text-ink">${m.stock_ticker}</span>
           {stock && <span className="text-[13px]"> · {stock.name}</span>}

@@ -131,7 +131,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
       <div className="clay pop flex flex-col items-center gap-3 bg-white p-5 text-center">
         <div className="wobble text-[64px] leading-none">{done.combo}</div>
         <p className="heading text-[22px] text-ink">
-          {done.combo} / {done.ticker} is yours. forever.
+          {done.combo} / {done.ticker} is live.
         </p>
         <PostIt combo={done.combo} ticker={done.ticker} url={done.url} size="lg" />
         <Link href={done.href} className="press clay heading block w-full bg-sky-500 px-6 py-3.5 text-[17px] text-white">

@@ -62,7 +62,7 @@ export function LaunchFlow() {
       <Advanced value={curve} onChange={setCurve} />
 
       <p className="text-center text-[12px] text-ink-soft">
-        one wallet signature. you pay gas. your combo is yours forever.
+        one wallet signature. you pay gas.
       </p>
     </main>
   );

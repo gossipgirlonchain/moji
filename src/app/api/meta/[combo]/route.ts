@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ combo: string 
     {
       name: v.display,
       symbol: v.display,
-      description: m ? `${v.display} is a moji, paired to $${m.stock_ticker}. Claimed forever on moji.wtf.` : `${v.display} is a moji. moji.wtf`,
+      description: m ? `${v.display} is a moji, paired to $${m.stock_ticker}. moji.wtf` : `${v.display} is a moji. moji.wtf`,
       image,
       external_url: `${SITE_URL}/m/${encodeURIComponent(v.display)}`,
       ...(m ? { attributes: [{ trait_type: "pair", value: m.stock_ticker }, { trait_type: "chain", value: String(m.chain_id) }] } : {}),
