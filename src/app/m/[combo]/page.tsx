@@ -5,7 +5,6 @@ import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
 import { getMoji } from "@/lib/data";
 import { FeesCard } from "@/components/FeesCard";
-import { FEE_END, feePct } from "@/config/fees";
 import { decodeCombo } from "@/lib/emoji";
 import { dateShort, num, short } from "@/lib/format";
 import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/lib/links";
@@ -48,7 +47,6 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
     live: Boolean(m.snapshot_at),
     error: undefined as string | undefined,
   };
-  const feeNow = m.fee_current != null ? Number(m.fee_current) : null;
   const stock = findStock(m.chain_id, m.stock_address);
   const creator = m.creator_handle
     ? { label: `@${m.creator_handle}`, href: xUrl(m.creator_handle) }
@@ -67,18 +65,6 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
           paired to <span className="text-ink">${m.stock_ticker}</span>
           {stock && <span className="text-[13px]"> · {stock.name}</span>}
         </p>
-        {feeNow != null && (
-          <p className="heading mt-1 text-[13px] text-ink-soft">
-            swap fee{" "}
-            {feeNow > FEE_END ? (
-              <span className="text-coral">
-                {feePct(feeNow)} → {feePct(FEE_END)}
-              </span>
-            ) : (
-              <span className="text-ink">{feePct(feeNow)}</span>
-            )}
-          </p>
-        )}
         {creator && (
           <p className="heading mt-1 text-[13px] text-ink-soft">
             launched by{" "}

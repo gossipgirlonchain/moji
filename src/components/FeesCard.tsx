@@ -9,7 +9,6 @@ import { transportFor } from "@/lib/rpc";
 import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
 import { Label } from "./ui";
 import { chainById } from "@/config/chains";
-import { feePct } from "@/config/fees";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { rehypeHookAddress } from "@/lib/doppler";
 
@@ -82,7 +81,6 @@ export function FeesCard(initial: FeesCardProps) {
             paid in <b className="text-ink">${p.ticker}</b> and <b className="text-ink">{p.combo}</b>
           </p>
         </div>
-        <FeeRate schedule={p.schedule} />
       </div>
 
       <div className="mt-3 flex flex-col gap-3">
@@ -105,29 +103,6 @@ export function FeesCard(initial: FeesCardProps) {
         {p.error ? "couldn't read the pool just now, retrying…" : p.live ? "read live from the pool" : "no on-chain data yet"} · creator 70% · moji treasury 25% · Doppler 5%
       </p>
     </section>
-  );
-}
-
-function FeeRate({ schedule }: { schedule: FeesCardProps["schedule"] }) {
-  const [now, setNow] = useState(() => Date.now() / 1000);
-  useEffect(() => {
-    if (!schedule?.decaying) return;
-    const t = setInterval(() => setNow(Date.now() / 1000), 5000);
-    return () => clearInterval(t);
-  }, [schedule?.decaying]);
-  if (!schedule) return null;
-  const fee = (() => {
-    const s = schedule;
-    if (s.durationSeconds <= 0 || now >= s.startingTime + s.durationSeconds) return s.endFee;
-    if (now <= s.startingTime) return s.startFee;
-    return Math.round(s.startFee - (s.startFee - s.endFee) * ((now - s.startingTime) / s.durationSeconds));
-  })();
-  const decaying = fee > schedule.endFee;
-  return (
-    <span className={`clay-pill heading shrink-0 px-3 py-1.5 text-[12px] ${decaying ? "bg-coral text-white" : "bg-white text-ink"}`} title={decaying ? "swap fee decaying" : "terminal swap fee"}>
-      fee {feePct(fee)}
-      {decaying && <> → {feePct(schedule.endFee)}</>}
-    </span>
   );
 }
 
