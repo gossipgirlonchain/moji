@@ -10,7 +10,7 @@
  * token_address / pool_id / tx_hash / creator_address back to Supabase.
  */
 import { createClient } from "@supabase/supabase-js";
-import { createPublicClient, createWalletClient, http, parseEther } from "viem";
+import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { DopplerSDK, MulticurveBuilder, getAirlockOwner, getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { robinhoodChain } from "../src/config/chains";
