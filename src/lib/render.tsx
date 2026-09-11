@@ -102,10 +102,7 @@ export async function renderOgImage(combo: string, ticker: string): Promise<Imag
               <span style={{ color: "#5A8AA6" }}>/</span>
               <span>{ticker}</span>
             </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ background: "#5FD3AE", color: "#fff", borderRadius: 999, padding: "8px 22px", fontSize: 22, fontWeight: 700, letterSpacing: 2 }}>CLAIMED FOREVER</div>
-              <div style={{ color: "#5A8AA6", fontSize: 26, fontWeight: 700 }}>moji.wtf</div>
-            </div>
+            <div style={{ color: "#5A8AA6", fontSize: 26, fontWeight: 700 }}>moji.wtf</div>
           </div>
         </div>
       </div>
