@@ -64,6 +64,7 @@
 
 html,
 body {
+  overflow-x: hidden;
   background: var(--sky-100);
   color: var(--ink);
   font-family: var(--font-body);

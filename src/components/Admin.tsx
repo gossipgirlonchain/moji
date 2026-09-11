@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
@@ -16,6 +16,9 @@ import { explorerAddress } from "@/lib/links";
 import { Button, Card, Label } from "./ui";
 import { CopyButton } from "./CopyButton";
 import { ClaimButton } from "./FeesCard";
+import { useWallets } from "@privy-io/react-auth";
+import { claimPool } from "@/lib/claim-client";
+import type { Address } from "viem";
 
 export function AdminGate() {
   const router = useRouter();
@@ -106,7 +109,7 @@ export function AdminDashboard() {
       ) : tab === "pools" ? (
         <PoolsView pools={data.pools} />
       ) : (
-        <TreasuryView data={data} />
+        <TreasuryView data={data} reload={load} />
       )}
       <button
         onClick={async () => {
@@ -160,12 +163,97 @@ function Split({ title, b, hint }: { title: string; b: Bucket; hint?: string }) 
   );
 }
 
-function TreasuryView({ data }: { data: Payload }) {
+function ClaimAll({ pools, onDone }: { pools: Pool[]; onDone: () => void }) {
+  const { address } = useAccount();
+  const { wallets } = useWallets();
+  const wallet = wallets.find((w) => address && w.address.toLowerCase() === address.toLowerCase());
+  const isTreasury = Boolean(address && MOJI_TREASURY && address.toLowerCase() === MOJI_TREASURY.toLowerCase());
+  const [running, setRunning] = useState(false);
+  const stopReq = useRef(false); // ref: the loop reads it while a state update would be stale
+  const [progress, setProgress] = useState<string | null>(null);
+  const [log, setLog] = useState<{ combo: string; ok: boolean; note: string }[]>([]);
+  const MIN_USD = 1;
+
+  const targets = pools
+    .filter((p) => (p.fees.sources.pool && p.fees.pendingStockUsd + p.fees.pendingMojiUsd >= MIN_USD) || p.fees.sources.hook)
+    .sort((a, b) => b.fees.pendingUsd - a.fees.pendingUsd);
+  const worth = targets.filter((p) => p.fees.pendingUsd >= MIN_USD);
+
+  async function run() {
+    if (!wallet || !address) return;
+    setRunning(true);
+    stopReq.current = false;
+    setLog([]);
+    let i = 0;
+    for (const p of worth) {
+      if (stopReq.current) break;
+      i++;
+      try {
+        const usdPool = p.fees.bySource ? p.fees.bySource.pool.stock * (p.market.stockPriceUsd || 0) + p.fees.bySource.pool.moji * (p.market.priceUsd || 0) : Infinity;
+        const usdHook = p.fees.bySource ? p.fees.bySource.hook.stock * (p.market.stockPriceUsd || 0) + p.fees.bySource.hook.moji * (p.market.priceUsd || 0) : Infinity;
+        const r = await claimPool(
+          { combo: p.display, chainId: p.chain_id, tokenAddress: p.token_address!, poolId: p.pool_id, sources: p.fees.sources, bySource: p.fees.bySource, usd: { pool: usdPool, hook: usdHook } },
+          wallet,
+          address as Address,
+          { minUsd: MIN_USD, onStep: (k, n, step) => setProgress(`${p.display} · pool ${i} of ${worth.length} · sign ${k} of ${n}: ${step.label}`) },
+        );
+        setLog((l) => [{ combo: p.display, ok: true, note: r.skipped ? "skipped (dust)" : `${r.hashes.length} tx` }, ...l]);
+      } catch (e) {
+        const msg = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
+        const cancelled = /rejected|denied|cancel/i.test(msg);
+        setLog((l) => [{ combo: p.display, ok: false, note: cancelled ? "cancelled" : msg.split("\n")[0].slice(0, 80) }, ...l]);
+        if (cancelled) {
+          // one cancel = stop the run; the user can restart and it will pick up what is left
+          break;
+        }
+      }
+    }
+    setProgress(null);
+    setRunning(false);
+    onDone();
+  }
+
+  if (!isTreasury) return null;
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <Label>Claim all</Label>
+        <span className="text-[12px] text-ink-soft">{worth.length} pools ≥ ${MIN_USD} · up to {worth.length * 2} signatures</span>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Button onClick={run} disabled={running || !wallet || worth.length === 0}>
+          {running ? progress ?? "starting…" : worth.length ? `Claim all (${worth.length})` : "nothing to claim"}
+        </Button>
+        {running && (
+          <button type="button" onClick={() => { stopReq.current = true; }} className="press clay-sm heading shrink-0 bg-white px-4 text-[14px] text-ink">
+            stop
+          </button>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] text-ink-soft">
+        biggest first, two signatures per pool, sub-$1 sources skipped. cancelling a signature stops the run; tap again to continue with what&apos;s left.
+      </p>
+      {log.length > 0 && (
+        <div className="mt-3 flex max-h-[180px] flex-col gap-1 overflow-y-auto text-[12px]">
+          {log.map((l, i) => (
+            <div key={i} className="flex justify-between">
+              <span>{l.combo}</span>
+              <span className={l.ok ? "text-mint" : "text-coral"}>{l.note}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TreasuryView({ data, reload }: { data: Payload; reload: () => void }) {
   const s = data.stats;
   return (
     <>
       <TreasuryWallet />
       <Split title="Treasury unclaimed" b={s.treasury} hint={`${s.treasury.claimable} pools to claim`} />
+      <ClaimAll pools={data.pools} onDone={reload} />
       <Split title="Treasury claimed" b={s.claimed.treasury} hint={`${s.claimed.treasury.count} claims recorded`} />
       {data.pools
         .filter((p) => p.fees.sources.pool || p.fees.sources.hook)
