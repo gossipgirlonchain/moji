@@ -2,7 +2,7 @@
 
 /** X web intent. Works on mobile and desktop with no permissions. */
 export function postItUrl(combo: string, ticker: string, url: string, ca?: string | null): string {
-  const lines = [`just claimed ${combo} paired to $${ticker} on @mojidotwtf 🫡`];
+  const lines = [`${combo} paired to $${ticker} on @mojidotwtf 🫡`];
   if (ca) lines.push("", `CA: ${ca}`);
   lines.push("", url);
   return `https://x.com/intent/post?text=${encodeURIComponent(lines.join("\n"))}`;
