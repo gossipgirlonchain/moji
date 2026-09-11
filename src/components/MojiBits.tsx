@@ -21,8 +21,8 @@ export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
   );
 }
 
-export function EarnerRow({ m, rank }: { m: MojiRow; rank: number }) {
-  const total = Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
+export function EarnerRow({ m, rank }: { m: MojiRow & { earnedUsd?: number }; rank: number }) {
+  const total = m.earnedUsd ?? Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-sky-50 px-4 py-3">
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>

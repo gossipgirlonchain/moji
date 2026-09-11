@@ -30,17 +30,6 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
   return (data ?? []) as MojiRow[];
 }
 
-export async function topEarners(limit = 3): Promise<MojiRow[]> {
-  if (!hasSupabase()) return [];
-  const sb = supabaseServer();
-  const { data } = await sb.from("mojis").select("*").limit(50);
-  const rows = ((data ?? []) as MojiRow[]).map((r) => ({
-    ...r,
-    _total: Number(r.fees_claimed_usd ?? 0) + Number(r.fees_unclaimed_usd ?? 0),
-  }));
-  return rows.sort((a, b) => b._total - a._total).slice(0, limit);
-}
-
 export async function getMoji(comboInput: string): Promise<MojiRow | null> {
   if (!hasSupabase()) return null;
   const combo = normalizeCombo(comboInput);

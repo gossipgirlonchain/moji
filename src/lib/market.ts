@@ -1,6 +1,5 @@
 import "server-only";
-import { createPublicClient, http, formatUnits, type Address } from "viem";
-import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
+import { createPublicClient, http, formatUnits } from "viem";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
 import type { MojiRow } from "./supabase";
@@ -10,9 +9,6 @@ export const INDEXER = process.env.DOPPLER_INDEXER_URL ?? "https://prod.indexer.
 export type Market = {
   priceUsd: number;
   marketCapUsd: number;
-  feesTotalUsd: number;
-  feesUnclaimedUsd: number;
-  feesClaimedUsd: number;
   stockPriceUsd: number;
   live: boolean;
 };
@@ -75,20 +71,12 @@ type IndexerToken = {
 };
 
 /**
- * Live market snapshot for a moji. Uses Dexscreener for USD price/mcap (it prices stock quotes correctly),
- * the Doppler indexer for cumulative pool fees, and the SDK for the creator's unclaimed fees.
- * Falls back to the stored Supabase numbers when the token has no on-chain data yet.
+ * Live price + market cap for a moji. Dexscreener prices stock-quoted pairs correctly; the Doppler
+ * indexer's USD fields assume an ETH quote, so it is only used for the raw numeraire price as a fallback.
+ * Falls back to the stored Supabase market cap when the token has no on-chain data yet.
  */
 export async function getMarket(m: MojiRow): Promise<Market> {
-  const fallback: Market = {
-    priceUsd: 0,
-    marketCapUsd: Number(m.market_cap_usd ?? 0),
-    feesTotalUsd: Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0),
-    feesUnclaimedUsd: Number(m.fees_unclaimed_usd ?? 0),
-    feesClaimedUsd: Number(m.fees_claimed_usd ?? 0),
-    stockPriceUsd: 0,
-    live: false,
-  };
+  const fallback: Market = { priceUsd: 0, marketCapUsd: Number(m.market_cap_usd ?? 0), stockPriceUsd: 0, live: false };
   if (!m.token_address) return fallback;
   const chain = chainById(m.chain_id);
   if (!chain?.viem) return fallback;
@@ -96,7 +84,6 @@ export async function getMarket(m: MojiRow): Promise<Market> {
   const stockPrice = await stockPriceServer(m.chain_id, m.stock_address);
   const supply = Number(m.supply ?? 0);
 
-  // 1) Dexscreener
   let priceUsd = 0;
   let marketCapUsd = 0;
   try {
@@ -111,53 +98,19 @@ export async function getMarket(m: MojiRow): Promise<Market> {
     }
   } catch {}
 
-  // 2) Indexer: price in numeraire + cumulative fees
-  const data = await gql<IndexerToken>(
-    `query T($address: String!, $chainId: BigInt!) { token(address: $address, chainId: $chainId) { totalSupply pool { address price marketCapUsd totalFee0 totalFee1 isToken0 quoteToken { symbol } } } }`,
-    { address: m.token_address.toLowerCase(), chainId: String(m.chain_id) },
-  );
-  const pool = data?.token?.pool ?? null;
-  if (!priceUsd && pool && stockPrice) {
-    priceUsd = Number(pool.price) * stockPrice;
-    marketCapUsd = priceUsd * supply;
+  if (!priceUsd && stockPrice) {
+    const data = await gql<IndexerToken>(
+      `query T($address: String!, $chainId: BigInt!) { token(address: $address, chainId: $chainId) { totalSupply pool { address price marketCapUsd totalFee0 totalFee1 isToken0 } } }`,
+      { address: m.token_address.toLowerCase(), chainId: String(m.chain_id) },
+    );
+    const pool = data?.token?.pool ?? null;
+    if (pool) {
+      priceUsd = Number(pool.price) * stockPrice;
+      marketCapUsd = priceUsd * supply;
+    }
   }
 
-  let feesTotalUsd = fallback.feesTotalUsd;
-  if (pool) {
-    const assetIs0 = pool.isToken0;
-    const fee0 = Number(formatUnits(BigInt(pool.totalFee0 ?? "0"), 18));
-    const fee1 = Number(formatUnits(BigInt(pool.totalFee1 ?? "0"), 18));
-    const assetFees = assetIs0 ? fee0 : fee1;
-    const numFees = assetIs0 ? fee1 : fee0;
-    feesTotalUsd = assetFees * priceUsd + numFees * stockPrice;
-  }
-
-  // 3) Unclaimed for the creator via SDK
-  let feesUnclaimedUsd = fallback.feesUnclaimedUsd;
-  if (m.creator_address) {
-    try {
-      const pc = createPublicClient({ chain: chain.viem, transport: http() });
-      const sdk = new DopplerSDK({ publicClient: pc, chainId: chain.viem.id });
-      const mp = await sdk.getMulticurvePool(m.token_address as Address);
-      const pending = (await mp.getPendingFees(m.creator_address as Address)) as unknown as { fees0?: bigint; fees1?: bigint; amount0?: bigint; amount1?: bigint };
-      const a0 = Number(formatUnits(pending.fees0 ?? pending.amount0 ?? BigInt(0), 18));
-      const a1 = Number(formatUnits(pending.fees1 ?? pending.amount1 ?? BigInt(0), 18));
-      const assetIs0 = pool?.isToken0 ?? BigInt(m.token_address) < BigInt(m.stock_address);
-      feesUnclaimedUsd = assetIs0 ? a0 * priceUsd + a1 * stockPrice : a1 * priceUsd + a0 * stockPrice;
-    } catch {}
-  }
-  const creatorShare = 0.95;
-  const feesClaimedUsd = Math.max(0, feesTotalUsd * creatorShare - feesUnclaimedUsd);
-
-  return {
-    priceUsd,
-    marketCapUsd: marketCapUsd || fallback.marketCapUsd,
-    feesTotalUsd,
-    feesUnclaimedUsd,
-    feesClaimedUsd,
-    stockPriceUsd: stockPrice,
-    live: Boolean(pool || priceUsd),
-  };
+  return { priceUsd, marketCapUsd: marketCapUsd || fallback.marketCapUsd, stockPriceUsd: stockPrice, live: Boolean(priceUsd) };
 }
 
 export type Point = { time: number; value: number };

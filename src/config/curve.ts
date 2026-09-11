@@ -15,8 +15,6 @@ export type CurveDefaults = {
   mcapEnd: number;
   /** Tail curve: extends to 'max' tick with this share of supply */
   tailShare: number;
-  /** Pool fee in hundredths of a bip (3000 = 0.3%) */
-  fee: number;
 };
 
 export const CURVE_DEFAULTS: CurveDefaults = {
@@ -25,7 +23,6 @@ export const CURVE_DEFAULTS: CurveDefaults = {
   mcapStart: 5_000,
   mcapEnd: 2_000_000,
   tailShare: 0.1,
-  fee: 3000,
 };
 
 export function supplyWei(d: CurveDefaults) {

@@ -36,6 +36,7 @@ npm run dev                  # http://localhost:3000
 | `PRIVY_APP_SECRET` | server only | Used by `/api/launch` to verify the caller's Privy access token and record their DID. If unset, launches are still recorded but without DID verification |
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | client + server | Optional RPC override for 4663 (default `https://rpc.mainnet.chain.robinhood.com`) |
 | `DOPPLER_INDEXER_URL` | server | Optional. Default `https://prod.indexer.doppler.lol/graphql` (indexes 4663) |
+| `NEXT_PUBLIC_MOJI_TREASURY` | client + server | Wallet that receives the 25% treasury share of every pool's fees. Launch fails loudly if unset |
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 
 ### Privy dashboard setup
@@ -91,12 +92,34 @@ There is no token name column anywhere. The combo is the name.
 
 - 1B supply, 90% sold on the curve
 - two curves: `$5k → $2M` (90% of shares, 11 positions) and `$2M → max` tail (10%)
-- 0.3% pool fee, `noOp` governance, `noOp` migration, pool locked with beneficiaries
-- fees stream 5% to the Doppler protocol owner (required minimum) and 95% to the creator
+- `noOp` governance, `noOp` migration, pool locked with beneficiaries
+- token type `dopplerERC20V1` (Robinhood Chain has no standard TokenFactory in the SDK map)
 
 Numeraire price comes from the stock's Chainlink feed on Robinhood Chain, falling back to Robinhood's public `rhj/prices` API. Curve start/end and tail share live behind the "advanced" disclosure on `/launch`.
 
 Before enabling LAUNCH the app simulates the create and compares `gasEstimate * gasPrice * 1.2` (or the per-chain floor in `src/config/chains.ts`) with the wallet's native balance.
+
+`npx tsx scripts/check-launch.ts` dry-runs the full param assembly and the Airlock create call against 4663 with a throwaway account (eth_call only). Last run: predicted pool fee `8388608` (dynamic flag), gas ~3.1M.
+
+## Fee structure
+
+Constants live in `src/config/fees.ts`. Units are Uniswap V4 pips, `1_000_000 = 100%`, verified against the SDK (`V4_MAX_FEE = 100_000`, `TICK_SPACINGS[10000] = 200`).
+
+**Swap fee decay: 3% → 1% over 3600s.** `startFee 30_000`, `endFee 10_000`. The SDK's `withDecay()` needs a `v4DecayMulticurveInitializer`, which only exists on Base and Base Sepolia in the SDK address map, so on Robinhood Chain it throws. The schedule is set on the `RehypeDopplerHookInitializer` instead (`withRehypeDopplerHookInitializer({ startFee, endFee, durationSeconds })`), which the SDK turns into a dynamic-fee pool that charges the decaying fee itself. The moji page reads `getFeeSchedule(poolId)` and shows `fee 2.4% → 1.0%` while the decay is running.
+
+**Beneficiaries** (WAD shares, asserted to sum to exactly `1e18` and protocol share to exactly 5% before anything is signed):
+
+| Beneficiary | Share |
+|---|---|
+| launch creator's wallet | `parseEther('0.70')` |
+| moji treasury (`NEXT_PUBLIC_MOJI_TREASURY`) | `parseEther('0.25')` |
+| Doppler protocol owner (`Airlock.owner()`) | `parseEther('0.05')` |
+
+The same list is set as the initializer's lockable `pool.beneficiaries` and as the Rehype hook's `feeBeneficiaries` (`routeToBeneficiaryFees`, 100% of hook fees to the beneficiary bucket, no buybacks, no LP reinvest).
+
+One caveat to know: the Rehype hook itself also skims a fixed 5% of raw hook fees for the Airlock owner before routing the rest, so the protocol's effective take on hook fees is 5% + 5% of the remaining 95%. That skim is in the contract, not configurable. The 5% in the beneficiary list is the minimum the SDK enforces for the initializer-side positions.
+
+**Reading and claiming.** `src/lib/fees.ts` sums the creator's pending fees from both sources, `MulticurvePool.getPendingFees(creator)` and `RehypeDopplerHookInitializer.getPendingFees(poolId, creator)`, and reports them per token (stock amount and moji amount) plus USD. The "Your fees" card's button calls `MulticurvePool.collectFees()` and then the hook (`claimFees(poolId)` for the creator, which collects and releases their share; `collectFees(asset)` for anyone else). It is not gated on being the creator: it reads "Claim" for the creator and "Distribute fees" for everyone else. A successful claim is recorded via `POST /api/mojis/[combo]/claimed` so the claimed total accumulates. Home page top earners rank by the same live pending + recorded claimed.
 
 ## Stocks
 

@@ -5,8 +5,11 @@ import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
 import { getMoji } from "@/lib/data";
 import { getMarket } from "@/lib/market";
+import { getMojiFees } from "@/lib/fees";
+import { FeesCard } from "@/components/FeesCard";
+import { feePct } from "@/config/fees";
 import { decodeCombo } from "@/lib/emoji";
-import { dateShort, num, short, usd } from "@/lib/format";
+import { dateShort, num, short } from "@/lib/format";
 import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/lib/links";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
@@ -24,6 +27,7 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
   const m = await getMoji(decodeCombo(combo));
   if (!m) notFound();
   const market = await getMarket(m);
+  const fees = await getMojiFees(m, { stockUsd: market.stockPriceUsd, mojiUsd: market.priceUsd });
   const chain = chainById(m.chain_id);
   const stock = findStock(m.chain_id, m.stock_address);
   const creator = m.creator_handle
@@ -47,6 +51,18 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
           paired to <span className="text-ink">${m.stock_ticker}</span>
           {stock && <span className="text-[13px]"> · {stock.name}</span>}
         </p>
+        {fees.schedule && (
+          <p className="heading mt-1 text-[13px] text-ink-soft">
+            swap fee{" "}
+            {fees.schedule.decaying ? (
+              <span className="text-coral">
+                {feePct(fees.schedule.currentFee)} → {feePct(fees.schedule.endFee)}
+              </span>
+            ) : (
+              <span className="text-ink">{feePct(fees.schedule.currentFee)}</span>
+            )}
+          </p>
+        )}
         {creator && (
           <p className="heading mt-1 text-[13px] text-ink-soft">
             launched by{" "}
@@ -61,22 +77,20 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         <PriceChart combo={m.display} marketCapUsd={market.marketCapUsd} priceUsd={market.priceUsd} />
       </Card>
 
-      <Card tone="sky" pop={2}>
-        <Label className="mb-3">Fees earned by the creator</Label>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="clay-sm bg-white p-4 text-center">
-            <div className="num text-[28px] leading-none text-mint">{usd(market.feesClaimedUsd)}</div>
-            <div className="heading mt-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">claimed</div>
-          </div>
-          <div className="clay-sm bg-white p-4 text-center">
-            <div className="num text-[28px] leading-none text-mint">{usd(market.feesUnclaimedUsd)}</div>
-            <div className="heading mt-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">unclaimed</div>
-          </div>
-        </div>
-        <p className="mt-3 text-center text-[12px] text-ink-soft">
-          {market.live ? "live from the pool" : "no on-chain activity indexed yet"} · pool fee streams to the creator
-        </p>
-      </Card>
+      <FeesCard
+        combo={m.display}
+        ticker={m.stock_ticker}
+        chainId={m.chain_id}
+        tokenAddress={m.token_address}
+        poolId={m.pool_id}
+        creatorAddress={m.creator_address}
+        pending={fees.pending}
+        pendingUsd={fees.pendingUsd}
+        claimedUsd={fees.claimedUsd}
+        sources={fees.sources}
+        schedule={fees.schedule}
+        live={fees.live}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         {m.token_address ? (

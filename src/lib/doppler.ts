@@ -1,10 +1,11 @@
 "use client";
 
 import { createPublicClient, createWalletClient, custom, http, parseEther, type Address, type EIP1193Provider } from "viem";
-import { DopplerSDK, MulticurveBuilder, getAddresses, getAirlockBeneficiary, WAD } from "@whetstone-research/doppler-sdk/evm";
+import { DopplerSDK, MulticurveBuilder, getAddresses, getAirlockOwner } from "@whetstone-research/doppler-sdk/evm";
 import type { MojiChain } from "@/config/chains";
 import type { Stock } from "@/config/stocks";
 import { CURVE_DEFAULTS, sellWei, supplyWei, type CurveDefaults } from "@/config/curve";
+import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, WAD, assertSharesSumToWad, buildBeneficiaries } from "@/config/fees";
 
 export type LaunchInput = {
   chain: MojiChain;
@@ -25,22 +26,35 @@ export type LaunchResult = {
   supply: string;
 };
 
+export function rehypeHookAddress(chainId: number): Address {
+  const a = getAddresses(chainId) as unknown as { rehypeDopplerHookInitializer?: Address };
+  if (!a.rehypeDopplerHookInitializer) throw new Error(`No RehypeDopplerHookInitializer on chain ${chainId}`);
+  return a.rehypeDopplerHookInitializer;
+}
+
 /**
- * Build multicurve params. Exported so the launch page can simulate gas before sending.
- * Fees: pool is locked with beneficiaries (noOp migration). Protocol owner takes the required 5%,
- * the creator takes the remaining 95%. Anyone can call collectFees() to distribute.
+ * Build multicurve params.
+ *
+ * Fees: the pool swap fee decays 3% → 1% over 3600s. On Robinhood Chain the SDK has no decay
+ * multicurve initializer (withDecay throws), so the schedule is set on the RehypeDopplerHookInitializer,
+ * which makes the pool dynamic-fee and charges startFee → endFee itself.
+ *
+ * Beneficiaries (creator 70 / treasury 25 / protocol owner 5, WAD-summed and asserted) are set in two places:
+ *  - pool.beneficiaries: initializer-side locked LP positions (MulticurvePool.getPendingFees / collectFees)
+ *  - rehype feeBeneficiaries: the hook's own fee bucket, routed to beneficiaries (routeToBeneficiaryFees)
  */
 export async function buildParams(input: LaunchInput) {
   const chainId = input.chain.chainId as 4663;
   const curve = input.curve ?? CURVE_DEFAULTS;
   const mainShare = 1 - curve.tailShare;
   const publicClient = createPublicClient({ chain: input.chain.viem!, transport: http() });
-  const protocol = await getAirlockBeneficiary(publicClient); // 5% to Airlock owner
-  const beneficiaries = [protocol, { beneficiary: input.creator, shares: WAD - protocol.shares }];
+  const protocolOwner = await getAirlockOwner(publicClient);
+  const beneficiaries = buildBeneficiaries(input.creator, protocolOwner);
+  assertSharesSumToWad(beneficiaries, protocolOwner); // fail loudly before anything is signed
 
   return MulticurveBuilder.forChain(chainId)
     .tokenConfig({
-      type: "standard",
+      type: "dopplerERC20V1", // 4663 has no standard TokenFactory, only DopplerERC20V1Factory
       name: input.combo,
       symbol: input.combo,
       tokenURI: `https://moji.wtf/api/meta/${encodeURIComponent(input.combo)}`,
@@ -53,20 +67,33 @@ export async function buildParams(input: LaunchInput) {
     .withCurves({
       numerairePrice: input.stockPriceUsd,
       numeraireDecimals: input.stock.decimals,
-      fee: curve.fee,
+      fee: FEE_END, // terminal fee; the hook overrides with the decaying schedule
+      tickSpacing: FEE_TICK_SPACING,
       curves: [
-        {
-          marketCap: { start: curve.mcapStart, end: curve.mcapEnd },
-          numPositions: 11,
-          shares: parseEther(mainShare.toFixed(6)),
-        },
-        {
-          marketCap: { start: curve.mcapEnd, end: "max" },
-          numPositions: 5,
-          shares: parseEther(curve.tailShare.toFixed(6)),
-        },
+        { marketCap: { start: curve.mcapStart, end: curve.mcapEnd }, numPositions: 11, shares: parseEther(mainShare.toFixed(6)) },
+        { marketCap: { start: curve.mcapEnd, end: "max" }, numPositions: 5, shares: parseEther(curve.tailShare.toFixed(6)) },
       ],
       beneficiaries,
+    })
+    .withRehypeDopplerHookInitializer({
+      hookAddress: rehypeHookAddress(chainId),
+      startFee: FEE_START,
+      endFee: FEE_END,
+      durationSeconds: FEE_DECAY_SECONDS,
+      feeRoutingMode: "routeToBeneficiaryFees",
+      feeBeneficiaries: [beneficiaries[0], ...beneficiaries.slice(1)],
+      // Everything the hook collects goes to the beneficiary bucket. No buybacks, no LP reinvest.
+      feeDistributionInfo: {
+        assetFeesToAssetBuybackWad: 0n,
+        assetFeesToNumeraireBuybackWad: 0n,
+        assetFeesToBeneficiaryWad: WAD,
+        assetFeesToLpWad: 0n,
+        numeraireFeesToAssetBuybackWad: 0n,
+        numeraireFeesToNumeraireBuybackWad: 0n,
+        numeraireFeesToBeneficiaryWad: WAD,
+        numeraireFeesToLpWad: 0n,
+      },
+      buybackDestination: input.creator,
     })
     .withGovernance({ type: "noOp" })
     .withMigration({ type: "noOp" })

@@ -3,7 +3,8 @@ import { Card, Label, LinkButton, Circle } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
 import { ClaimsCounter } from "@/components/ClaimsCounter";
 import { EarnerRow, MojiTile } from "@/components/MojiBits";
-import { claimsCount, listMojis, topEarners } from "@/lib/data";
+import { claimsCount, listMojis } from "@/lib/data";
+import { topEarners } from "@/lib/earners";
 
 export const dynamic = "force-dynamic";
 
