@@ -3,8 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider, createConfig } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http } from "viem";
-import { mainnet, arbitrum, base } from "viem/chains";
+import { mainnet, arbitrum, base, monad } from "viem/chains";
 import { useState } from "react";
 import { SUPPORTED_EVM_CHAINS, robinhoodChain } from "@/config/chains";
 import { transportFor } from "@/lib/rpc";
@@ -17,9 +16,10 @@ export const wagmiConfig = createConfig({
   chains: SUPPORTED_EVM_CHAINS,
   transports: {
     [robinhoodChain.id]: transportFor(robinhoodChain),
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [mainnet.id]: http(),
+    [base.id]: transportFor(base),
+    [arbitrum.id]: transportFor(arbitrum),
+    [mainnet.id]: transportFor(mainnet),
+    [monad.id]: transportFor(monad),
   },
 });
 

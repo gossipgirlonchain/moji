@@ -9,6 +9,7 @@ import type { MojiRow } from "@/lib/supabase";
 import type { MojiFees } from "@/lib/fees";
 import type { Market } from "@/lib/market";
 import { MOJI_TREASURY, feePct } from "@/config/fees";
+import { DEFAULT_CHAIN } from "@/config/chains";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { short, usd } from "@/lib/format";
 import { explorerAddress } from "@/lib/links";
@@ -354,7 +355,7 @@ function TreasuryWallet() {
     <Card pop={0}>
       <Label>Treasury wallet</Label>
       <div className="mt-1 flex items-center justify-between gap-2">
-        <a href={explorerAddress(4663, MOJI_TREASURY)} target="_blank" rel="noopener noreferrer" className="mono text-[13px] text-sky-600">
+        <a href={explorerAddress(DEFAULT_CHAIN.chainId, MOJI_TREASURY)} target="_blank" rel="noopener noreferrer" className="mono text-[13px] text-sky-600">
           {short(MOJI_TREASURY, 8, 6)}
         </a>
         <CopyButton text={MOJI_TREASURY} />

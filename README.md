@@ -150,9 +150,20 @@ One caveat to know: the Rehype hook itself also skims a fixed 5% of raw hook fee
 
 **Reading and claiming.** `src/lib/fees.ts` sums the creator's pending fees from both sources, `MulticurvePool.getPendingFees(creator)` and `RehypeDopplerHookInitializer.getPendingFees(poolId, creator)`, and reports them per token (stock amount and moji amount) plus USD. The "Your fees" card's button calls `MulticurvePool.collectFees()` and then the hook (`claimFees(poolId)` for the creator, which collects and releases their share; `collectFees(asset)` for anyone else). It is not gated on being the creator: it reads "Claim" for the creator and "Distribute fees" for everyone else. Claimed tokens are transferred straight to the beneficiary's wallet as ERC-20s (the stock token and the moji token), one transfer from the DopplerHookInitializer and one from the Rehype hook. Nothing is held by moji. A successful claim is recorded via `POST /api/mojis/[combo]/claimed` so the claimed total accumulates. Home page top earners rank by the same live pending + recorded claimed.
 
-## Stocks
+## Chains and stocks
 
-`src/config/stocks.ts` mirrors the market list the LONG app loads on Robinhood Chain: 63 stock/ETF tokens, every address cross-checked against Robinhood's registry (`GET https://api.robinhood.com/rhj/assets`) and verified on-chain via `symbol()/name()/decimals()`. Solana, Ethereum, Arbitrum, Base and Monad are present with `comingSoon: true` and render as disabled "soon" pills. See `src/config/stocks.notes.md` for sources.
+`src/config/chains.ts` is the single source of truth: each chain has a viem definition, gas symbol, gas floor, Dexscreener/Matcha slugs and a `live` flag. A chain is claimable when `live` is true **and** it has stock inventory in `src/config/stocks.ts`. Doppler is deployed (Airlock, DopplerHookInitializer, RehypeDopplerHookInitializer, DopplerERC20V1 factory, noOp governance and migrator) on every EVM chain listed here; `npx tsx scripts/check-launch.ts` with `CHAIN=<id> NUMERAIRE=<token>` dry-runs the create call against any of them.
+
+| chain | id | gas | stock inventory |
+|---|---|---|---|
+| Robinhood Chain (default) | 4663 | ETH | 63 Robinhood Stock Tokens, the LONG list, all verified on-chain (`src/config/stocks.notes.md`) |
+| Base | 8453 | ETH | see `stocks.ts` |
+| Arbitrum One | 42161 | ETH | see `stocks.ts` |
+| Ethereum | 1 | ETH | see `stocks.ts` |
+| Monad | 143 | MON | see `stocks.ts` |
+| Solana | | SOL | soon: needs the Solana Doppler SDK and Solana wallets, a separate integration |
+
+Stock prices for the numeraire come from the token's Chainlink feed where one exists (Robinhood Chain), otherwise Robinhood's public quote API by ticker. RPC reads go through per-chain fallback lists with retries (`src/lib/rpc.ts`).
 
 ## Seeding
 

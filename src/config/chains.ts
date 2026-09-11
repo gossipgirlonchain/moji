@@ -1,5 +1,5 @@
 import { defineChain, type Chain } from "viem";
-import { mainnet, arbitrum, base } from "viem/chains";
+import { mainnet, arbitrum, base, monad } from "viem/chains";
 
 /**
  * Robinhood Chain (chainId 4663).
@@ -43,7 +43,7 @@ export type MojiChain = {
   /** Minimum native balance we require before enabling LAUNCH (fallback when simulation is unavailable). */
   minGasNative: string;
   /**
-   * Chain staging. Only live chains are claimable; the rest render as disabled "soon" pills.
+   * Chain staging. Only live chains with stock inventory are claimable; the rest render as disabled "soon" pills.
    * Flip this one flag to switch a chain on. Nothing else needs to change.
    */
   live: boolean;
@@ -85,8 +85,8 @@ export const CHAINS: MojiChain[] = [
     emoji: "💎",
     viem: mainnet,
     gasSymbol: mainnet.nativeCurrency.symbol,
-    minGasNative: "0.01",
-    live: false,
+    minGasNative: "0.005",
+    live: true,
     dexscreenerSlug: "ethereum",
     matchaSlug: "ethereum",
   },
@@ -98,8 +98,8 @@ export const CHAINS: MojiChain[] = [
     emoji: "🔷",
     viem: arbitrum,
     gasSymbol: arbitrum.nativeCurrency.symbol,
-    minGasNative: "0.001",
-    live: false,
+    minGasNative: "0.0005",
+    live: true,
     dexscreenerSlug: "arbitrum",
     matchaSlug: "arbitrum",
   },
@@ -111,8 +111,8 @@ export const CHAINS: MojiChain[] = [
     emoji: "🔵",
     viem: base,
     gasSymbol: base.nativeCurrency.symbol,
-    minGasNative: "0.001",
-    live: false,
+    minGasNative: "0.0005",
+    live: true,
     dexscreenerSlug: "base",
     matchaSlug: "base",
   },
@@ -122,10 +122,12 @@ export const CHAINS: MojiChain[] = [
     name: "Monad",
     short: "Monad",
     emoji: "🟪",
-    gasSymbol: "MON",
-    minGasNative: "0.1",
-    live: false,
+    viem: monad,
+    gasSymbol: monad.nativeCurrency.symbol,
+    minGasNative: "0.5",
+    live: true,
     dexscreenerSlug: "monad",
+    matchaSlug: "monad",
   },
 ];
 
@@ -139,4 +141,7 @@ export function chainByKey(key: ChainKey): MojiChain {
 }
 
 /** EVM chains Privy/wagmi should know about. Robinhood is default. */
-export const SUPPORTED_EVM_CHAINS = [robinhoodChain, base, arbitrum, mainnet] as const;
+export const SUPPORTED_EVM_CHAINS = [robinhoodChain, base, arbitrum, mainnet, monad] as const;
+
+/** Chains a launch can actually happen on: live flag AND a viem definition. Stock inventory is checked separately. */
+export const LAUNCHABLE_CHAIN_IDS = CHAINS.filter((c) => c.live && c.viem).map((c) => c.chainId);

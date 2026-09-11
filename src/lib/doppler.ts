@@ -2,7 +2,7 @@
 
 import { createPublicClient, createWalletClient, custom, parseEther, type Address, type EIP1193Provider } from "viem";
 import { transportFor } from "@/lib/rpc";
-import { DopplerSDK, MulticurveBuilder, getAddresses, getAirlockOwner } from "@whetstone-research/doppler-sdk/evm";
+import { DopplerSDK, MulticurveBuilder, getAddresses, getAirlockOwner, isSupportedChainId, type SupportedChainId } from "@whetstone-research/doppler-sdk/evm";
 import type { MojiChain } from "@/config/chains";
 import type { Stock } from "@/config/stocks";
 import { CURVE_DEFAULTS, sellWei, supplyWei, type CurveDefaults } from "@/config/curve";
@@ -46,7 +46,8 @@ export function rehypeHookAddress(chainId: number): Address {
  *  - rehype feeBeneficiaries: the hook's own fee bucket, routed to beneficiaries (routeToBeneficiaryFees)
  */
 export async function buildParams(input: LaunchInput) {
-  const chainId = input.chain.chainId as 4663;
+  if (!isSupportedChainId(input.chain.chainId)) throw new Error(`Doppler is not deployed on chain ${input.chain.chainId}`);
+  const chainId = input.chain.chainId as SupportedChainId as 4663; // every launchable chain here is noOp-enabled; narrow for the builder generics
   const curve = input.curve ?? CURVE_DEFAULTS;
   const mainShare = 1 - curve.tailShare;
   const publicClient = createPublicClient({ chain: input.chain.viem!, transport: transportFor(input.chain.viem!) });
