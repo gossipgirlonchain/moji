@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
-import { useAccount, useBalance, usePublicClient, useReadContracts, useSendTransaction, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useAccount, useBalance, usePublicClient, useReadContracts, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { erc20Abi, formatUnits, isAddress, parseEther, parseUnits, type Address } from "viem";
 import { DEFAULT_CHAIN } from "@/config/chains";
 import { findStock } from "@/config/stocks";
@@ -198,6 +198,8 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
   const asset = assets.find((a) => a.key === assetKey) ?? assets[0];
   const publicClient = usePublicClient({ chainId });
   const { sendTransactionAsync, isPending: sendingEth } = useSendTransaction();
+  const { switchChainAsync } = useSwitchChain();
+  const { chainId: walletChainId } = useAccount();
   const { writeContractAsync, isPending: sendingToken } = useWriteContract();
   const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash, chainId, query: { enabled: Boolean(hash) } });
   const busy = sendingEth || sendingToken || confirming;
@@ -233,6 +235,7 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
     if (value <= 0n) return setErr("Amount must be more than 0");
     if (value > asset.balance) return setErr(`Not enough ${asset.symbol}`);
     try {
+      if (walletChainId !== chainId) await switchChainAsync({ chainId });
       const h =
         asset.key === "eth"
           ? await sendTransactionAsync({ to: target as Address, value, chainId })

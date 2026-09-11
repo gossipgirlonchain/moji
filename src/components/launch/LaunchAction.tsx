@@ -13,6 +13,7 @@ import type { CurveDefaults } from "@/config/curve";
 import { estimateLaunchGasWei, launchMoji } from "@/lib/doppler";
 import { stockPriceUsd } from "@/lib/price";
 import { FundWalletCard } from "./FundWallet";
+import { ensureChain } from "@/lib/wallet";
 import { PostIt } from "@/components/PostIt";
 import Link from "next/link";
 import { SITE_URL } from "@/lib/network";
@@ -77,8 +78,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
     setError(null);
     try {
       setPhase("pricing");
-      await wallet.switchChain(chainId);
-      const provider = (await wallet.getEthereumProvider()) as EIP1193Provider;
+      const provider = await ensureChain(wallet, chain.viem);
       const price = await stockPriceUsd(stock);
 
       setPhase("signing");
@@ -108,8 +108,16 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
       router.prefetch(href);
     } catch (e) {
       setPhase("idle");
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg.length > 220 ? msg.slice(0, 220) + "…" : msg);
+      const raw = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
+      const m = raw.toLowerCase();
+      const msg = m.includes("does not match the target chain") || m.includes("chain mismatch")
+        ? `your wallet is on the wrong network. switch it to ${chain.name} and tap launch again.`
+        : m.includes("rejected") || m.includes("denied")
+          ? "cancelled in your wallet."
+          : m.includes("insufficient funds")
+            ? `not enough ${chain.gasSymbol} on ${chain.name} for gas.`
+            : raw.split("\n")[0].slice(0, 220);
+      setError(msg);
       void refetch();
     }
   }

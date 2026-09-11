@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useWallets } from "@privy-io/react-auth";
-import { createPublicClient, createWalletClient, custom, type Address, type EIP1193Provider, type Hex } from "viem";
+import { createPublicClient, createWalletClient, custom, type Address, type Hex } from "viem";
 import { transportFor } from "@/lib/rpc";
+import { ensureChain } from "@/lib/wallet";
 import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
 import { Label } from "./ui";
 import { chainById } from "@/config/chains";
@@ -129,8 +130,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
     setErr(null);
     setNote(null);
     try {
-      await wallet.switchChain(chain.chainId);
-      const provider = (await wallet.getEthereumProvider()) as EIP1193Provider;
+      const provider = await ensureChain(wallet, chain.viem);
       const publicClient = createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) });
       const walletClient = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
       const sdk = new DopplerSDK({ publicClient, walletClient, chainId: chain.viem.id });
@@ -213,6 +213,6 @@ function friendly(e: unknown): string {
   const m = raw.toLowerCase();
   if (m.includes("rejected") || m.includes("denied") || m.includes("cancel")) return "cancelled in your wallet.";
   if (m.includes("insufficient funds") || m.includes("gas")) return "not enough ETH on Robinhood Chain for gas.";
-  if (m.includes("chain") && m.includes("switch")) return "switch your wallet to Robinhood Chain and try again.";
+  if (m.includes("does not match the target chain") || m.includes("chain mismatch") || (m.includes("chain") && m.includes("switch"))) return "your wallet is on the wrong network. switch it and try again.";
   return raw.split("\n")[0].slice(0, 90);
 }
