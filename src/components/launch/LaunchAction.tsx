@@ -148,7 +148,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
         <Button size="lg" onClick={linkTwitter} className="pop pop-4">
           Link X to claim
         </Button>
-        <p className="text-center text-[12px] text-ink-soft">claims need an X account. one claim per account per hour.</p>
+        <p className="text-center text-[12px] text-ink-soft">claims need an X account. one claim per account every 15 minutes.</p>
       </div>
     );
   }

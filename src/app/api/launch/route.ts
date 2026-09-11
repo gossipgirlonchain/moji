@@ -11,7 +11,7 @@ import { refreshOne } from "@/lib/snapshot";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const CLAIM_WINDOW_MS = 60 * 60 * 1000;
+const CLAIM_WINDOW_MS = 15 * 60 * 1000;
 
 type Body = {
   combo: string;
@@ -29,7 +29,7 @@ type Body = {
  * Records a successful on-chain launch. Rules enforced here, not on the client:
  *  - caller must present a valid Privy access token (DID)
  *  - that DID must have a linked X account (read from Privy server-side)
- *  - one claim per DID per hour
+ *  - one claim per DID per 15 minutes
  *  - chain must be live, stock must be on the curated list
  * Inserts the claim (unique index on (combo, network) is the permanence guarantee) and the moji row,
  * then renders the token image into Supabase Storage.
@@ -66,13 +66,13 @@ export async function POST(req: Request) {
 
   const sb = supabaseServer();
 
-  // Rate limit: one claim per X account (DID) per hour.
+  // Rate limit: one claim per X account (DID) per 15 minutes.
   const since = new Date(Date.now() - CLAIM_WINDOW_MS).toISOString();
   const { data: recent } = await sb.from("mojis").select("launched_at").eq("creator_did", did).gte("launched_at", since).order("launched_at", { ascending: false }).limit(1);
   if (recent && recent.length > 0) {
     const next = new Date(new Date(recent[0].launched_at).getTime() + CLAIM_WINDOW_MS);
     const mins = Math.max(1, Math.ceil((next.getTime() - Date.now()) / 60000));
-    return NextResponse.json({ error: `One claim per hour. Try again in ${mins} min.` }, { status: 429 });
+    return NextResponse.json({ error: `One claim every 15 minutes. Try again in ${mins} min.` }, { status: 429 });
   }
 
   const { error: claimErr } = await sb.from("claims").insert({ combo: v.normalized, display: v.display, chain_id: chain.chainId, network: NETWORK });

@@ -101,7 +101,7 @@ Exact normalization rule, implemented in `src/lib/emoji.ts` and checked by `npx 
 
 - Launching requires a Privy account with a linked X account. Wallet-only users can browse, view any moji and open the trade links; their LAUNCH button reads "Link X to claim" and opens Privy's X link flow.
 - `POST /api/launch` verifies the Privy access token, reads the DID's linked accounts from Privy server-side (`@privy-io/node`), and refuses without `twitter_oauth`. The X handle written to the row comes from Privy, not the client.
-- Rate limit: one claim per DID per hour, enforced server-side against `mojis.creator_did`. Returns 429 with the minutes remaining.
+- Rate limit: one claim per DID per 15 minutes, enforced server-side against `mojis.creator_did`. Returns 429 with the minutes remaining.
 - Only chains with `live: true` in `src/config/chains.ts` are claimable. Flip that flag to switch a chain on; nothing else changes. Right now only Robinhood Chain is live.
 - The claim insert goes first; the unique index is the permanence guarantee. A conflict returns 409 and nothing else is written.
 
