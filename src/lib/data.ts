@@ -4,7 +4,7 @@ import { hasSupabase, supabaseServer, type MojiRow, type ClaimRow } from "./supa
 import { normalizeCombo } from "./emoji";
 import { NETWORK } from "./network";
 
-export type SortKey = "newest" | "mcap" | "fees";
+export type SortKey = "newest" | "mcap" | "fees" | "volume";
 
 export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: number } = {}): Promise<MojiRow[]> {
   if (!hasSupabase()) return [];
@@ -17,6 +17,9 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
   switch (opts.sort ?? "newest") {
     case "mcap":
       query = query.order("market_cap_usd", { ascending: false, nullsFirst: false });
+      break;
+    case "volume":
+      query = query.order("volume24_usd", { ascending: false, nullsFirst: false });
       break;
     case "fees":
       query = query.order("fees_unclaimed_usd", { ascending: false, nullsFirst: false }).order("fees_claimed_usd", { ascending: false, nullsFirst: false });

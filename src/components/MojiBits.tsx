@@ -50,6 +50,7 @@ export function EarnerRow({ m, rank }: { m: MojiRow & { earnedUsd?: number }; ra
 
 export function MojiListRow({ m }: { m: MojiRow }) {
   const total = Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
+  const vol = Number(m.volume24_usd ?? 0);
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-white px-4 py-3">
       <span className="text-[30px] leading-none">{m.display}</span>
@@ -57,11 +58,13 @@ export function MojiListRow({ m }: { m: MojiRow }) {
         <span className="heading block text-[15px] text-ink">
           {m.display} / {m.stock_ticker}
         </span>
-        <span className="heading block text-[12px] text-ink-soft">mcap {usd(m.market_cap_usd)}</span>
+        <span className="heading block text-[12px] text-ink-soft">
+          {vol > 0 ? `vol ${usd(vol)} · ` : ""}fees <span className="text-mint">{usd(total)}</span>
+        </span>
       </span>
       <span className="text-right">
-        <span className="heading block text-[15px] text-mint">{usd(total)}</span>
-        <span className="heading block text-[11px] uppercase tracking-[0.1em] text-ink-soft">fees</span>
+        <span className="heading block text-[17px] text-ink">{usd(m.market_cap_usd)}</span>
+        <span className="heading block text-[11px] uppercase tracking-[0.1em] text-ink-soft">mcap</span>
       </span>
     </Link>
   );

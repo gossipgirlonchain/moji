@@ -5,7 +5,7 @@ export const revalidate = 30;
 export const metadata = { title: "explore mojis" };
 
 export default async function ExplorePage() {
-  const initial = await listMojis({ sort: "newest" });
+  const initial = await listMojis({ sort: "mcap" });
   return (
     <main className="flex flex-col gap-4">
       <h1 className="pop text-center text-[30px] text-sky-600">explore</h1>

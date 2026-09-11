@@ -6,15 +6,16 @@ import { MojiListRow } from "./MojiBits";
 import { Pill } from "./ui";
 
 const SORTS = [
-  ["newest", "newest"],
   ["mcap", "market cap"],
-  ["fees", "fees earned"],
+  ["volume", "volume"],
+  ["newest", "newest"],
+  ["fees", "fees"],
 ] as const;
 type Sort = (typeof SORTS)[number][0];
 
 export function ExploreList({ initial }: { initial: MojiRow[] }) {
   const [rows, setRows] = useState(initial);
-  const [sort, setSort] = useState<Sort>("newest");
+  const [sort, setSort] = useState<Sort>("mcap");
   const [q, setQ] = useState("");
 
   useEffect(() => {
