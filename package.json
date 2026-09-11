@@ -1,0 +1,44 @@
+{
+  "name": "moji",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "seed": "tsx scripts/seed-launch.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
+    "@privy-io/node": "^0.34.0",
+    "@privy-io/react-auth": "^3.42.0",
+    "@privy-io/wagmi": "^4.0.17",
+    "@stripe/stripe-js": "^9.16.0",
+    "@supabase/supabase-js": "^2.116.0",
+    "@tanstack/react-query": "^5.102.8",
+    "@whetstone-research/doppler-sdk": "^1.0.41",
+    "emoji-mart": "^5.6.0",
+    "emoji-regex": "^10.6.0",
+    "lightweight-charts": "^5.2.1",
+    "next": "15.5.25",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "viem": "^2.56.0",
+    "wagmi": "^3.7.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.25",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.13",
+    "typescript": "^5"
+  }
+}
