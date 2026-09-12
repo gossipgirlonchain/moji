@@ -42,7 +42,12 @@ export type MojiRow = {
   volume1h_usd: number | null;
   volume6h_usd: number | null;
   volume_all_usd: number | null;
+  volume7d_usd: number | null;
+  volume30d_usd: number | null;
   txns_all: number | null;
+  txns7d: number | null;
+  txns30d: number | null;
+  txns24: number | null;
   volume_all_at: string | null;
   fees_stock_pending: number | null;
   fees_moji_pending: number | null;

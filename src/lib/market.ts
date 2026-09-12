@@ -180,28 +180,43 @@ export async function getMarket(m: MojiRow): Promise<Market> {
 }
 
 /**
- * All-time volume and trade count for a pool, from the Doppler indexer's swap history (swapValueUsd,
- * 18-decimal USD). Paginates with the indexer's cursor. Capped at 20 pages (20k swaps) per call.
+ * Volume and trade counts over 7d / 30d / all time for a pool, from the Doppler indexer's swap history
+ * (swapValueUsd, 18-decimal USD). Paginates newest-first with the indexer's cursor; capped at 20k swaps.
  */
-export async function allTimeVolume(m: MojiRow): Promise<{ volumeUsd: number; txns: number } | null> {
+export type WindowedVolume = { all: number; d7: number; d30: number; txnsAll: number; txns7: number; txns30: number };
+export async function windowedVolume(m: MojiRow): Promise<WindowedVolume | null> {
   if (!m.pool_id) return null;
+  type Page = { swaps: { items: { swapValueUsd: string; timestamp: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } };
+  const now = Math.floor(Date.now() / 1000);
+  const t7 = now - 7 * 86400;
+  const t30 = now - 30 * 86400;
+  const out: WindowedVolume = { all: 0, d7: 0, d30: 0, txnsAll: 0, txns7: 0, txns30: 0 };
   let after: string | null = null as string | null;
-  let volume = 0;
-  let txns = 0;
   for (let page = 0; page < 20; page++) {
-    type Page = { swaps: { items: { swapValueUsd: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } };
     const data: Page | null = await gql<Page>(
-      `query S($pool: String!, $after: String) { swaps(where: { pool: $pool }, orderBy: "timestamp", orderDirection: "desc", limit: 1000, after: $after) { items { swapValueUsd } pageInfo { hasNextPage endCursor } } }`,
+      `query S($pool: String!, $after: String) { swaps(where: { pool: $pool }, orderBy: "timestamp", orderDirection: "desc", limit: 1000, after: $after) { items { swapValueUsd timestamp } pageInfo { hasNextPage endCursor } } }`,
       { pool: m.pool_id.toLowerCase(), after },
     );
     const sw: Page["swaps"] | undefined = data?.swaps;
-    if (!sw) return page === 0 ? null : { volumeUsd: volume, txns };
-    for (const it of sw.items) volume += Number(formatUnits(BigInt(it.swapValueUsd ?? "0"), 18));
-    txns += sw.items.length;
+    if (!sw) return page === 0 ? null : out;
+    for (const it of sw.items) {
+      const v = Number(formatUnits(BigInt(it.swapValueUsd ?? "0"), 18));
+      const t = Number(it.timestamp);
+      out.all += v;
+      out.txnsAll++;
+      if (t >= t30) {
+        out.d30 += v;
+        out.txns30++;
+      }
+      if (t >= t7) {
+        out.d7 += v;
+        out.txns7++;
+      }
+    }
     if (!sw.pageInfo.hasNextPage || !sw.pageInfo.endCursor) break;
     after = sw.pageInfo.endCursor;
   }
-  return { volumeUsd: volume, txns };
+  return out;
 }
 
 export type Point = { time: number; value: number };

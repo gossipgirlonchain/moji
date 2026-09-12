@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer, type MojiRow } from "./supabase";
-import { allTimeVolume, getMarket } from "./market";
+import { windowedVolume, getMarket } from "./market";
 import { getMojiFees } from "./fees";
 import { NETWORK } from "./network";
 
@@ -28,15 +28,20 @@ export async function refreshSnapshots(limit = 300, concurrency = 6): Promise<{ 
           volume24_usd: market.volume24Usd,
           volume6h_usd: market.volume6hUsd,
           volume1h_usd: market.volume1hUsd,
+          txns24: market.txns24,
           snapshot_at: new Date().toISOString(),
         };
         // All-time volume walks the swap history; refresh it every 10 minutes per pool.
         const stale = !m.volume_all_at || Date.now() - new Date(m.volume_all_at).getTime() > 10 * 60_000;
         if (stale) {
-          const all = await allTimeVolume(m);
-          if (all) {
-            patch.volume_all_usd = all.volumeUsd;
-            patch.txns_all = all.txns;
+          const w = await windowedVolume(m);
+          if (w) {
+            patch.volume_all_usd = w.all;
+            patch.volume7d_usd = w.d7;
+            patch.volume30d_usd = w.d30;
+            patch.txns_all = w.txnsAll;
+            patch.txns7d = w.txns7;
+            patch.txns30d = w.txns30;
             patch.volume_all_at = new Date().toISOString();
           }
         }

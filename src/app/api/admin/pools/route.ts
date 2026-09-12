@@ -51,10 +51,31 @@ export async function GET() {
   };
 
   const claims = (claimsData ?? []) as ClaimRow[];
-  const claimed = (role: string) => {
-    const rows = claims.filter((c) => c.role === role);
+  const claimed = (role: string, sinceMs = 0) => {
+    const rows = claims.filter((c) => c.role === role && new Date(c.created_at).getTime() >= sinceMs);
     return { count: rows.length, stockUsd: rows.reduce((t, c) => t + Number(c.stock_usd), 0), mojiUsd: rows.reduce((t, c) => t + Number(c.moji_usd), 0) };
   };
+
+  // Per-window view: launches / creators / volume / trades / claimed fees. Point-in-time numbers stay outside.
+  const dayMs0 = 86400000;
+  const WINDOWS = { "24h": dayMs0, "7d": 7 * dayMs0, "30d": 30 * dayMs0, all: Infinity } as const;
+  const windows: Record<string, unknown> = {};
+  for (const [key, span] of Object.entries(WINDOWS)) {
+    const since = span === Infinity ? 0 : Date.now() - span;
+    const launched = all.filter((m) => new Date(m.launched_at).getTime() >= since);
+    const vol = (p: (typeof pools)[number]) => key === "24h" ? p.market.volume24Usd : key === "7d" ? Number(p.volume7d_usd ?? 0) : key === "30d" ? Number(p.volume30d_usd ?? 0) : Number(p.volume_all_usd ?? 0);
+    const tx = (p: (typeof pools)[number]) => key === "24h" ? p.market.txns24 : key === "7d" ? Number(p.txns7d ?? 0) : key === "30d" ? Number(p.txns30d ?? 0) : Number(p.txns_all ?? 0);
+    windows[key] = {
+      launches: launched.length,
+      creators: new Set(launched.map((m) => (m.creator_did ?? m.creator_address ?? "").toLowerCase())).size,
+      withX: launched.filter((m) => m.creator_handle).length,
+      stocks: new Set(launched.map((m) => m.stock_ticker)).size,
+      volume: sum(vol),
+      txns: sum(tx),
+      topVolume: [...pools].sort((a, b) => vol(b) - vol(a)).slice(0, 5).map((p) => ({ display: p.display, ticker: p.stock_ticker, v: vol(p) })),
+      claimed: { treasury: claimed("treasury", since), creator: claimed("creator", since) },
+    };
+  }
 
   // Launches per day (last 14 days) and per-stock distribution
   const days: Record<string, number> = {};
@@ -105,6 +126,7 @@ export async function GET() {
     creators,
     claimed: { treasury: claimed("treasury"), creator: claimed("creator") },
     recentClaims: claims.slice(0, 10),
+    windows,
   };
 
   return NextResponse.json({ treasury: MOJI_TREASURY, pools, stats }, { headers: { "cache-control": "no-store" } });

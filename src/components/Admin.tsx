@@ -54,8 +54,11 @@ type Stats = {
   top: { mcap: TopRow[]; volume: TopRow[]; volumeAll: TopRow[]; treasury: TopRow[] };
   treasury: Bucket; creators: Bucket; claimed: { treasury: Bucket; creator: Bucket };
   recentClaims: { role: string; combo: string; stock_ticker: string | null; stock_amount: number; moji_amount: number; stock_usd: number; moji_usd: number; created_at: string }[];
+  windows: Record<WindowKey, WindowStats>;
 };
 type TopRow = { display: string; ticker: string; v: number };
+type WindowStats = { launches: number; creators: number; withX: number; stocks: number; volume: number; txns: number; topVolume: TopRow[]; claimed: { treasury: Bucket; creator: Bucket } };
+type WindowKey = "24h" | "7d" | "30d" | "all";
 type Payload = { treasury: string; pools: Pool[]; stats: Stats };
 const [tabs] = [["treasury", "stats", "pools"] as const];
 type Tab = (typeof tabs)[number];
@@ -388,6 +391,9 @@ function PoolRow({ p, i, claim }: { p: Pool; i: number; claim?: boolean }) {
 }
 
 function StatsView({ s }: { s: Stats }) {
+  const [w, setW] = useState<WindowKey>("24h");
+  const ws = s.windows[w];
+  const label = w === "all" ? "all time" : `last ${w}`;
   const max = Math.max(1, ...s.launchesPerDay.map((d) => d.n));
   const Top = ({ title, rows }: { title: string; rows: TopRow[] }) => (
     <Card>
@@ -407,15 +413,22 @@ function StatsView({ s }: { s: Stats }) {
   );
   return (
     <>
+      <div className="flex justify-center gap-2 md:col-span-2">
+        {(["24h", "7d", "30d", "all"] as WindowKey[]).map((k) => (
+          <button key={k} type="button" onClick={() => setW(k)} data-pressed={w === k ? "true" : undefined} className={`press clay-pill heading px-4 py-2 text-[14px] ${w === k ? "bg-sky-500 text-white" : "bg-white text-ink"}`}>
+            {k === "all" ? "all time" : k}
+          </button>
+        ))}
+      </div>
       <Card tone="sky">
-        <Label className="mb-3">Launches</Label>
+        <Label className="mb-3">Launches · {label}</Label>
         <div className="grid grid-cols-3 gap-2">
-          <Tile v={String(s.pools)} k="live pools" />
-          <Tile v={String(s.launches24h)} k="last 24h" />
-          <Tile v={String(s.launches7d)} k="last 7d" />
-          <Tile v={String(s.uniqueCreators)} k="creators" />
-          <Tile v={String(s.withX)} k="with X linked" />
-          <Tile v={String(s.distinctStocks)} k="stocks used" />
+          <Tile v={String(ws.launches)} k={`launched · ${label}`} />
+          <Tile v={String(ws.creators)} k="creators" />
+          <Tile v={String(ws.withX)} k="with X linked" />
+          <Tile v={String(ws.stocks)} k="stocks used" />
+          <Tile v={String(s.pools)} k="live pools (now)" />
+          <Tile v={String(s.combosClaimed)} k="combos claimed (now)" />
         </div>
         <div className="mt-4 flex h-[72px] items-end gap-1">
           {s.launchesPerDay.map((d) => (
@@ -428,28 +441,28 @@ function StatsView({ s }: { s: Stats }) {
       </Card>
 
       <Card tone="sky">
-        <Label className="mb-3">Markets · rolling windows, all time since launch</Label>
+        <Label className="mb-3">Markets · {label} (rolling)</Label>
         <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
-          <Tile v={usd(s.totalMcap)} k="total mcap" />
-          <Tile v={usd(s.liquidity)} k="liquidity" />
-          <Tile v={usd(s.volumeAll)} k="volume all time" tone="mint" />
-          <Tile v={s.txnsAll.toLocaleString()} k="trades all time" />
-          <Tile v={usd(s.volume24)} k="volume 24h" />
+          <Tile v={usd(ws.volume)} k={`volume · ${label}`} tone="mint" />
+          <Tile v={ws.txns.toLocaleString()} k={`trades · ${label}`} />
+          <Tile v={usd(s.totalMcap)} k="total mcap (now)" />
+          <Tile v={usd(s.liquidity)} k="liquidity (now)" />
           <Tile v={usd(s.volume6h)} k="volume 6h" />
           <Tile v={usd(s.volume1h)} k="volume 1h" />
-          <Tile v={s.txns24.toLocaleString()} k="trades 24h" />
+          <Tile v={usd(s.volumeAll)} k="volume all time" />
+          <Tile v={s.txnsAll.toLocaleString()} k="trades all time" />
         </div>
       </Card>
 
-      <Split title="Treasury unclaimed" b={s.treasury} />
-      <Split title="Creators unclaimed (all pools)" b={s.creators} />
-      <Split title="Treasury claimed" b={s.claimed.treasury} hint={`${s.claimed.treasury.count} claims`} />
-      <Split title="Creators claimed" b={s.claimed.creator} hint={`${s.claimed.creator.count} claims`} />
+      <Split title="Treasury unclaimed (now)" b={s.treasury} />
+      <Split title="Creators unclaimed (now, all pools)" b={s.creators} />
+      <Split title={`Treasury claimed · ${label}`} b={ws.claimed.treasury} hint={`${ws.claimed.treasury.count} claims`} />
+      <Split title={`Creators claimed · ${label}`} b={ws.claimed.creator} hint={`${ws.claimed.creator.count} claims`} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Top title="Top by market cap" rows={s.top.mcap} />
+        <Top title={`Top by volume · ${label}`} rows={ws.topVolume} />
         <Top title="Top by all-time volume" rows={s.top.volumeAll} />
-        <Top title="Top by 24h volume" rows={s.top.volume} />
         <Top title="Top treasury earners" rows={s.top.treasury} />
       </div>
 
