@@ -39,6 +39,11 @@ export type MojiRow = {
   network: "mainnet" | "testnet";
   price_usd: number | null;
   volume24_usd: number | null;
+  volume1h_usd: number | null;
+  volume6h_usd: number | null;
+  volume_all_usd: number | null;
+  txns_all: number | null;
+  volume_all_at: string | null;
   fees_stock_pending: number | null;
   fees_moji_pending: number | null;
   fee_current: number | null;

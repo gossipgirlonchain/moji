@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer, type MojiRow } from "./supabase";
-import { getMarket } from "./market";
+import { allTimeVolume, getMarket } from "./market";
 import { getMojiFees } from "./fees";
 import { NETWORK } from "./network";
 
@@ -26,8 +26,20 @@ export async function refreshSnapshots(limit = 300, concurrency = 6): Promise<{ 
           market_cap_usd: market.marketCapUsd,
           price_usd: market.priceUsd,
           volume24_usd: market.volume24Usd,
+          volume6h_usd: market.volume6hUsd,
+          volume1h_usd: market.volume1hUsd,
           snapshot_at: new Date().toISOString(),
         };
+        // All-time volume walks the swap history; refresh it every 10 minutes per pool.
+        const stale = !m.volume_all_at || Date.now() - new Date(m.volume_all_at).getTime() > 10 * 60_000;
+        if (stale) {
+          const all = await allTimeVolume(m);
+          if (all) {
+            patch.volume_all_usd = all.volumeUsd;
+            patch.txns_all = all.txns;
+            patch.volume_all_at = new Date().toISOString();
+          }
+        }
         if (fees.live) {
           patch.fees_unclaimed_usd = fees.pendingUsd;
           patch.fees_stock_pending = fees.pending.stock;

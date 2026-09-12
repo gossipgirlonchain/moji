@@ -48,10 +48,10 @@ type Pool = MojiRow & { fees: MojiFees; creatorFees: MojiFees; market: Market };
 type Bucket = { stockUsd: number; mojiUsd: number; totalUsd?: number; claimable?: number; count?: number };
 type Stats = {
   pools: number; combosClaimed: number; launches24h: number; launches7d: number; uniqueCreators: number; withX: number;
-  totalMcap: number; volume24: number; txns24: number; liquidity: number; decaying: number; distinctStocks: number;
+  totalMcap: number; volume24: number; volume6h: number; volume1h: number; txns24: number; volumeAll: number; txnsAll: number; liquidity: number; decaying: number; distinctStocks: number;
   launchesPerDay: { day: string; n: number }[];
   stocks: { ticker: string; count: number; mcap: number; volume24: number }[];
-  top: { mcap: TopRow[]; volume: TopRow[]; treasury: TopRow[] };
+  top: { mcap: TopRow[]; volume: TopRow[]; volumeAll: TopRow[]; treasury: TopRow[] };
   treasury: Bucket; creators: Bucket; claimed: { treasury: Bucket; creator: Bucket };
   recentClaims: { role: string; combo: string; stock_ticker: string | null; stock_amount: number; moji_amount: number; stock_usd: number; moji_usd: number; created_at: string }[];
 };
@@ -105,11 +105,15 @@ export function AdminDashboard() {
       {!data ? (
         <p className="text-center text-[14px] text-ink-soft">reading every pool…</p>
       ) : tab === "stats" ? (
-        <StatsView s={data.stats} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <StatsView s={data.stats} />
+        </div>
       ) : tab === "pools" ? (
         <PoolsView pools={data.pools} />
       ) : (
-        <TreasuryView data={data} reload={load} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <TreasuryView data={data} reload={load} />
+        </div>
       )}
       <button
         onClick={async () => {
@@ -267,11 +271,61 @@ function TreasuryView({ data, reload }: { data: Payload; reload: () => void }) {
 }
 
 function PoolsView({ pools }: { pools: Pool[] }) {
+  const [sort, setSort] = useState<"mcap" | "vol24" | "volAll" | "treasury" | "newest">("mcap");
+  const sorted = [...pools].sort((a, b) =>
+    sort === "mcap" ? b.market.marketCapUsd - a.market.marketCapUsd
+    : sort === "vol24" ? b.market.volume24Usd - a.market.volume24Usd
+    : sort === "volAll" ? Number(b.volume_all_usd ?? 0) - Number(a.volume_all_usd ?? 0)
+    : sort === "treasury" ? b.fees.pendingUsd - a.fees.pendingUsd
+    : new Date(b.launched_at).getTime() - new Date(a.launched_at).getTime(),
+  );
+  const th = "heading px-3 py-2 text-left text-[11px] uppercase tracking-[0.1em] text-ink-soft";
+  const td = "px-3 py-2 text-[13px] whitespace-nowrap";
   return (
     <>
-      {pools.map((p, i) => (
-        <PoolRow key={p.id} p={p} i={i} claim />
-      ))}
+      <div className="flex flex-wrap gap-2">
+        {([["mcap", "market cap"], ["volAll", "volume all time"], ["vol24", "volume 24h"], ["treasury", "treasury pending"], ["newest", "newest"]] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setSort(k)} data-pressed={sort === k ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${sort === k ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {/* desktop: table */}
+      <div className="clay hidden overflow-x-auto bg-white p-2 md:block">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className={th}>moji</th><th className={th}>chain</th><th className={th}>mcap</th><th className={th}>vol all</th><th className={th}>vol 24h</th><th className={th}>trades</th><th className={th}>treasury pending</th><th className={th}>creator pending</th><th className={th}>by</th><th className={th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((p) => (
+              <tr key={p.id} className="border-t border-sky-100">
+                <td className={td}><Link href={`/m/${encodeURIComponent(p.display)}`} className="heading text-[15px] text-ink">{p.display} / {p.stock_ticker}</Link></td>
+                <td className={`${td} text-ink-soft`}>{p.chain_id}</td>
+                <td className={`${td} num`}>{usd(p.market.marketCapUsd)}</td>
+                <td className={`${td} num`}>{usd(Number(p.volume_all_usd ?? 0))}</td>
+                <td className={`${td} num`}>{usd(p.market.volume24Usd)}</td>
+                <td className={`${td} num text-ink-soft`}>{Number(p.txns_all ?? 0).toLocaleString()}</td>
+                <td className={`${td} num text-mint`}>{fmt(p.fees.pending.stock)} {p.stock_ticker} · {fmt(p.fees.pending.moji)} {p.display}<span className="text-ink-soft"> ≈ {usd(p.fees.pendingUsd)}</span></td>
+                <td className={`${td} num text-ink-soft`}>{fmt(p.creatorFees.pending.stock)} {p.stock_ticker}</td>
+                <td className={`${td} text-ink-soft`}>{p.creator_handle ? `@${p.creator_handle}` : short(p.creator_address)}</td>
+                <td className={td}>
+                  <div className="w-[120px]">
+                    <ClaimButton compact beneficiary={MOJI_TREASURY} combo={p.display} ticker={p.stock_ticker} chainId={p.chain_id} tokenAddress={p.token_address} poolId={p.pool_id} creatorAddress={p.creator_address} pending={p.fees.pending} pendingUsd={p.fees.pendingUsd} pendingStockUsd={p.fees.pendingStockUsd} pendingMojiUsd={p.fees.pendingMojiUsd} claimedUsd={0} sources={p.fees.sources} bySource={p.fees.bySource} schedule={p.fees.schedule} live={p.fees.live} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* mobile: cards */}
+      <div className="flex flex-col gap-4 md:hidden">
+        {sorted.map((p, i) => (
+          <PoolRow key={p.id} p={p} i={i} claim />
+        ))}
+      </div>
     </>
   );
 }
@@ -288,7 +342,7 @@ function PoolRow({ p, i, claim }: { p: Pool; i: number; claim?: boolean }) {
             {p.display} / {p.stock_ticker}
           </Link>
           <div className="text-[12px] text-ink-soft">
-            mcap {usd(p.market.marketCapUsd)} · vol24 {usd(p.market.volume24Usd)} · by {p.creator_handle ? `@${p.creator_handle}` : short(p.creator_address)}
+            mcap {usd(p.market.marketCapUsd)} · vol 24h {usd(p.market.volume24Usd)} · all {usd(Number(p.volume_all_usd ?? 0))} · by {p.creator_handle ? `@${p.creator_handle}` : short(p.creator_address)}
           </div>
         </div>
       </div>
@@ -374,13 +428,16 @@ function StatsView({ s }: { s: Stats }) {
       </Card>
 
       <Card tone="sky">
-        <Label className="mb-3">Markets</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <Label className="mb-3">Markets · rolling windows, all time since launch</Label>
+        <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
           <Tile v={usd(s.totalMcap)} k="total mcap" />
-          <Tile v={usd(s.volume24)} k="volume 24h" />
-          <Tile v={String(s.txns24)} k="trades 24h" />
           <Tile v={usd(s.liquidity)} k="liquidity" />
-          <Tile v={String(s.combosClaimed)} k="combos claimed" />
+          <Tile v={usd(s.volumeAll)} k="volume all time" tone="mint" />
+          <Tile v={s.txnsAll.toLocaleString()} k="trades all time" />
+          <Tile v={usd(s.volume24)} k="volume 24h" />
+          <Tile v={usd(s.volume6h)} k="volume 6h" />
+          <Tile v={usd(s.volume1h)} k="volume 1h" />
+          <Tile v={s.txns24.toLocaleString()} k="trades 24h" />
         </div>
       </Card>
 
@@ -389,9 +446,12 @@ function StatsView({ s }: { s: Stats }) {
       <Split title="Treasury claimed" b={s.claimed.treasury} hint={`${s.claimed.treasury.count} claims`} />
       <Split title="Creators claimed" b={s.claimed.creator} hint={`${s.claimed.creator.count} claims`} />
 
-      <Top title="Top by market cap" rows={s.top.mcap} />
-      <Top title="Top by 24h volume" rows={s.top.volume} />
-      <Top title="Top treasury earners" rows={s.top.treasury} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Top title="Top by market cap" rows={s.top.mcap} />
+        <Top title="Top by all-time volume" rows={s.top.volumeAll} />
+        <Top title="Top by 24h volume" rows={s.top.volume} />
+        <Top title="Top treasury earners" rows={s.top.treasury} />
+      </div>
 
       <Card>
         <Label className="mb-2">Pools by stock</Label>

@@ -13,6 +13,8 @@ export type Market = {
   marketCapUsd: number;
   stockPriceUsd: number;
   volume24Usd: number;
+  volume6hUsd: number;
+  volume1hUsd: number;
   txns24: number;
   liquidityUsd: number;
   live: boolean;
@@ -114,7 +116,7 @@ type IndexerToken = {
  * Falls back to the stored Supabase market cap when the token has no on-chain data yet.
  */
 export async function getMarket(m: MojiRow): Promise<Market> {
-  const fallback: Market = { priceUsd: 0, marketCapUsd: Number(m.market_cap_usd ?? 0), stockPriceUsd: 0, volume24Usd: 0, txns24: 0, liquidityUsd: 0, live: false };
+  const fallback: Market = { priceUsd: 0, marketCapUsd: Number(m.market_cap_usd ?? 0), stockPriceUsd: 0, volume24Usd: 0, volume6hUsd: 0, volume1hUsd: 0, txns24: 0, liquidityUsd: 0, live: false };
   if (!m.token_address) return fallback;
   const chain = chainById(m.chain_id);
   if (!chain?.viem) return fallback;
@@ -126,17 +128,21 @@ export async function getMarket(m: MojiRow): Promise<Market> {
   let priceUsd = 0;
   let marketCapUsd = 0;
   let volume24Usd = 0;
+  let volume6hUsd = 0;
+  let volume1hUsd = 0;
   let txns24 = 0;
   let liquidityUsd = 0;
   try {
     const r = await fetch(`https://api.dexscreener.com/token-pairs/v1/${chain.dexscreenerSlug}/${m.token_address}`, { next: { revalidate: 30 } });
     if (r.ok) {
-      const pairs = (await r.json()) as { priceUsd?: string; marketCap?: number; fdv?: number; volume?: { h24?: number }; txns?: { h24?: { buys?: number; sells?: number } }; liquidity?: { usd?: number } }[];
+      const pairs = (await r.json()) as { priceUsd?: string; marketCap?: number; fdv?: number; volume?: { h24?: number; h6?: number; h1?: number }; txns?: { h24?: { buys?: number; sells?: number } }; liquidity?: { usd?: number } }[];
       const p = pairs?.[0];
       if (p) {
         priceUsd = Number(p.priceUsd ?? 0);
         marketCapUsd = Number(p.marketCap ?? p.fdv ?? 0) || priceUsd * supply;
         volume24Usd = Number(p.volume?.h24 ?? 0);
+        volume6hUsd = Number(p.volume?.h6 ?? 0);
+        volume1hUsd = Number(p.volume?.h1 ?? 0);
         txns24 = Number(p.txns?.h24?.buys ?? 0) + Number(p.txns?.h24?.sells ?? 0);
         liquidityUsd = Number(p.liquidity?.usd ?? 0);
       }
@@ -170,7 +176,32 @@ export async function getMarket(m: MojiRow): Promise<Market> {
     }
   }
 
-  return { priceUsd, marketCapUsd: marketCapUsd || fallback.marketCapUsd, stockPriceUsd: stockPrice, volume24Usd, txns24, liquidityUsd, live: Boolean(priceUsd) };
+  return { priceUsd, marketCapUsd: marketCapUsd || fallback.marketCapUsd, stockPriceUsd: stockPrice, volume24Usd, volume6hUsd, volume1hUsd, txns24, liquidityUsd, live: Boolean(priceUsd) };
+}
+
+/**
+ * All-time volume and trade count for a pool, from the Doppler indexer's swap history (swapValueUsd,
+ * 18-decimal USD). Paginates with the indexer's cursor. Capped at 20 pages (20k swaps) per call.
+ */
+export async function allTimeVolume(m: MojiRow): Promise<{ volumeUsd: number; txns: number } | null> {
+  if (!m.pool_id) return null;
+  let after: string | null = null as string | null;
+  let volume = 0;
+  let txns = 0;
+  for (let page = 0; page < 20; page++) {
+    type Page = { swaps: { items: { swapValueUsd: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } };
+    const data: Page | null = await gql<Page>(
+      `query S($pool: String!, $after: String) { swaps(where: { pool: $pool }, orderBy: "timestamp", orderDirection: "desc", limit: 1000, after: $after) { items { swapValueUsd } pageInfo { hasNextPage endCursor } } }`,
+      { pool: m.pool_id.toLowerCase(), after },
+    );
+    const sw: Page["swaps"] | undefined = data?.swaps;
+    if (!sw) return page === 0 ? null : { volumeUsd: volume, txns };
+    for (const it of sw.items) volume += Number(formatUnits(BigInt(it.swapValueUsd ?? "0"), 18));
+    txns += sw.items.length;
+    if (!sw.pageInfo.hasNextPage || !sw.pageInfo.endCursor) break;
+    after = sw.pageInfo.endCursor;
+  }
+  return { volumeUsd: volume, txns };
 }
 
 export type Point = { time: number; value: number };

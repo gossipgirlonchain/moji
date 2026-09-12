@@ -5,8 +5,10 @@ import { normalizeCombo } from "./emoji";
 import { NETWORK } from "./network";
 
 export type SortKey = "newest" | "mcap" | "fees" | "volume";
+export type Window = "1h" | "6h" | "24h" | "all";
+export const VOLUME_COL: Record<Window, string> = { "1h": "volume1h_usd", "6h": "volume6h_usd", "24h": "volume24_usd", all: "volume_all_usd" };
 
-export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: number } = {}): Promise<MojiRow[]> {
+export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: number; window?: Window } = {}): Promise<MojiRow[]> {
   if (!hasSupabase()) return [];
   const sb = supabaseServer();
   let query = sb.from("mojis").select("*").eq("network", NETWORK);
@@ -19,7 +21,7 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
       query = query.order("market_cap_usd", { ascending: false, nullsFirst: false });
       break;
     case "volume":
-      query = query.order("volume24_usd", { ascending: false, nullsFirst: false });
+      query = query.order(VOLUME_COL[opts.window ?? "24h"], { ascending: false, nullsFirst: false });
       break;
     case "fees":
       query = query.order("fees_unclaimed_usd", { ascending: false, nullsFirst: false }).order("fees_claimed_usd", { ascending: false, nullsFirst: false });

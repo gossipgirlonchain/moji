@@ -3,6 +3,7 @@ import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Header } from "@/components/Header";
+import { Shell } from "@/components/Shell";
 
 const fredoka = Fredoka({
   subsets: ["latin"],
@@ -30,10 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${fredoka.variable} ${nunito.variable}`}>
       <body>
         <Providers>
-          <div className="mx-auto w-full max-w-[460px] px-5 pb-28 pt-4 min-h-screen">
+          <Shell>
             <Header />
             {children}
-          </div>
+          </Shell>
         </Providers>
       </body>
     </html>
