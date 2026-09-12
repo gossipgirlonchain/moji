@@ -158,10 +158,10 @@ Everything about chains comes from Doppler: the supported mainnets and contract 
 | chain | id | gas | moji pairs against |
 |---|---|---|---|
 | Robinhood Chain (default) | 4663 | ETH | a Robinhood Stock Token from the LONG list (LONG is Doppler's own app); 63 tokens, verified on-chain, notes in `src/config/stocks.notes.md` |
-| Base | 8453 | ETH | WETH `getAddresses(8453).weth`, as in every Base example in docs.doppler.lol |
-| Ethereum | 1 | ETH | WETH `getAddresses(1).weth` |
-| Arbitrum One | 42161 | ETH | WETH `getAddresses(42161).weth` |
-| Monad | 143 | MON | WMON `getAddresses(143).weth` |
+| Base | 8453 | ETH | soon (`live: false`). Wired to pair against WETH `getAddresses(8453).weth` per the docs; flip the flag to open it |
+| Ethereum | 1 | ETH | soon, same WETH wiring |
+| Arbitrum One | 42161 | ETH | soon, same WETH wiring |
+| Monad | 143 | MON | soon, same WMON wiring |
 | Solana | | SOL | soon: needs the Solana Doppler SDK and Solana wallets, a separate integration |
 
 `src/config/chains.ts` carries a `numeraire: "stock" | "weth"` mode per chain and `src/lib/numeraire.ts` resolves it. Doppler's indexer is built around ETH-quoted pools, so WETH-paired mojis get their USD market data straight from it, and the launch price for ETH/MON comes from the indexer's `ethPrice` / `monadUsdcPrice` (Chainlink-sourced). Robinhood stock prices come from the token's Chainlink feed where one exists, then Robinhood's public quote API, then Yahoo.
