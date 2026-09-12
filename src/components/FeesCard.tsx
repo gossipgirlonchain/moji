@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { useWallets } from "@privy-io/react-auth";
 import { createPublicClient, createWalletClient, custom, type Address, type Hex } from "viem";
 import { transportFor } from "@/lib/rpc";
-import { ensureChain } from "@/lib/wallet";
+import { ensureChain, pickWallet } from "@/lib/wallet";
 import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
 import { Label } from "./ui";
 import { chainById } from "@/config/chains";
@@ -118,7 +118,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
   const running = useRef(false);
   const target = p.beneficiary ?? p.creatorAddress;
   const isCreator = Boolean(address && target && address.toLowerCase() === target.toLowerCase());
-  const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
+  const wallet = useMemo(() => wallets.find((w) => address && w.address.toLowerCase() === address.toLowerCase()) ?? pickWallet(wallets), [wallets, address]);
   const nothing = !p.sources.pool && !p.sources.hook;
   const wrongWallet = Boolean(p.beneficiary && address && !isCreator);
 

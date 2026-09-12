@@ -27,10 +27,7 @@ export function AuthButton() {
   const [open, setOpen] = useState(false);
 
   // Prefer an external wallet if connected, else the embedded one.
-  const primary = useMemo(() => {
-    if (!wallets.length) return undefined;
-    return wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0];
-  }, [wallets]);
+  const primary = useMemo(() => pickWallet(wallets), [wallets]);
 
   // Only pick a default once; never override a wallet the user switched to.
   useEffect(() => {

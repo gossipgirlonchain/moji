@@ -4,6 +4,15 @@ import { numberToHex, type Chain, type EIP1193Provider } from "viem";
 import type { ConnectedWallet } from "@privy-io/react-auth";
 
 /**
+ * Which wallet signs. The X login's embedded wallet is the account's wallet on moji: if it exists it wins,
+ * even when a MetaMask is also linked, because external wallets can't connect inside mobile Safari and
+ * users fund the embedded one. Falls back to the first external wallet for wallet-only logins.
+ */
+export function pickWallet(wallets: readonly ConnectedWallet[]): ConnectedWallet | undefined {
+  return wallets.find((w) => w.walletClientType === "privy") ?? wallets[0];
+}
+
+/**
  * Make sure a Privy wallet's provider is actually on `chain` before we build a transaction with it.
  * Privy's wallet.switchChain can resolve before the provider reports the new chain, and external
  * wallets may need the chain added first. Returns a provider that answers eth_chainId with chain.id.

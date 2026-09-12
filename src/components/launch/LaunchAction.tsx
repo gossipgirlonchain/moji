@@ -13,7 +13,7 @@ import type { CurveDefaults } from "@/config/curve";
 import { estimateLaunchGasWei, launchMoji } from "@/lib/doppler";
 import { stockPriceUsd } from "@/lib/price";
 import { FundWalletCard } from "./FundWallet";
-import { ensureChain } from "@/lib/wallet";
+import { ensureChain, pickWallet } from "@/lib/wallet";
 import { PostIt } from "@/components/PostIt";
 import Link from "next/link";
 import { SITE_URL } from "@/lib/network";
@@ -34,7 +34,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string } | null>(null);
   const hasX = Boolean(user?.twitter?.username);
 
-  const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
+  const wallet = useMemo(() => pickWallet(wallets), [wallets]);
   // Only pick a default once; never override a wallet the user switched to.
   useEffect(() => {
     if (wallet && authenticated && !address) void setActiveWallet(wallet);

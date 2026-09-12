@@ -1,5 +1,7 @@
 "use client";
 
+import { pickWallet } from "@/lib/wallet";
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
@@ -29,7 +31,7 @@ function ProfileInner() {
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
-  const wallet = useMemo(() => wallets.find((w) => w.walletClientType !== "privy") ?? wallets[0], [wallets]);
+  const wallet = useMemo(() => pickWallet(wallets), [wallets]);
   // Only pick a default once; never override a wallet the user switched to.
   useEffect(() => {
     if (wallet && authenticated && !address) void setActiveWallet(wallet);
