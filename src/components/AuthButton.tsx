@@ -8,6 +8,7 @@ import { formatUnits } from "viem";
 import { DEFAULT_CHAIN, chainById } from "@/config/chains";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
+import { pickWallet } from "@/lib/wallet";
 import Link from "next/link";
 
 /** Deterministic sky-toned dot for wallet-only users. */
