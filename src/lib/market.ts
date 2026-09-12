@@ -3,6 +3,7 @@ import { formatUnits } from "viem";
 import { publicClientFor } from "./rpc";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
+import { wethNumeraire } from "./numeraire";
 import type { MojiRow } from "./supabase";
 
 export const INDEXER = process.env.DOPPLER_INDEXER_URL ?? "https://prod.indexer.doppler.lol/graphql";
@@ -33,10 +34,22 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
   }
 }
 
-/** Server-side stock price: Chainlink feed when present, else Robinhood public price API. */
-export async function stockPriceServer(chainId: number, stockAddress: string): Promise<number> {
-  const stock = findStock(chainId, stockAddress);
+/** ETH (or MON) in USD from the Doppler indexer, which sources it from Chainlink (docs: "eth_price"). */
+export async function nativePriceUsd(symbol: "ETH" | "MON"): Promise<number> {
+  const field = symbol === "MON" ? "monadUsdcPrices" : "ethPrices";
+  const data = await gql<Record<string, { items: { price: string }[] }>>(`{ ${field}(limit: 1, orderBy: "timestamp", orderDirection: "desc") { items { price } } }`, {});
+  const raw = data?.[field]?.items?.[0]?.price;
+  if (!raw) return 0;
+  // ethPrices is Chainlink 8-decimal; monadUsdcPrices is an 18-decimal USDC quote (verified against Dexscreener WMON).
+  return Number(formatUnits(BigInt(raw), symbol === "MON" ? 18 : 8));
+}
+
+/** Server-side numeraire price: WETH chains → Doppler indexer; stocks → Chainlink feed, Robinhood API, Yahoo. */
+export async function stockPriceServer(chainId: number, stockAddress: string, tickerHint?: string): Promise<number> {
   const chain = chainById(chainId);
+  const w = chain ? wethNumeraire(chain) : null;
+  if (w && w.address.toLowerCase() === stockAddress.toLowerCase()) return nativePriceUsd(chain!.gasSymbol === "MON" ? "MON" : "ETH");
+  const stock = findStock(chainId, stockAddress) ?? (tickerHint ? { ticker: tickerHint, chainlinkFeed: undefined } : undefined);
   if (stock?.chainlinkFeed && chain?.viem) {
     try {
       const pc = publicClientFor(chain.viem);
@@ -106,8 +119,9 @@ export async function getMarket(m: MojiRow): Promise<Market> {
   const chain = chainById(m.chain_id);
   if (!chain?.viem) return fallback;
 
-  const stockPrice = await stockPriceServer(m.chain_id, m.stock_address);
+  const stockPrice = await stockPriceServer(m.chain_id, m.stock_address, m.stock_ticker);
   const supply = Number(m.supply ?? 0);
+  const isWeth = wethNumeraire(chain)?.address.toLowerCase() === m.stock_address.toLowerCase();
 
   let priceUsd = 0;
   let marketCapUsd = 0;
@@ -128,6 +142,21 @@ export async function getMarket(m: MojiRow): Promise<Market> {
       }
     }
   } catch {}
+
+  if (isWeth) {
+    const data = await gql<IndexerToken>(
+      `query T($address: String!, $chainId: BigInt!) { token(address: $address, chainId: $chainId) { totalSupply pool { address price marketCapUsd totalFee0 totalFee1 isToken0 } } }`,
+      { address: m.token_address.toLowerCase(), chainId: String(m.chain_id) },
+    );
+    const pool = data?.token?.pool ?? null;
+    if (pool) {
+      const mc = Number(pool.marketCapUsd ?? 0);
+      const p = Number(pool.price ?? 0) * stockPrice;
+      if (p > 0) priceUsd = p;
+      if (mc > 0) marketCapUsd = mc;
+      else if (p > 0) marketCapUsd = p * supply;
+    }
+  }
 
   if (!priceUsd && stockPrice) {
     const data = await gql<IndexerToken>(
