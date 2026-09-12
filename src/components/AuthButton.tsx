@@ -5,11 +5,27 @@ import { useSetActiveWallet } from "@privy-io/wagmi";
 import { useAccount, useBalance } from "wagmi";
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { DEFAULT_CHAIN, chainById } from "@/config/chains";
+import { CHAINS, type MojiChain } from "@/config/chains";
+import { chainLaunchable } from "@/lib/numeraire";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
 import { pickWallet } from "@/lib/wallet";
 import Link from "next/link";
+
+function ChainBalance({ chain, address }: { chain: MojiChain; address: `0x${string}` }) {
+  const { data } = useBalance({ address, chainId: chain.viem!.id, query: { enabled: Boolean(address), refetchInterval: 20_000 } });
+  const v = data ? Number(formatUnits(data.value, data.decimals)) : 0;
+  return (
+    <div className="flex items-center justify-between text-[13px]">
+      <span className="text-ink-soft">
+        {chain.emoji} {chain.short}
+      </span>
+      <span className={`num ${v > 0 ? "text-ink" : "text-ink-soft"}`}>
+        {v.toFixed(5)} {chain.gasSymbol}
+      </span>
+    </div>
+  );
+}
 
 /** Deterministic sky-toned dot for wallet-only users. */
 function dotColor(addr: string): string {
@@ -24,7 +40,7 @@ export function AuthButton() {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
-  const { address, chainId } = useAccount();
+  const { address } = useAccount();
   const [open, setOpen] = useState(false);
 
   // Prefer an external wallet if connected, else the embedded one.
@@ -35,12 +51,6 @@ export function AuthButton() {
     if (primary && authenticated && !address) void setActiveWallet(primary);
   }, [primary, authenticated, address, setActiveWallet]);
 
-  const chain = chainById(chainId ?? DEFAULT_CHAIN.chainId) ?? DEFAULT_CHAIN;
-  const { data: bal } = useBalance({
-    address,
-    chainId: chain.viem?.id ?? DEFAULT_CHAIN.chainId,
-    query: { enabled: Boolean(address), refetchInterval: 15_000 },
-  });
 
   if (!ready) {
     return <div className="clay-pill h-9 w-20 animate-pulse bg-sky-50" />;
@@ -85,12 +95,11 @@ export function AuthButton() {
               <span className="mono break-all text-[14px]">{short(addr, 6, 6)}</span>
               <CopyButton text={addr} />
             </div>
-            <div className="heading mb-1 text-[12px] uppercase tracking-[0.12em] text-ink-soft">
-              Balance · {chain.short}
-            </div>
-            <div className="heading mb-4 text-[22px]">
-              {bal ? Number(formatUnits(bal.value, bal.decimals)).toFixed(5) : "0.00000"}{" "}
-              <span className="text-[14px] text-ink-soft">{chain.gasSymbol}</span>
+            <div className="heading mb-1 text-[12px] uppercase tracking-[0.12em] text-ink-soft">Gas balances</div>
+            <div className="mb-4 flex flex-col gap-1">
+              {CHAINS.filter((c) => chainLaunchable(c)).map((c) => (
+                <ChainBalance key={c.key} chain={c} address={addr as `0x${string}`} />
+              ))}
             </div>
             <Link href="/profile" onClick={() => setOpen(false)} className="press clay-sm heading mb-2 block w-full bg-sky-500 px-4 py-2.5 text-center text-[15px] text-white">
               profile · send

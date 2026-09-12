@@ -8,7 +8,8 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
 import { useAccount, useBalance, usePublicClient, useReadContracts, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { erc20Abi, formatUnits, isAddress, parseEther, parseUnits, type Address } from "viem";
-import { DEFAULT_CHAIN } from "@/config/chains";
+import { CHAINS, DEFAULT_CHAIN, type MojiChain } from "@/config/chains";
+import { chainLaunchable } from "@/lib/numeraire";
 import { findNumeraire } from "@/lib/numeraire";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { explorerTx } from "@/lib/links";
@@ -25,8 +26,9 @@ export function Profile() {
 type Asset = { key: string; symbol: string; address?: Address; decimals: number; label: string };
 
 function ProfileInner() {
-  const chain = DEFAULT_CHAIN;
+  const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
   const chainId = chain.viem!.id;
+  const liveChains = CHAINS.filter((c) => chainLaunchable(c));
   const { ready, authenticated, user, login, logout, linkTwitter, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
@@ -118,6 +120,19 @@ function ProfileInner() {
           )}
         </div>
         <div className="mt-4">
+          <div className="scroll-x -mx-1 mb-2 flex gap-2 px-1">
+            {liveChains.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setChain(c)}
+                data-pressed={c.key === chain.key ? "true" : undefined}
+                className={`press clay-pill heading shrink-0 px-3 py-1.5 text-[13px] ${c.key === chain.key ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`}
+              >
+                {c.emoji} {c.short}
+              </button>
+            ))}
+          </div>
           <Label>Wallet · {chain.name}</Label>
           <div className="mt-1 flex items-center justify-between gap-2">
             <span className="mono break-all text-[13px] text-ink">{addr}</span>
@@ -144,7 +159,7 @@ function ProfileInner() {
         </div>
       </Card>
 
-      <SendCard chainId={chainId} assets={assets} onSent={() => { void refetchEth(); void refetchTokens(); }} />
+      <SendCard chain={chain} chainId={chainId} assets={assets} onSent={() => { void refetchEth(); void refetchTokens(); }} />
 
       <div className="grid grid-cols-2 gap-3">
         <Link href="/me" className="press clay heading block bg-sky-50 px-4 py-3.5 text-center text-[15px] text-sky-600">
@@ -160,7 +175,7 @@ function ProfileInner() {
 
 type Resolved = { handle: string; address: string; mojis: string[] };
 
-function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset & { balance: bigint })[]; onSent: () => void }) {
+function SendCard({ chain, chainId, assets, onSent }: { chain: MojiChain; chainId: number; assets: (Asset & { balance: bigint })[]; onSent: () => void }) {
   const [assetKey, setAssetKey] = useState("eth");
   const [to, setTo] = useState("");
   const [resolved, setResolved] = useState<Resolved | null>(null);
@@ -286,7 +301,7 @@ function SendCard({ chainId, assets, onSent }: { chainId: number; assets: (Asset
         </button>
       </div>
       <p className="mb-3 text-[12px] text-ink-soft">
-        {asset ? `${Number(formatUnits(asset.balance, asset.decimals)).toLocaleString(undefined, { maximumFractionDigits: 5 })} ${asset.symbol} available` : ""} · sends on {DEFAULT_CHAIN.name} only. @handles resolve to the wallet that launched under them. This can&apos;t be undone.
+        {asset ? `${Number(formatUnits(asset.balance, asset.decimals)).toLocaleString(undefined, { maximumFractionDigits: 5 })} ${asset.symbol} available` : ""} · sends on {chain.name}. @handles resolve to the wallet that launched under them. This can&apos;t be undone.
       </p>
       <Button onClick={send} disabled={busy || !asset || !target || !amount}>
         {sendingEth || sendingToken ? "Confirm in wallet…" : confirming ? "Confirming…" : `Send ${asset?.symbol ?? ""}`}
