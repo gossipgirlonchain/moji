@@ -9,7 +9,7 @@ import { useSetActiveWallet } from "@privy-io/wagmi";
 import { useAccount, useBalance, usePublicClient, useReadContracts, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { erc20Abi, formatUnits, isAddress, parseEther, parseUnits, type Address } from "viem";
 import { DEFAULT_CHAIN } from "@/config/chains";
-import { findStock } from "@/config/stocks";
+import { findNumeraire } from "@/lib/numeraire";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { explorerTx } from "@/lib/links";
 import { short } from "@/lib/format";
@@ -63,8 +63,8 @@ function ProfileInner() {
     const seen = new Map<string, Asset>();
     for (const m of mojis ?? []) {
       if (m.chain_id !== chainId) continue;
-      const stock = findStock(m.chain_id, m.stock_address);
-      if (stock && !seen.has(stock.address.toLowerCase())) seen.set(stock.address.toLowerCase(), { key: stock.address.toLowerCase(), symbol: stock.ticker, address: stock.address, decimals: stock.decimals, label: `$${stock.ticker}` });
+      const stock = findNumeraire(m.chain_id, m.stock_address) ?? { ticker: m.stock_ticker, address: m.stock_address as Address, decimals: 18 };
+      if (!seen.has(stock.address.toLowerCase())) seen.set(stock.address.toLowerCase(), { key: stock.address.toLowerCase(), symbol: stock.ticker, address: stock.address, decimals: stock.decimals, label: `$${stock.ticker}` });
       if (m.token_address && !seen.has(m.token_address.toLowerCase())) seen.set(m.token_address.toLowerCase(), { key: m.token_address.toLowerCase(), symbol: m.display, address: m.token_address as Address, decimals: 18, label: m.display });
     }
     return [...seen.values()];

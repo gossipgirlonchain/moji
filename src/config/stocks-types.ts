@@ -1,4 +1,4 @@
-export type Issuer = "robinhood" | "dinari" | "ondo" | "backed" | "anchored";
+export type Issuer = "robinhood" | "doppler";
 
 export type Stock = {
   ticker: string;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { validateCombo } from "@/lib/emoji";
 import { hasSupabase, supabaseServer } from "@/lib/supabase";
 import { getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
-import { findStock } from "@/config/stocks";
+import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
 import { NETWORK, SITE_URL } from "@/lib/network";
 import { storeMojiImage } from "@/lib/images";
@@ -47,10 +47,10 @@ export async function POST(req: Request) {
   if (!v.ok) return NextResponse.json({ error: v.reason }, { status: 400 });
 
   const chain = chainById(Number(body.chainId));
-  if (!chain || !chain.live) return NextResponse.json({ error: "That chain is not live yet" }, { status: 400 });
+  if (!chain || !chainLaunchable(chain)) return NextResponse.json({ error: "That chain is not live yet" }, { status: 400 });
 
-  const stock = findStock(chain.chainId, body.stockAddress);
-  if (!stock) return NextResponse.json({ error: "Stock must be from the curated list" }, { status: 400 });
+  const stock = findNumeraire(chain.chainId, body.stockAddress);
+  if (!stock) return NextResponse.json({ error: chain.numeraire === "weth" ? "Pairs on this chain must be WETH" : "Stock must be from the curated list" }, { status: 400 });
 
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.tokenAddress ?? "") || !/^0x[0-9a-fA-F]{64}$/.test(body.txHash ?? "")) {
     return NextResponse.json({ error: "Bad token address or tx hash" }, { status: 400 });

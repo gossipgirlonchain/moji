@@ -46,7 +46,7 @@ export async function GET(req: Request) {
     const rows = (data ?? []) as MojiRow[];
     const withFees = await Promise.all(
       rows.map(async (m) => {
-        const [stockUsd, mojiUsd] = await Promise.all([stockPriceServer(m.chain_id, m.stock_address), mojiPriceUsd(m)]);
+        const [stockUsd, mojiUsd] = await Promise.all([stockPriceServer(m.chain_id, m.stock_address, m.stock_ticker), mojiPriceUsd(m)]);
         const fees = await getMojiFees(m, { stockUsd, mojiUsd }, MOJI_TREASURY as Address);
         return { ...m, fees };
       }),
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
 
   const withFees = await Promise.all(
     rows.map(async (m) => {
-      const [stockUsd, mojiUsd] = await Promise.all([m.token_address ? stockPriceServer(m.chain_id, m.stock_address) : 0, mojiPriceUsd(m)]);
+      const [stockUsd, mojiUsd] = await Promise.all([m.token_address ? stockPriceServer(m.chain_id, m.stock_address, m.stock_ticker) : 0, mojiPriceUsd(m)]);
       const fees = await getMojiFees(m, { stockUsd, mojiUsd });
       return { ...m, fees };
     }),

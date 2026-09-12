@@ -3,7 +3,7 @@ import { formatUnits, type Address, type Hex } from "viem";
 import { publicClientFor } from "./rpc";
 import { DopplerSDK, getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { chainById } from "@/config/chains";
-import { findStock } from "@/config/stocks";
+import { findNumeraire } from "./numeraire";
 import { currentFee } from "@/config/fees";
 import type { MojiRow } from "./supabase";
 
@@ -73,7 +73,7 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
   const chain = chainById(m.chain_id);
   const who = beneficiary ?? (m.creator_address as Address | null);
   if (!m.token_address || !who || !chain?.viem) return fallback;
-  const stock = findStock(m.chain_id, m.stock_address);
+  const stock = findNumeraire(m.chain_id, m.stock_address);
   const stockDecimals = stock?.decimals ?? 18;
 
   try {

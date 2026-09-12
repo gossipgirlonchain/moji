@@ -47,6 +47,11 @@ export type MojiChain = {
    * Flip this one flag to switch a chain on. Nothing else needs to change.
    */
   live: boolean;
+  /**
+   * What mojis pair against here. "stock": a tokenized stock from the curated list (Robinhood Chain, LONG's list).
+   * "weth": the chain's WETH from Doppler's address map, as in every Doppler docs launch example.
+   */
+  numeraire: "stock" | "weth";
   /** Dexscreener chain slug */
   dexscreenerSlug?: string;
   /** Matcha chain slug */
@@ -64,6 +69,7 @@ export const CHAINS: MojiChain[] = [
     gasSymbol: robinhoodChain.nativeCurrency.symbol,
     minGasNative: "0.0005",
     live: true,
+    numeraire: "stock",
     dexscreenerSlug: "robinhood",
     matchaSlug: "robinhood",
   },
@@ -75,6 +81,7 @@ export const CHAINS: MojiChain[] = [
     emoji: "🔵",
     viem: base,
     gasSymbol: base.nativeCurrency.symbol,
+    numeraire: "weth",
     minGasNative: "0.0005",
     live: true,
     dexscreenerSlug: "base",
@@ -88,6 +95,7 @@ export const CHAINS: MojiChain[] = [
     emoji: "💎",
     viem: mainnet,
     gasSymbol: mainnet.nativeCurrency.symbol,
+    numeraire: "weth",
     minGasNative: "0.005",
     live: true,
     dexscreenerSlug: "ethereum",
@@ -101,6 +109,7 @@ export const CHAINS: MojiChain[] = [
     emoji: "🔷",
     viem: arbitrum,
     gasSymbol: arbitrum.nativeCurrency.symbol,
+    numeraire: "weth",
     minGasNative: "0.0005",
     live: true,
     dexscreenerSlug: "arbitrum",
@@ -114,6 +123,7 @@ export const CHAINS: MojiChain[] = [
     emoji: "🟪",
     viem: monad,
     gasSymbol: monad.nativeCurrency.symbol,
+    numeraire: "weth",
     minGasNative: "0.5",
     live: true,
     dexscreenerSlug: "monad",
@@ -128,6 +138,7 @@ export const CHAINS: MojiChain[] = [
     gasSymbol: "SOL",
     minGasNative: "0.01",
     live: false,
+    numeraire: "weth",
   },
 ];
 

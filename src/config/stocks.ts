@@ -12,10 +12,6 @@
 // Every Robinhood Stock Token is an 18-decimal ERC-20 BeaconProxy; on-chain name() is "<Company> • Robinhood Token".
 // Generated 2026-09-11.
 
-import { STOCKS_1 } from "./stocks-ethereum"
-import { STOCKS_42161 } from "./stocks-arbitrum"
-import { STOCKS_8453 } from "./stocks-base"
-import { STOCKS_143 } from "./stocks-monad"
 import type { Stock } from "./stocks-types"
 export type { Stock, Issuer } from "./stocks-types"
 
@@ -112,10 +108,10 @@ export const ROBINHOOD_OTHER_NUMERAIRES = [
 export const STOCKS: ChainStocks[] = [
   { chainId: 4663, key: 'robinhood', name: 'Robinhood Chain', stocks: ROBINHOOD_STOCKS },
   { chainId: 0, key: 'solana', name: 'Solana', comingSoon: true, stocks: [] },
-  { chainId: 1, key: 'ethereum', name: 'Ethereum', stocks: STOCKS_1 },
-  { chainId: 42161, key: 'arbitrum', name: 'Arbitrum', stocks: STOCKS_42161 },
-  { chainId: 8453, key: 'base', name: 'Base', stocks: STOCKS_8453 },
-  { chainId: 143, key: 'monad', name: 'Monad', stocks: STOCKS_143 },
+  { chainId: 1, key: 'ethereum', name: 'Ethereum', stocks: [] }, // pairs against WETH, see src/lib/numeraire.ts
+  { chainId: 42161, key: 'arbitrum', name: 'Arbitrum', stocks: [] },
+  { chainId: 8453, key: 'base', name: 'Base', stocks: [] },
+  { chainId: 143, key: 'monad', name: 'Monad', stocks: [] },
 ]
 
 export default STOCKS

@@ -43,9 +43,7 @@ export function StockList({ stocks, value, onChange }: { stocks: Stock[]; value?
               <span className="heading w-[64px] shrink-0 text-[16px]">{s.ticker}</span>
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-[13px] ${active ? "text-white/85" : "text-ink-soft"}`}>{s.name}</span>
-                {s.issuer && s.issuer !== "robinhood" && (
-                  <span className={`block text-[10px] uppercase tracking-[0.1em] ${active ? "text-white/70" : "text-sky-600"}`}>{s.issuer === "backed" ? "xStocks" : s.issuer}{s.symbolOnChain ? ` · ${s.symbolOnChain}` : ""}</span>
-                )}
+
               </span>
             </button>
           );

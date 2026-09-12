@@ -10,6 +10,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { DopplerSDK, getAirlockOwner } from "@whetstone-research/doppler-sdk/evm";
 import { CHAINS, robinhoodChain } from "../src/config/chains";
 import { findStock, type Stock } from "../src/config/stocks";
+import { numerairesFor } from "../src/lib/numeraire";
 import { buildParams } from "../src/lib/doppler";
 import { FEE_START, FEE_END, FEE_DECAY_SECONDS, buildBeneficiaries } from "../src/config/fees";
 
@@ -20,7 +21,7 @@ async function main() {
   if (!chain?.viem) throw new Error("unknown chain " + chainId);
   const stock: Stock = process.env.NUMERAIRE
     ? { ticker: process.env.TICKER ?? "TEST", name: "test numeraire", address: process.env.NUMERAIRE as `0x${string}`, logo: "", decimals: Number(process.env.NUMERAIRE_DECIMALS ?? 18) }
-    : findStock(4663, "AAPL")!;
+    : chain.numeraire === "weth" ? numerairesFor(chain)[0] : findStock(4663, "AAPL")!;
   void robinhoodChain;
   const publicClient = createPublicClient({ chain: chain.viem, transport: http() });
   const account = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"); // throwaway

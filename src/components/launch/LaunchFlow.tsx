@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { Card, Label } from "@/components/ui";
 import { DEFAULT_CHAIN, type MojiChain } from "@/config/chains";
-import { stocksFor, type Stock } from "@/config/stocks";
+import type { Stock } from "@/config/stocks";
+import { numerairesFor } from "@/lib/numeraire";
+import { NumeraireCard } from "./NumeraireCard";
 import { CURVE_DEFAULTS, type CurveDefaults } from "@/config/curve";
 import { graphemes } from "@/lib/emoji";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
@@ -20,7 +22,8 @@ export function LaunchFlow() {
   const [emoji, setEmoji] = useState<string[]>([]);
   const [curve, setCurve] = useState<CurveDefaults>(CURVE_DEFAULTS);
 
-  const stocks = useMemo(() => stocksFor(chain.chainId), [chain]);
+  const stocks = useMemo(() => numerairesFor(chain), [chain]);
+  const fixed = chain.numeraire === "weth" ? stocks[0] : undefined;
   const combo = emoji.join("");
   const { loading, result } = useAvailability(combo);
   const available = Boolean(combo && !loading && result?.valid && !result.claimed);
@@ -35,14 +38,23 @@ export function LaunchFlow() {
           value={chain}
           onChange={(c) => {
             setChain(c);
-            setStock(undefined);
+            setStock(c.numeraire === "weth" ? numerairesFor(c)[0] : undefined);
           }}
         />
       </Card>
 
       <Card pop={2}>
-        <Label className="mb-3">2 · Stock {stock ? `· ${stock.ticker}` : ""}</Label>
-        <StockList stocks={stocks} value={stock} onChange={setStock} />
+        {fixed ? (
+          <>
+            <Label className="mb-3">2 · Pair</Label>
+            <NumeraireCard chain={chain} numeraire={fixed} />
+          </>
+        ) : (
+          <>
+            <Label className="mb-3">2 · Stock {stock ? `· ${stock.ticker}` : ""}</Label>
+            <StockList stocks={stocks} value={stock} onChange={setStock} />
+          </>
+        )}
       </Card>
 
       <Card pop={3}>
