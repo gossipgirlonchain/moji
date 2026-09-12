@@ -83,7 +83,7 @@ export const CHAINS: MojiChain[] = [
     gasSymbol: base.nativeCurrency.symbol,
     numeraire: "weth",
     minGasNative: "0.0005",
-    live: false,
+    live: true,
     dexscreenerSlug: "base",
     matchaSlug: "base",
   },

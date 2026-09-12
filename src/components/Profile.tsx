@@ -23,7 +23,7 @@ export function Profile() {
   return <ProfileInner />;
 }
 
-type Asset = { key: string; symbol: string; address?: Address; decimals: number; label: string };
+type Asset = { key: string; symbol: string; address?: Address; decimals: number; label: string; weth?: boolean };
 
 function ProfileInner() {
   const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
@@ -65,12 +65,13 @@ function ProfileInner() {
     const seen = new Map<string, Asset>();
     for (const m of mojis ?? []) {
       if (m.chain_id !== chainId) continue;
-      const stock = findNumeraire(m.chain_id, m.stock_address) ?? { ticker: m.stock_ticker, address: m.stock_address as Address, decimals: 18 };
-      if (!seen.has(stock.address.toLowerCase())) seen.set(stock.address.toLowerCase(), { key: stock.address.toLowerCase(), symbol: stock.ticker, address: stock.address, decimals: stock.decimals, label: `$${stock.ticker}` });
+      const stock = findNumeraire(m.chain_id, m.stock_address) ?? { ticker: m.stock_ticker, address: m.stock_address as Address, decimals: 18, symbolOnChain: undefined as string | undefined };
+      const isWeth = stock.symbolOnChain === `W${chain.gasSymbol}`;
+      if (!seen.has(stock.address.toLowerCase())) seen.set(stock.address.toLowerCase(), { key: stock.address.toLowerCase(), symbol: isWeth ? `W${chain.gasSymbol}` : stock.ticker, address: stock.address, decimals: stock.decimals, label: isWeth ? `W${chain.gasSymbol} · wrapped ${chain.gasSymbol}, unwraps 1:1` : `$${stock.ticker}`, weth: isWeth });
       if (m.token_address && !seen.has(m.token_address.toLowerCase())) seen.set(m.token_address.toLowerCase(), { key: m.token_address.toLowerCase(), symbol: m.display, address: m.token_address as Address, decimals: 18, label: m.display });
     }
     return [...seen.values()];
-  }, [mojis, chainId]);
+  }, [mojis, chainId, chain.gasSymbol]);
 
   const { data: tokenBalances, refetch: refetchTokens } = useReadContracts({
     contracts: tokenAssets.map((t) => ({ address: t.address!, abi: erc20Abi, functionName: "balanceOf" as const, args: [address ?? "0x0000000000000000000000000000000000000000"] as const, chainId })),
@@ -149,9 +150,12 @@ function ProfileInner() {
           {assets.length > 1 && (
             <div className="mt-1 flex flex-col gap-1">
               {assets.slice(1).map((a) => (
-                <div key={a.key} className="flex items-center justify-between text-[14px]">
+                <div key={a.key} className="flex items-center justify-between gap-2 text-[14px]">
                   <span className="heading text-ink">{a.label}</span>
-                  <span className="num text-ink">{Number(formatUnits(a.balance, a.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="num text-ink">{Number(formatUnits(a.balance, a.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                    {a.weth && a.balance > 0n && <UnwrapButton asset={a} chainId={chainId} onDone={() => { void refetchEth(); void refetchTokens(); }} />}
+                  </span>
                 </div>
               ))}
             </div>
@@ -174,6 +178,44 @@ function ProfileInner() {
 }
 
 type Resolved = { handle: string; address: string; mojis: string[] };
+
+const wethAbi = [{ type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ name: "wad", type: "uint256" }], outputs: [] }] as const;
+
+/** WETH.withdraw(balance): turns claimed WETH fees into plain ETH in the same wallet. */
+function UnwrapButton({ asset, chainId, onDone }: { asset: Asset & { balance: bigint }; chainId: number; onDone: () => void }) {
+  const { writeContractAsync, isPending } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
+  const { chainId: walletChainId } = useAccount();
+  const [hash, setHash] = useState<`0x${string}` | undefined>();
+  const [err, setErr] = useState<string | null>(null);
+  const { isLoading, isSuccess } = useWaitForTransactionReceipt({ hash, chainId, query: { enabled: Boolean(hash) } });
+  useEffect(() => {
+    if (isSuccess) onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess]);
+  return (
+    <span className="flex items-center gap-1">
+      <button
+        type="button"
+        disabled={isPending || isLoading}
+        onClick={async () => {
+          setErr(null);
+          try {
+            if (walletChainId !== chainId) await switchChainAsync({ chainId });
+            setHash(await writeContractAsync({ address: asset.address!, abi: wethAbi, functionName: "withdraw", args: [asset.balance], chainId }));
+          } catch (e) {
+            const m = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
+            setErr(/rejected|denied/i.test(m) ? "cancelled" : m.split("\n")[0].slice(0, 60));
+          }
+        }}
+        className="press clay-pill heading bg-sky-500 px-2.5 py-1 text-[11px] text-white disabled:opacity-60"
+      >
+        {isPending ? "confirm…" : isLoading ? "unwrapping…" : "unwrap to ETH"}
+      </button>
+      {err && <span className="text-[11px] text-coral">{err}</span>}
+    </span>
+  );
+}
 
 function SendCard({ chain, chainId, assets, onSent }: { chain: MojiChain; chainId: number; assets: (Asset & { balance: bigint })[]; onSent: () => void }) {
   const [assetKey, setAssetKey] = useState("eth");

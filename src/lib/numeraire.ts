@@ -13,7 +13,7 @@ export function wethNumeraire(chain: MojiChain): Stock | null {
   const weth = (getAddresses(chain.chainId) as { weth?: `0x${string}` }).weth;
   if (!weth) return null;
   const sym = chain.gasSymbol; // ETH, or MON on Monad
-  return { ticker: sym, name: `Wrapped ${chain.viem.nativeCurrency.name} (W${sym})`, address: weth, logo: "", decimals: 18, kind: "stock", issuer: "doppler" };
+  return { ticker: sym, name: chain.viem.nativeCurrency.name, address: weth, logo: "", decimals: 18, kind: "stock", issuer: "doppler", symbolOnChain: `W${sym}` };
 }
 
 /** Every valid numeraire for a chain: the stock list, or the single WETH entry. */

@@ -158,7 +158,7 @@ Everything about chains comes from Doppler: the supported mainnets and contract 
 | chain | id | gas | moji pairs against |
 |---|---|---|---|
 | Robinhood Chain (default) | 4663 | ETH | a Robinhood Stock Token from the LONG list (LONG is Doppler's own app); 63 tokens, verified on-chain, notes in `src/config/stocks.notes.md` |
-| Base | 8453 | ETH | soon (`live: false`). Wired to pair against WETH `getAddresses(8453).weth` per the docs; flip the flag to open it |
+| Base | 8453 | ETH | **live**. Pairs against ETH: the pool holds WETH (`getAddresses(8453).weth`, as in every Base example in the docs); traders buy with plain ETH via the router, fees arrive as WETH and unwrap 1:1 from /profile |
 | Ethereum | 1 | ETH | soon, same WETH wiring |
 | Arbitrum One | 42161 | ETH | soon, same WETH wiring |
 | Monad | 143 | MON | soon, same WMON wiring |
