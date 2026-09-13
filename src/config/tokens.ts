@@ -73,6 +73,7 @@ export const SOLANA_TOKENS = [
   { ticker: "CATE", name: "Catecoin", mint: "Ai66LHZG9MCzg1WKdawwqduVAXpNDUuV8M3uyq5ppump" },
   { ticker: "ZCAT", name: "Anonymous Cat", mint: "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR" },
   { ticker: "EMBER", name: "embercurve", mint: "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6" },
+  { ticker: "BIKETYSON", name: "BIKE TYSON", mint: "CbyTNf7UPzvewHh4Zp6umogM2RWahhmGRJWLJnPwpump" },
 ] as const;
 
 export function tokensFor(chainId: number): TokenPair[] {
