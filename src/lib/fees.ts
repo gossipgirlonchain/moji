@@ -25,6 +25,8 @@ export type FeeSchedule = {
 
 export type MojiFees = {
   pending: FeeAmounts;
+  /** creator's claimed amounts so far, from the chain scan (whole tokens) */
+  claimed: FeeAmounts;
   /** USD split: what the stock-token side is worth vs the moji-token side */
   pendingStockUsd: number;
   pendingMojiUsd: number;
@@ -57,8 +59,10 @@ function rehypeHook(chainId: number): Address | null {
  * (RehypeDopplerHookInitializer.getPendingFees). Plus the live fee schedule.
  */
 export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUsd: number }, beneficiary?: Address): Promise<MojiFees> {
+  const claimed: FeeAmounts = { stock: Number(m.fees_creator_stock_claimed ?? 0), moji: Number(m.fees_creator_moji_claimed ?? 0) };
   const fallback: MojiFees = {
     pending: { stock: 0, moji: 0 },
+    claimed,
     pendingStockUsd: 0,
     pendingMojiUsd: 0,
     sources: { pool: false, hook: false },
@@ -141,6 +145,7 @@ export async function getMojiFees(m: MojiRow, prices: { stockUsd: number; mojiUs
     const claimedUsd = Number(m.fees_claimed_usd ?? 0);
     return {
       pending: { stock: num, moji: asset },
+      claimed,
       bySource,
       pendingStockUsd,
       pendingMojiUsd,

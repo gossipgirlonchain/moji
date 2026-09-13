@@ -9,6 +9,7 @@ import { transportFor } from "@/lib/rpc";
 import { ensureChain, pickWallet } from "@/lib/wallet";
 import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
 import { Label } from "./ui";
+import { usd } from "@/lib/format";
 import { chainById } from "@/config/chains";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { rehypeHookAddress } from "@/lib/doppler";
@@ -23,6 +24,8 @@ export type FeesCardProps = {
   poolId: string | null;
   creatorAddress: string | null;
   pending: { stock: number; moji: number };
+  /** creator's claimed amounts so far (whole tokens) */
+  claimed?: { stock: number; moji: number };
   pendingUsd: number;
   claimedUsd: number;
   sources: { pool: boolean; hook: boolean };
@@ -34,7 +37,7 @@ export type FeesCardProps = {
   error?: string;
 };
 
-type FeesPayload = Pick<FeesCardProps, "pending" | "pendingUsd" | "claimedUsd" | "sources" | "bySource" | "pendingStockUsd" | "pendingMojiUsd" | "schedule" | "live" | "error">;
+type FeesPayload = Pick<FeesCardProps, "pending" | "claimed" | "pendingUsd" | "claimedUsd" | "sources" | "bySource" | "pendingStockUsd" | "pendingMojiUsd" | "schedule" | "live" | "error">;
 
 /**
  * Keeps the numbers fresh: refetches from /api/mojis/[combo]/fees on mount and every 20s,
@@ -101,6 +104,16 @@ export function FeesCard(initial: FeesCardProps) {
       {isCreator && PRIVY_ENABLED && p.tokenAddress && (
         <div className="mt-4">
           <ClaimButton {...p} />
+        </div>
+      )}
+
+      {(p.claimed?.stock ?? 0) + (p.claimed?.moji ?? 0) > 0 && (
+        <div className="mt-3 flex items-center justify-between px-1">
+          <span className="heading text-[11px] uppercase tracking-[0.12em] text-ink-soft">claimed</span>
+          <span className="heading text-[14px] text-ink">
+            {fmt(p.claimed?.stock ?? 0)} {p.ticker} <span className="text-ink-soft">+</span> {fmt(p.claimed?.moji ?? 0)} {p.combo}
+            {p.claimedUsd > 0 && <span className="text-ink-soft"> ≈ {usd(p.claimedUsd)}</span>}
+          </span>
         </div>
       )}
       <p className={`mt-2 text-center text-[11px] ${p.error ? "text-coral" : "text-ink-soft"}`}>

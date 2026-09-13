@@ -91,6 +91,21 @@ export default async function MojiPage({ params }: { params: Params }) {
         <PriceChart combo={m.display} chainId={m.chain_id} pair={m.stock_address} marketCapUsd={market.marketCapUsd} priceUsd={market.priceUsd} />
       </Card>
 
+      <div className="grid grid-cols-2 gap-3">
+        {m.token_address ? (
+          <>
+            <LinkButton href={matchaUrl(m.chain_id, m.token_address)} tone="outline" external className="pop pop-2 text-[15px]">
+              Trade on Matcha ↗
+            </LinkButton>
+            <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" external className="pop pop-2 text-[15px]">
+              View on Dexscreener ↗
+            </LinkButton>
+          </>
+        ) : (
+          <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
+        )}
+      </div>
+
       <FeesCard
         combo={m.display}
         ticker={m.stock_ticker}
@@ -100,6 +115,7 @@ export default async function MojiPage({ params }: { params: Params }) {
         poolId={m.pool_id}
         creatorAddress={m.creator_address}
         pending={fees.pending}
+        claimed={{ stock: Number(m.fees_creator_stock_claimed ?? 0), moji: Number(m.fees_creator_moji_claimed ?? 0) }}
         pendingUsd={fees.pendingUsd}
         pendingStockUsd={fees.pendingStockUsd}
         pendingMojiUsd={fees.pendingMojiUsd}
@@ -110,20 +126,6 @@ export default async function MojiPage({ params }: { params: Params }) {
         error={fees.error}
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        {m.token_address ? (
-          <>
-            <LinkButton href={matchaUrl(m.chain_id, m.token_address)} tone="outline" external className="pop pop-3 text-[15px]">
-              Trade on Matcha ↗
-            </LinkButton>
-            <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" external className="pop pop-3 text-[15px]">
-              View on Dexscreener ↗
-            </LinkButton>
-          </>
-        ) : (
-          <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
-        )}
-      </div>
 
       <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}${mojiHref(m)}`} ca={m.token_address} />
 
