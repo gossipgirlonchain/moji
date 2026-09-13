@@ -26,7 +26,6 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("robinhood", "ZZZ", "ZZZ", "0x7dbf38976f6D3b9c529e7D9484A71898B409eE6a"),
     t("robinhood", "RAM", "Ramses", "0x5173D45A1191eE33cBB7D8c7e65f21B04eD54802"),
     t("robinhood", "LLM", "Large Language Model", "0x6f1A924b217e7Bb254605662C4223b604b7E07ff"),
-    // Waiting on CAs from winny: EMBER, ANSEM, 牛来, CATE, ZCAT (Dexscreener candidates were fake-liquidity or too thin to trust).
   ],
   8453: [
     t("base", "AERO", "Aerodrome", "0x940181a94A35A4569E4529A3CDfB74e38FD98631"),
@@ -66,7 +65,11 @@ export const SOLANA_TOKENS = [
   { ticker: "POPCAT", name: "Popcat", mint: "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr" },
   { ticker: "RAY", name: "Raydium", mint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" },
   { ticker: "JTO", name: "Jito", mint: "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL" },
-  // ZCAT and ANSEM: no canonical mint confirmed yet; add once verified.
+  // CAs from winny 2026-09-12, verified on Dexscreener (real volume, mcaps match):
+  { ticker: "ANSEM", name: "The Black Bull", mint: "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump" },
+  { ticker: "CATE", name: "Catecoin", mint: "Ai66LHZG9MCzg1WKdawwqduVAXpNDUuV8M3uyq5ppump" },
+  { ticker: "ZCAT", name: "Anonymous Cat", mint: "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR" },
+  { ticker: "EMBER", name: "embercurve", mint: "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6" },
 ] as const;
 
 export function tokensFor(chainId: number): TokenPair[] {
