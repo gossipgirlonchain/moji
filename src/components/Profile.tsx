@@ -6,17 +6,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
-import { useAccount, useBalance, usePublicClient, useReadContracts, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useAccount, useBalance, usePublicClient, useSendTransaction, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { erc20Abi, formatUnits, isAddress, parseEther, parseUnits, type Address } from "viem";
 import { CHAINS, DEFAULT_CHAIN, type MojiChain } from "@/config/chains";
 import { chainLaunchable } from "@/lib/numeraire";
-import { findNumeraire } from "@/lib/numeraire";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { explorerTx } from "@/lib/links";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
 import { Button, Card, Label } from "./ui";
-import type { MojiRow } from "@/lib/supabase";
 
 export function Profile() {
   if (!PRIVY_ENABLED) return <p className="text-center text-[14px] text-ink-soft">login is off until NEXT_PUBLIC_PRIVY_APP_ID is set.</p>;
@@ -29,7 +27,7 @@ function ProfileInner() {
   const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
   const chainId = chain.viem!.id;
   const liveChains = CHAINS.filter((c) => chainLaunchable(c));
-  const { ready, authenticated, user, login, logout, linkTwitter, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, login, logout, linkTwitter } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
@@ -41,48 +39,31 @@ function ProfileInner() {
 
   const { data: eth, refetch: refetchEth } = useBalance({ address, chainId, query: { enabled: Boolean(address), refetchInterval: 12_000 } });
 
-  // Tokens this user's mojis pay fees in: each stock token + each moji token.
-  const [mojis, setMojis] = useState<MojiRow[] | null>(null);
+  // Everything this wallet actually holds on the selected chain: moji tokens, stock tokens, WETH.
+  // Read from chain via one multicall over every known token, so tokens sent to the user show up too.
+  type Holding = { address: Address; symbol: string; label: string; decimals: number; balance: string; kind: "moji" | "stock" | "weth" };
+  const [holdings, setHoldings] = useState<Holding[] | null>(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!ready || !authenticated) return;
+    if (!address) return;
     let alive = true;
-    (async () => {
-      try {
-        const token = await getAccessToken();
-        const r = await fetch(`/api/me/mojis?light=1${address ? `&address=${address}` : ""}`, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
-        const j = (await r.json()) as { mojis?: MojiRow[] };
-        if (alive) setMojis(j.mojis ?? []);
-      } catch {
-        if (alive) setMojis([]);
-      }
-    })();
+    setHoldings(null);
+    fetch(`/api/me/holdings?address=${address}&chainId=${chainId}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { holdings?: Holding[] }) => alive && setHoldings(j.holdings ?? []))
+      .catch(() => alive && setHoldings([]));
     return () => {
       alive = false;
     };
-  }, [ready, authenticated, address, getAccessToken]);
-
-  const tokenAssets = useMemo<Asset[]>(() => {
-    const seen = new Map<string, Asset>();
-    for (const m of mojis ?? []) {
-      if (m.chain_id !== chainId) continue;
-      const stock = findNumeraire(m.chain_id, m.stock_address) ?? { ticker: m.stock_ticker, address: m.stock_address as Address, decimals: 18, symbolOnChain: undefined as string | undefined };
-      const isWeth = stock.symbolOnChain === `W${chain.gasSymbol}`;
-      if (!seen.has(stock.address.toLowerCase())) seen.set(stock.address.toLowerCase(), { key: stock.address.toLowerCase(), symbol: isWeth ? `W${chain.gasSymbol}` : stock.ticker, address: stock.address, decimals: stock.decimals, label: isWeth ? `W${chain.gasSymbol} · wrapped ${chain.gasSymbol}, unwraps 1:1` : `$${stock.ticker}`, weth: isWeth });
-      if (m.token_address && !seen.has(m.token_address.toLowerCase())) seen.set(m.token_address.toLowerCase(), { key: m.token_address.toLowerCase(), symbol: m.display, address: m.token_address as Address, decimals: 18, label: m.display });
-    }
-    return [...seen.values()];
-  }, [mojis, chainId, chain.gasSymbol]);
-
-  const { data: tokenBalances, refetch: refetchTokens } = useReadContracts({
-    contracts: tokenAssets.map((t) => ({ address: t.address!, abi: erc20Abi, functionName: "balanceOf" as const, args: [address ?? "0x0000000000000000000000000000000000000000"] as const, chainId })),
-    query: { enabled: Boolean(address) && tokenAssets.length > 0, refetchInterval: 15_000 },
-  });
+  }, [address, chainId, tick]);
+  const refetchTokens = () => setTick((t) => t + 1);
+  const mojis: unknown[] | null = holdings;
 
   const assets: (Asset & { balance: bigint })[] = useMemo(() => {
     const list: (Asset & { balance: bigint })[] = [{ key: "eth", symbol: chain.gasSymbol, decimals: 18, label: chain.gasSymbol, balance: eth?.value ?? 0n }];
-    tokenAssets.forEach((t, i) => list.push({ ...t, balance: (tokenBalances?.[i]?.result as bigint | undefined) ?? 0n }));
+    for (const h of holdings ?? []) list.push({ key: h.address.toLowerCase(), symbol: h.symbol, address: h.address, decimals: h.decimals, label: h.label, weth: h.kind === "weth", balance: BigInt(h.balance) });
     return list;
-  }, [tokenAssets, tokenBalances, eth, chain.gasSymbol]);
+  }, [holdings, eth, chain.gasSymbol]);
 
   if (!ready) return <p className="text-center text-[14px] text-ink-soft">…</p>;
   if (!authenticated) {
@@ -144,9 +125,9 @@ function ProfileInner() {
           </div>
         </div>
         <div className="mt-4">
-          <Label>Tokens · claimed fees land here</Label>
+          <Label>Tokens on {chain.short} · fees and anything sent to you</Label>
           {mojis === null && <p className="mt-1 text-[13px] text-ink-soft">loading…</p>}
-          {mojis !== null && assets.length === 1 && <p className="mt-1 text-[13px] text-ink-soft">nothing yet. fees arrive as the stock token and the moji token.</p>}
+          {mojis !== null && assets.length === 1 && <p className="mt-1 text-[13px] text-ink-soft">nothing on {chain.short} yet. claimed fees and anything sent to you show up here.</p>}
           {assets.length > 1 && (
             <div className="mt-1 flex flex-col gap-1">
               {assets.slice(1).map((a) => (
