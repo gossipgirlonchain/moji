@@ -34,7 +34,6 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("base", "NOCK", "Nock", "0x9B5E262cF9bb04869ab40b19AF91D2dc85761722", 16),
     t("base", "BNKR", "BankrCoin", "0x22aF33FE49fD1Fa80c7149773dDe5890D3c76F3b"),
     t("base", "CLANKER", "tokenbot", "0x1bc0c42215582d5A085795f4baDbaC3ff36d1Bcb"),
-    t("base", "BRETT", "Brett", "0x532f27101965dd16442E59d40670FaF5eBB142E4"),
     t("base", "TOSHI", "Toshi", "0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4"),
     t("base", "DEGEN", "Degen", "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed"),
     t("base", "ZORA", "Zora", "0x1111111111166b7FE7bd91427724B487980aFc69"),
