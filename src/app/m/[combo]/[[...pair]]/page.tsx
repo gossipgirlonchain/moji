@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, Label, LinkButton } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
-import { getMoji, getMojiSiblings } from "@/lib/data";
+import { getMoji } from "@/lib/data";
 import { mojiHref } from "@/components/MojiBits";
 import { FeesCard } from "@/components/FeesCard";
 import { decodeCombo } from "@/lib/emoji";
@@ -45,7 +45,6 @@ export default async function MojiPage({ params }: { params: Params }) {
   const { combo, pair } = await params;
   const m = await getMoji(decodeCombo(combo), ...pairOpts(pair));
   if (!m) notFound();
-  const siblings = (await getMojiSiblings(m.combo)).filter((s) => s.id !== m.id);
   // Snapshot values for an instant first paint; FeesCard and PriceChart fetch live numbers after mount.
   const market = { marketCapUsd: Number(m.market_cap_usd ?? 0), priceUsd: Number(m.price_usd ?? 0) };
   const fees = {
@@ -84,19 +83,6 @@ export default async function MojiPage({ params }: { params: Params }) {
             <a href={creator.href} target="_blank" rel="noopener noreferrer" className="text-sky-600">
               {creator.label}
             </a>
-          </p>
-        )}
-        {siblings.length > 0 && (
-          <p className="heading mt-2 text-[13px] text-ink-soft">
-            also paired to{" "}
-            {siblings.map((s, i) => (
-              <span key={s.id}>
-                {i > 0 && " · "}
-                <Link href={mojiHref(s)} className="text-sky-600">
-                  ${s.stock_ticker}
-                </Link>
-              </span>
-            ))}
           </p>
         )}
       </div>
