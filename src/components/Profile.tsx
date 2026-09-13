@@ -125,9 +125,9 @@ function ProfileInner() {
           </div>
         </div>
         <div className="mt-4">
-          <Label>Tokens on {chain.short} · fees and anything sent to you</Label>
+          <Label>Tokens</Label>
           {mojis === null && <p className="mt-1 text-[13px] text-ink-soft">loading…</p>}
-          {mojis !== null && assets.length === 1 && <p className="mt-1 text-[13px] text-ink-soft">nothing on {chain.short} yet. claimed fees and anything sent to you show up here.</p>}
+          {mojis !== null && assets.length === 1 && <p className="mt-1 text-[13px] text-ink-soft">none on {chain.short} yet.</p>}
           {assets.length > 1 && (
             <div className="mt-1 flex flex-col gap-1">
               {assets.slice(1).map((a) => (
