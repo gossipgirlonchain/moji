@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   if (!chain || !chainLaunchable(chain)) return NextResponse.json({ error: "That chain is not live yet" }, { status: 400 });
 
   const stock = findNumeraire(chain.chainId, body.stockAddress);
-  if (!stock) return NextResponse.json({ error: chain.numeraire === "weth" ? "Pairs on this chain must be WETH" : "Stock must be from the curated list" }, { status: 400 });
+  if (!stock) return NextResponse.json({ error: "Pair must be a listed stock or token on this chain" }, { status: 400 });
 
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.tokenAddress ?? "") || !/^0x[0-9a-fA-F]{64}$/.test(body.txHash ?? "")) {
     return NextResponse.json({ error: "Bad token address or tx hash" }, { status: 400 });

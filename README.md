@@ -153,20 +153,20 @@ One caveat to know: the Rehype hook itself also skims a fixed 5% of raw hook fee
 
 ## Chains and pairs
 
-Everything about chains comes from Doppler: the supported mainnets and contract addresses are the SDK's address map (`getAddresses(chainId)`), and the numeraire follows the docs' launch examples.
+Doppler's Airlock takes any ERC-20 as the numeraire, so a moji can pair against a tokenized stock or a token; the launch path (Airlock, DopplerHookInitializer, Rehype fee hook, beneficiaries) is identical either way. The launch page has two tabs, **STOCK** and **TOKEN**.
 
-| chain | id | gas | moji pairs against |
-|---|---|---|---|
-| Robinhood Chain (default) | 4663 | ETH | a Robinhood Stock Token from the LONG list (LONG is Doppler's own app); 63 tokens, verified on-chain, notes in `src/config/stocks.notes.md` |
-| Base | 8453 | ETH | **live**. Pairs against ETH: the pool holds WETH (`getAddresses(8453).weth`, as in every Base example in the docs); traders buy with plain ETH via the router, fees arrive as WETH and unwrap 1:1 from /profile |
-| Ethereum | 1 | ETH | soon, same WETH wiring |
-| Arbitrum One | 42161 | ETH | soon, same WETH wiring |
-| Monad | 143 | MON | soon, same WMON wiring |
-| Solana | | SOL | soon: needs the Solana Doppler SDK and Solana wallets, a separate integration |
+| chain | id | gas | STOCK tab | TOKEN tab |
+|---|---|---|---|---|
+| Robinhood Chain (default) | 4663 | ETH | 63 Robinhood Stock Tokens, the LONG list (`stocks.ts`) | ETH (WETH), PONS, AI, ANTHROPIG, ANTHROPICx1L, OPENAIx1L, PERPSPAD |
+| Base | 8453 | ETH | 8 Coinbase Tokenized Stocks: AAPL, AMZN, GOOGL, META, MSFT, MSTR, NVDA, TSLA (`stocks-base.ts`, 8 decimals) | ETH, AERO, VVV, VIRTUAL, NOCK, BNKR, CLANKER, BRETT, TOSHI, DEGEN |
+| Ethereum | 1 | ETH | soon | ETH, UNI, LINK, AAVE, PEPE, COMP, ONDO, LDO, ENA |
+| Arbitrum One | 42161 | ETH | soon | ETH, ARB, PENDLE, GMX, RAIN |
+| Monad | 143 | MON | soon | soon |
+| Solana | | SOL | soon | mints staged in `tokens.ts` (PENGU, PUMP, WIF, BONK, JUP, TRUMP, FARTCOIN, POPCAT, RAY, JTO) for the Solana build |
 
-`src/config/chains.ts` carries a `numeraire: "stock" | "weth"` mode per chain and `src/lib/numeraire.ts` resolves it. Doppler's indexer is built around ETH-quoted pools, so WETH-paired mojis get their USD market data straight from it, and the launch price for ETH/MON comes from the indexer's `ethPrice` / `monadUsdcPrice` (Chainlink-sourced). Robinhood stock prices come from the token's Chainlink feed where one exists, then Robinhood's public quote API, then Yahoo.
+Every EVM address was verified on-chain (symbol, name, decimals) and checked for real DEX liquidity on 2026-09-12; fake-liquidity pools were excluded. Curated tokens live in `src/config/tokens.ts`; WETH comes from Doppler's address map (`getAddresses(chainId).weth`).
 
-A handful of mojis were launched on Ethereum, Base and Monad against third-party tokenized stocks before this rule; they are on-chain and keep working, but no new launches use those tokens.
+**Prices for the curve and USD display:** WETH from the Doppler indexer (`ethPrices`, Chainlink-sourced); curated tokens from their most liquid real Dexscreener pair; Robinhood stocks from the Chainlink feed, then Robinhood's quote API, then Yahoo; Coinbase stocks by ticker via the same stock path.
 
 ## Seeding
 
