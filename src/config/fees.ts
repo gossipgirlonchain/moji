@@ -48,14 +48,19 @@ export function buildBeneficiaries(creator: Address, protocolOwner: Address, tre
     throw new Error("NEXT_PUBLIC_MOJI_TREASURY is not set to a valid address");
   }
   if (!isAddress(creator) || !isAddress(protocolOwner)) throw new Error("Bad creator or protocol owner address");
-  const set = new Set([creator, protocolOwner, treasury].map((a) => a.toLowerCase()));
-  if (set.size !== 3) throw new Error("creator, treasury and protocol owner must be three distinct addresses");
-
-  const list: Beneficiary[] = [
+  // Doppler requires unique, strictly ascending beneficiary addresses. When two roles share a wallet
+  // (the treasury launching its own moji), merge them into one entry with the combined shares.
+  const merged = new Map<string, Beneficiary>();
+  for (const b of [
     { beneficiary: creator, shares: SHARE_CREATOR },
     { beneficiary: treasury, shares: SHARE_TREASURY },
     { beneficiary: protocolOwner, shares: SHARE_PROTOCOL },
-  ];
+  ]) {
+    const k = b.beneficiary.toLowerCase();
+    const prev = merged.get(k);
+    merged.set(k, prev ? { beneficiary: prev.beneficiary, shares: prev.shares + b.shares } : b);
+  }
+  const list = [...merged.values()];
   assertSharesSumToWad(list, protocolOwner);
   return list;
 }
