@@ -14,6 +14,8 @@ import { EmojiSlots } from "./EmojiSlots";
 import { AvailabilityLine, useAvailability } from "./Availability";
 import { Advanced } from "./Advanced";
 import { LaunchAction, LaunchActionDisabled } from "./LaunchAction";
+import { SolanaTease } from "./SolanaTease";
+import { Button } from "@/components/ui";
 
 export function LaunchFlow() {
   const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
@@ -45,6 +47,10 @@ export function LaunchFlow() {
       </Card>
 
       <Card pop={2}>
+        {chain.key === "solana" ? (
+          <SolanaTease />
+        ) : (
+        <>
         <div className="mb-3 flex items-center justify-between">
           <Label>2 · Pair {stock ? `· ${stock.ticker}` : ""}</Label>
           <div className="flex gap-1.5">
@@ -70,6 +76,8 @@ export function LaunchFlow() {
           </div>
         </div>
         <StockList key={`${chain.key}-${tab}`} stocks={tab === "stock" ? stocks : tokens} value={stock} onChange={setStock} placeholder={tab === "stock" ? `Search ${stocks.length} stocks` : `Search ${tokens.length} tokens`} />
+        </>
+        )}
       </Card>
 
       <Card pop={3}>

@@ -8,12 +8,13 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
     <div className="scroll-x -mx-5 flex gap-2.5 px-5 pb-1">
       {CHAINS.map((c) => {
         const soon = !chainLaunchable(c);
+        const tease = c.key === "solana"; // tappable preview even though it isn't launchable
         const active = c.key === value.key;
         return (
           <button
             key={c.key}
             type="button"
-            disabled={soon}
+            disabled={soon && !tease}
             onClick={() => onChange(c)}
             data-pressed={active ? "true" : undefined}
             className={`press clay-pill heading flex shrink-0 items-center gap-1.5 px-4 py-2.5 text-[14px] ${
