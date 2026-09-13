@@ -111,7 +111,7 @@ export const CHAINS: MojiChain[] = [
     gasSymbol: arbitrum.nativeCurrency.symbol,
     numeraire: "weth",
     minGasNative: "0.0005",
-    live: true,
+    live: false,
     dexscreenerSlug: "arbitrum",
     matchaSlug: "arbitrum",
   },

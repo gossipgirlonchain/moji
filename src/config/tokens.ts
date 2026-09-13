@@ -21,7 +21,6 @@ export const TOKENS: Record<number, TokenPair[]> = {
   4663: [
     t("robinhood", "PONS", "Pons", "0x39dBED3a2bd333467115dE45665cC57F813C4571"),
     t("robinhood", "AI", "Artificial Inu", "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18"),
-    t("robinhood", "PERPSPAD", "Perps Pad", "0xa34CB9fC73B8634a50688A724cd0E78afbf41204", 9),
     t("robinhood", "CASHCAT", "Cash Cat", "0x020bfC650A365f8BB26819deAAbF3E21291018b4"),
     t("robinhood", "BONER", "Boner Coin", "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"),
     t("robinhood", "ZZZ", "ZZZ", "0x7dbf38976f6D3b9c529e7D9484A71898B409eE6a"),
@@ -39,6 +38,8 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("base", "BRETT", "Brett", "0x532f27101965dd16442E59d40670FaF5eBB142E4"),
     t("base", "TOSHI", "Toshi", "0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4"),
     t("base", "DEGEN", "Degen", "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed"),
+    t("base", "ZORA", "Zora", "0x1111111111166b7FE7bd91427724B487980aFc69"),
+    t("base", "BASECAT", "Basecat", "0xB2000000000000000000004c27f6523082f41D01"),
   ],
   1: [
     t("ethereum", "UNI", "Uniswap", "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"),
@@ -49,12 +50,7 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("ethereum", "ONDO", "Ondo", "0xfAbA6f8e4a5E8Ab82F62fe7C39859FA577269BE3"),
     t("ethereum", "LDO", "Lido DAO", "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32"),
     t("ethereum", "ENA", "Ethena", "0x57e114B691Db790C35207b2e685D4A43181e6061"),
-  ],
-  42161: [
-    t("arbitrum", "ARB", "Arbitrum", "0x912CE59144191C1204E64559FE8253a0e49E6548"),
-    t("arbitrum", "PENDLE", "Pendle", "0x0c880f6761F1af8d9Aa9C466984b80DAb9a8c9e8"),
-    t("arbitrum", "GMX", "GMX", "0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a"),
-    t("arbitrum", "RAIN", "RAIN", "0x25118290e6A5f4139381D072181157035864099d"),
+    t("ethereum", "APE", "ApeCoin", "0x4d224452801ACEd8B2F0aebE155379bb5D594381"),
   ],
 };
 
@@ -65,7 +61,6 @@ export const SOLANA_TOKENS = [
   { ticker: "WIF", name: "dogwifhat", mint: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm" },
   { ticker: "BONK", name: "Bonk", mint: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" },
   { ticker: "JUP", name: "Jupiter", mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" },
-  { ticker: "TRUMP", name: "Official Trump", mint: "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN" },
   { ticker: "FARTCOIN", name: "Fartcoin", mint: "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump" },
   { ticker: "POPCAT", name: "Popcat", mint: "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr" },
   { ticker: "RAY", name: "Raydium", mint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" },
