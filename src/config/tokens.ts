@@ -21,9 +21,6 @@ export const TOKENS: Record<number, TokenPair[]> = {
   4663: [
     t("robinhood", "PONS", "Pons", "0x39dBED3a2bd333467115dE45665cC57F813C4571"),
     t("robinhood", "AI", "Artificial Inu", "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18"),
-    t("robinhood", "ANTHROPIG", "Anthropig", "0x351Ab2C51e223B28D219fE28cc3956410CC11e18"),
-    t("robinhood", "ANTHROPICx1L", "Anthropic 1x Long", "0x1937caD42b17D43bB2b347ce16d5288887C46c33"),
-    t("robinhood", "OPENAIx1L", "OpenAI 1x Long", "0xfe09Fb328bE1c286B4f597eD34764b7472ae72c5"),
     t("robinhood", "PERPSPAD", "Perps Pad", "0xa34CB9fC73B8634a50688A724cd0E78afbf41204", 9),
   ],
   8453: [
