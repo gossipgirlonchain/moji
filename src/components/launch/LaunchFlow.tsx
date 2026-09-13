@@ -88,7 +88,11 @@ export function LaunchFlow() {
         </div>
       </Card>
 
-      {PRIVY_ENABLED ? (
+      {chain.key === "solana" ? (
+        <Button size="lg" disabled className="pop pop-4">
+          Solana soon
+        </Button>
+      ) : PRIVY_ENABLED ? (
         <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} />
       ) : (
         <LaunchActionDisabled combo={combo} stock={stock} available={available} />
