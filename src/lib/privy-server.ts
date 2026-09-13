@@ -33,6 +33,19 @@ export async function verifyPrivyToken(authHeader: string | null): Promise<Verif
 export type LinkedTwitter = { username: string; subject: string };
 
 /** The X account linked to a Privy DID, read server-side so the client cannot fake it. */
+/** True when `address` is one of the wallets (embedded or external) linked to this Privy user. */
+export async function hasLinkedWallet(did: string, address: string): Promise<boolean> {
+  const p = privy();
+  if (!p) return false;
+  try {
+    const user = await p.users()._get(did);
+    const want = address.toLowerCase();
+    return user.linked_accounts.some((a) => (a as { type: string; address?: string }).type === "wallet" && (a as { address?: string }).address?.toLowerCase() === want);
+  } catch {
+    return false;
+  }
+}
+
 export async function getLinkedTwitter(did: string): Promise<LinkedTwitter | null> {
   const p = privy();
   if (!p) return null;

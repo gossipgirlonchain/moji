@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { validateCombo } from "@/lib/emoji";
 import { hasSupabase, supabaseServer } from "@/lib/supabase";
-import { getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
+import { hasLinkedWallet, getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
+import { isXExempt } from "@/config/whitelist";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
 import { NETWORK, SITE_URL } from "@/lib/network";
@@ -61,8 +62,12 @@ export async function POST(req: Request) {
   if (!verified || verified === "unconfigured") return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   const did = verified.did;
 
+  // X is required, except for whitelisted wallets (treasury) that the logged-in user actually owns.
   const twitter = await getLinkedTwitter(did);
-  if (!twitter) return NextResponse.json({ error: "Link X to claim" }, { status: 403 });
+  if (!twitter) {
+    const exempt = isXExempt(body.creatorAddress) && (await hasLinkedWallet(did, body.creatorAddress));
+    if (!exempt) return NextResponse.json({ error: "Link X to claim" }, { status: 403 });
+  }
 
   const sb = supabaseServer();
 
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
       tx_hash: body.txHash,
       supply: body.supply ?? null,
       creator_did: did,
-      creator_handle: twitter.username,
+      creator_handle: twitter?.username ?? null,
       creator_address: body.creatorAddress,
       metadata_url: metadataUrl,
     })
@@ -119,5 +124,5 @@ export async function POST(req: Request) {
   } catch {}
 
   const href = `/m/${encodeURIComponent(v.display)}/${encodeURIComponent(stock.ticker)}`;
-  return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter.username });
+  return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter?.username ?? null });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { isXExempt } from "@/config/whitelist";
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
@@ -32,7 +33,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null);
   const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string } | null>(null);
-  const hasX = Boolean(user?.twitter?.username);
+  const hasX = Boolean(user?.twitter?.username) || isXExempt(address);
 
   const wallet = useMemo(() => pickWallet(wallets), [wallets]);
   // Only pick a default once; never override a wallet the user switched to.
