@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { Card, Label } from "@/components/ui";
 import { DEFAULT_CHAIN, type MojiChain } from "@/config/chains";
 import type { Stock } from "@/config/stocks";
-import { numerairesFor } from "@/lib/numeraire";
-import { NumeraireCard } from "./NumeraireCard";
+import { stockNumeraires, tokenNumeraires } from "@/lib/numeraire";
 import { CURVE_DEFAULTS, type CurveDefaults } from "@/config/curve";
 import { graphemes } from "@/lib/emoji";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
@@ -22,8 +21,9 @@ export function LaunchFlow() {
   const [emoji, setEmoji] = useState<string[]>([]);
   const [curve, setCurve] = useState<CurveDefaults>(CURVE_DEFAULTS);
 
-  const stocks = useMemo(() => numerairesFor(chain), [chain]);
-  const fixed = chain.numeraire === "weth" ? stocks[0] : undefined;
+  const stocks = useMemo(() => stockNumeraires(chain), [chain]);
+  const tokens = useMemo(() => tokenNumeraires(chain), [chain]);
+  const [tab, setTab] = useState<"stock" | "token">(stocks.length ? "stock" : "token");
   const combo = emoji.join("");
   const { loading, result } = useAvailability(combo);
   const available = Boolean(combo && !loading && result?.valid && !result.claimed);
@@ -38,23 +38,38 @@ export function LaunchFlow() {
           value={chain}
           onChange={(c) => {
             setChain(c);
-            setStock(c.numeraire === "weth" ? numerairesFor(c)[0] : undefined);
+            setStock(undefined);
+            setTab(stockNumeraires(c).length ? "stock" : "token");
           }}
         />
       </Card>
 
       <Card pop={2}>
-        {fixed ? (
-          <>
-            <Label className="mb-3">2 · Pair</Label>
-            <NumeraireCard chain={chain} numeraire={fixed} />
-          </>
-        ) : (
-          <>
-            <Label className="mb-3">2 · Stock {stock ? `· ${stock.ticker}` : ""}</Label>
-            <StockList stocks={stocks} value={stock} onChange={setStock} />
-          </>
-        )}
+        <div className="mb-3 flex items-center justify-between">
+          <Label>2 · Pair {stock ? `· ${stock.ticker}` : ""}</Label>
+          <div className="flex gap-1.5">
+            {(["stock", "token"] as const).map((k) => {
+              const n = k === "stock" ? stocks.length : tokens.length;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  disabled={n === 0}
+                  onClick={() => {
+                    setTab(k);
+                    setStock(undefined);
+                  }}
+                  data-pressed={tab === k ? "true" : undefined}
+                  className={`press clay-pill heading px-3.5 py-1.5 text-[12px] uppercase tracking-[0.1em] ${tab === k ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"} ${n === 0 ? "opacity-50" : ""}`}
+                >
+                  {k}
+                  {n === 0 ? " · soon" : ""}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <StockList key={`${chain.key}-${tab}`} stocks={tab === "stock" ? stocks : tokens} value={stock} onChange={setStock} placeholder={tab === "stock" ? `Search ${stocks.length} stocks` : `Search ${tokens.length} tokens`} />
       </Card>
 
       <Card pop={3}>

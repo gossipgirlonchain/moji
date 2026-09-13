@@ -13,6 +13,11 @@ const feedAbi = parseAbi([
  * else Robinhood's public price API via our proxy route.
  */
 export async function stockPriceUsd(stock: Stock): Promise<number> {
+  if (stock.priceSource === "dexscreener" && stock.dexChain) {
+    const r = await fetch(`/api/price?ticker=${encodeURIComponent(stock.ticker)}&chain=${stock.dexChain}&address=${stock.address}`, { cache: "no-store" });
+    if (!r.ok) throw new Error("No price for " + stock.ticker);
+    return ((await r.json()) as { price: number }).price;
+  }
   if (stock.chainlinkFeed) {
     try {
       const pc = createPublicClient({ chain: robinhoodChain, transport: transportFor(robinhoodChain) });

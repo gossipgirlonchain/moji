@@ -1,28 +1,34 @@
 import { getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { chainById, type MojiChain } from "@/config/chains";
 import { stocksFor, type Stock } from "@/config/stocks";
+import { tokensFor } from "@/config/tokens";
 
 /**
- * What a moji pairs against on a given chain.
- *  - Robinhood Chain: a tokenized stock from the LONG list (Doppler's own app).
- *  - Every other chain: the chain's WETH from Doppler's address map, exactly as the docs' launch examples do
- *    (`numeraire: addresses.weth`). Doppler's indexer is built around ETH-quoted pools.
+ * What a moji can pair against on a chain. Two tabs on the launch page:
+ *  - STOCK: tokenized stocks (Robinhood Chain: the LONG list; Base: Coinbase Tokenized Stocks)
+ *  - TOKEN: the chain's WETH from Doppler's address map (as in the docs' examples) plus curated liquid tokens
+ * Doppler's Airlock takes any ERC-20 as numeraire; the launch path is identical either way.
  */
 export function wethNumeraire(chain: MojiChain): Stock | null {
-  if (chain.numeraire !== "weth" || !chain.viem) return null;
+  if (!chain.viem) return null;
   const weth = (getAddresses(chain.chainId) as { weth?: `0x${string}` }).weth;
   if (!weth) return null;
-  const sym = chain.gasSymbol; // ETH, or MON on Monad
+  const sym = chain.gasSymbol;
   return { ticker: sym, name: chain.viem.nativeCurrency.name, address: weth, logo: "", decimals: 18, kind: "stock", issuer: "doppler", symbolOnChain: `W${sym}` };
 }
 
-/** Every valid numeraire for a chain: the stock list, or the single WETH entry. */
-export function numerairesFor(chain: MojiChain): Stock[] {
-  if (chain.numeraire === "weth") {
-    const w = wethNumeraire(chain);
-    return w ? [w] : [];
-  }
+export function stockNumeraires(chain: MojiChain): Stock[] {
   return stocksFor(chain.chainId);
+}
+
+export function tokenNumeraires(chain: MojiChain): Stock[] {
+  const w = wethNumeraire(chain);
+  return [...(w ? [w] : []), ...tokensFor(chain.chainId)];
+}
+
+/** Every valid numeraire for a chain. */
+export function numerairesFor(chain: MojiChain): Stock[] {
+  return [...stockNumeraires(chain), ...tokenNumeraires(chain)];
 }
 
 /** Resolve a numeraire by address or ticker on a chain. */

@@ -19,10 +19,10 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "moji · pick an emoji. pick a stock. launch.",
+  title: "moji · pick an emoji. pick a stock or token. launch.",
   description: "A dead-simple launcher. Claim a 1 to 3 emoji combo, pair it to a tokenized stock, launch on Doppler.",
   metadataBase: new URL("https://moji.wtf"),
-  openGraph: { title: "moji", description: "pick an emoji. pick a stock. launch.", images: ["/moji.png"] },
+  openGraph: { title: "moji", description: "pick an emoji. pick a stock or token. launch.", images: ["/moji.png"] },
 };
 export const viewport: Viewport = { themeColor: "#DCEEFB", width: "device-width", initialScale: 1 };
 

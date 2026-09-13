@@ -12,6 +12,7 @@
 // Every Robinhood Stock Token is an 18-decimal ERC-20 BeaconProxy; on-chain name() is "<Company> • Robinhood Token".
 // Generated 2026-09-11.
 
+import { STOCKS_8453 } from "./stocks-base"
 import type { Stock } from "./stocks-types"
 export type { Stock, Issuer } from "./stocks-types"
 
@@ -110,7 +111,7 @@ export const STOCKS: ChainStocks[] = [
   { chainId: 0, key: 'solana', name: 'Solana', comingSoon: true, stocks: [] },
   { chainId: 1, key: 'ethereum', name: 'Ethereum', stocks: [] }, // pairs against WETH, see src/lib/numeraire.ts
   { chainId: 42161, key: 'arbitrum', name: 'Arbitrum', stocks: [] },
-  { chainId: 8453, key: 'base', name: 'Base', stocks: [] },
+  { chainId: 8453, key: 'base', name: 'Base', stocks: STOCKS_8453 }, // Coinbase Tokenized Stocks
   { chainId: 143, key: 'monad', name: 'Monad', stocks: [] },
 ]
 

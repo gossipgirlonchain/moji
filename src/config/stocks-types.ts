@@ -1,4 +1,4 @@
-export type Issuer = "robinhood" | "doppler";
+export type Issuer = "robinhood" | "coinbase" | "doppler";
 
 export type Stock = {
   ticker: string;
@@ -14,6 +14,10 @@ export type Stock = {
   available?: boolean;
   /** Who tokenized it */
   issuer?: Issuer;
-  /** ERC-20 symbol on chain, e.g. AAPLon, AAPLx, aAAPL */
+  /** ERC-20 symbol on chain, e.g. AAPLc */
   symbolOnChain?: string;
+  /** Where the USD price comes from. Default: Chainlink feed / Robinhood quote / Yahoo by ticker. */
+  priceSource?: "dexscreener";
+  /** Dexscreener chain slug, when priceSource is dexscreener */
+  dexChain?: string;
 };

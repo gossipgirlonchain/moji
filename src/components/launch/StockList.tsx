@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Stock } from "@/config/stocks";
 import { StockLogo } from "@/components/StockLogo";
 
-export function StockList({ stocks, value, onChange }: { stocks: Stock[]; value?: Stock; onChange: (s: Stock) => void }) {
+export function StockList({ stocks, value, onChange, placeholder }: { stocks: Stock[]; value?: Stock; onChange: (s: Stock) => void; placeholder?: string }) {
   const [q, setQ] = useState("");
   const LIMIT = 80;
   const { list, hidden } = useMemo(() => {
@@ -19,7 +19,7 @@ export function StockList({ stocks, value, onChange }: { stocks: Stock[]; value?
     <div>
       <input
         className="clay-input mb-3"
-        placeholder={`Search ${stocks.length} stocks`}
+        placeholder={placeholder ?? `Search ${stocks.length} stocks`}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         autoComplete="off"

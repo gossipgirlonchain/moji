@@ -3,7 +3,7 @@ import { formatUnits } from "viem";
 import { publicClientFor } from "./rpc";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
-import { wethNumeraire } from "./numeraire";
+import { findNumeraire, wethNumeraire } from "./numeraire";
 import type { MojiRow } from "./supabase";
 
 export const INDEXER = process.env.DOPPLER_INDEXER_URL ?? "https://prod.indexer.doppler.lol/graphql";
@@ -46,12 +46,27 @@ export async function nativePriceUsd(symbol: "ETH" | "MON"): Promise<number> {
   return Number(formatUnits(BigInt(raw), symbol === "MON" ? 18 : 8));
 }
 
-/** Server-side numeraire price: WETH chains → Doppler indexer; stocks → Chainlink feed, Robinhood API, Yahoo. */
+/** Spot USD price of a token from its most liquid real pair on Dexscreener (pairs under $1K/24h volume ignored). */
+export async function dexscreenerPriceUsd(dexChain: string, address: string): Promise<number> {
+  try {
+    const r = await fetch(`https://api.dexscreener.com/token-pairs/v1/${dexChain}/${address}`, { next: { revalidate: 30 } });
+    if (!r.ok) return 0;
+    const pairs = (await r.json()) as { priceUsd?: string; liquidity?: { usd?: number }; volume?: { h24?: number }; baseToken?: { address?: string } }[];
+    const real = pairs.filter((p) => Number(p.volume?.h24 ?? 0) > 1000 && p.baseToken?.address?.toLowerCase() === address.toLowerCase()).sort((a, b) => Number(b.liquidity?.usd ?? 0) - Number(a.liquidity?.usd ?? 0));
+    return Number(real[0]?.priceUsd ?? pairs[0]?.priceUsd ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** Server-side numeraire price: WETH → Doppler indexer; curated tokens → Dexscreener; stocks → Chainlink feed, Robinhood API, Yahoo. */
 export async function stockPriceServer(chainId: number, stockAddress: string, tickerHint?: string): Promise<number> {
   const chain = chainById(chainId);
   const w = chain ? wethNumeraire(chain) : null;
   if (w && w.address.toLowerCase() === stockAddress.toLowerCase()) return nativePriceUsd(chain!.gasSymbol === "MON" ? "MON" : "ETH");
-  const stock = findStock(chainId, stockAddress) ?? (tickerHint ? { ticker: tickerHint, chainlinkFeed: undefined } : undefined);
+  const numeraire = findNumeraire(chainId, stockAddress);
+  if (numeraire?.priceSource === "dexscreener" && numeraire.dexChain) return dexscreenerPriceUsd(numeraire.dexChain, numeraire.address);
+  const stock = findStock(chainId, stockAddress) ?? numeraire ?? (tickerHint ? { ticker: tickerHint, chainlinkFeed: undefined } : undefined);
   if (stock?.chainlinkFeed && chain?.viem) {
     try {
       const pc = publicClientFor(chain.viem);

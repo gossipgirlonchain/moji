@@ -14,7 +14,7 @@ export default async function Home() {
     <main className="flex flex-col gap-4">
       <div className="pop text-center">
         <Wordmark />
-        <p className="heading text-[20px] text-ink">pick an emoji. pick a stock. launch.</p>
+        <p className="heading text-[20px] text-ink">pick an emoji. pick a stock or token. launch.</p>
         <Link href="/explore" className="press clay-pill mt-3 inline-block bg-white px-4 py-2">
           <ClaimsCounter initial={count} />
         </Link>
@@ -38,7 +38,7 @@ export default async function Home() {
         <Label className="mb-3">How it works</Label>
         <div className="flex flex-col gap-3">
           {[
-            ["1", "Pick a stock"],
+            ["1", "Pick a stock or token"],
             ["2", "Claim your emoji"],
             ["3", "Launch"],
           ].map(([n, t]) => (
