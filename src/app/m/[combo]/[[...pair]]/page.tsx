@@ -29,12 +29,15 @@ export async function generateMetadata({ params }: { params: Params }) {
   const title = m ? `${m.display} / ${m.stock_ticker} · moji` : `${d} · moji`;
   const description = m ? `${m.display} is a moji, paired to $${m.stock_ticker}.` : `${d} is a moji.`;
   const url = m ? `${SITE_URL}${mojiHref(m)}` : `${SITE_URL}/m/${encodeURIComponent(d)}`;
+  const image = m
+    ? `${SITE_URL}/api/og/${encodeURIComponent(m.display)}?chain=${m.chain_id}&pair=${m.stock_address}`
+    : `${SITE_URL}/api/og/${encodeURIComponent(d)}`;
   return {
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, siteName: "moji", type: "website" },
-    twitter: { card: "summary_large_image", title, description, site: "@moji" },
+    openGraph: { title, description, url, siteName: "moji", type: "website", images: [{ url: image, width: 1200, height: 630, alt: title }] },
+    twitter: { card: "summary_large_image", title, description, site: "@moji", images: [image] },
   };
 }
 
