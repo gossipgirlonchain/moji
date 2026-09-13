@@ -34,7 +34,16 @@ export default async function Home() {
         </div>
       </Card>
 
-      <Card tone="sky" pop={3}>
+      <Link href="/leaderboard" className="press clay pop pop-3 flex items-center gap-3 bg-white p-4">
+        <span className="text-[30px] leading-none">🏆</span>
+        <span className="flex-1">
+          <span className="heading block text-[16px] text-ink">Top launchers get rewarded</span>
+          <span className="heading block text-[12px] text-ink-soft">see the leaderboard</span>
+        </span>
+        <span className="heading text-[18px] text-sky-600">→</span>
+      </Link>
+
+      <Card tone="sky" pop={4}>
         <Label className="mb-3">How it works</Label>
         <div className="flex flex-col gap-3">
           {[
@@ -52,7 +61,7 @@ export default async function Home() {
         </div>
       </Card>
 
-      <Card pop={4}>
+      <Card pop={5}>
         <div className="mb-3 flex items-center justify-between">
           <Label>Recently launched</Label>
           <Link href="/explore" className="heading text-[13px] text-sky-600">
