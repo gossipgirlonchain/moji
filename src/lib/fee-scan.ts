@@ -124,17 +124,21 @@ export async function scanClaims(m: MojiRow, opts: { maxChunks?: number } = {}):
   };
 }
 
-/** The mojis-row patch that folds a scan into the stored running totals and revalues claimed USD at current prices. */
+/**
+ * The mojis-row patch that folds a scan into the stored running totals and revalues claimed USD at current prices.
+ * `fees_claimed_usd` is the CREATOR's claimed share only, so it lines up with `fees_unclaimed_usd` (creator pending):
+ * everything shown as "fees" / "earned" is what the launcher gets. Treasury and protocol claims stay in the totals.
+ */
 export function claimPatch(m: MojiRow, scan: ClaimScan, prices: { stockUsd: number; mojiUsd: number }): Record<string, unknown> {
-  const stock = Number(m.fees_stock_claimed ?? 0) + scan.stock;
-  const moji = Number(m.fees_moji_claimed ?? 0) + scan.moji;
+  const creatorStock = Number(m.fees_creator_stock_claimed ?? 0) + scan.creatorStock;
+  const creatorMoji = Number(m.fees_creator_moji_claimed ?? 0) + scan.creatorMoji;
   return {
-    fees_stock_claimed: stock,
-    fees_moji_claimed: moji,
-    fees_creator_stock_claimed: Number(m.fees_creator_stock_claimed ?? 0) + scan.creatorStock,
-    fees_creator_moji_claimed: Number(m.fees_creator_moji_claimed ?? 0) + scan.creatorMoji,
+    fees_stock_claimed: Number(m.fees_stock_claimed ?? 0) + scan.stock,
+    fees_moji_claimed: Number(m.fees_moji_claimed ?? 0) + scan.moji,
+    fees_creator_stock_claimed: creatorStock,
+    fees_creator_moji_claimed: creatorMoji,
     fees_claim_count: Number(m.fees_claim_count ?? 0) + scan.count,
     fees_scanned_block: scan.scannedBlock.toString(),
-    fees_claimed_usd: stock * prices.stockUsd + moji * prices.mojiUsd,
+    fees_claimed_usd: creatorStock * prices.stockUsd + creatorMoji * prices.mojiUsd,
   };
 }
