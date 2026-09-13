@@ -75,13 +75,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `One claim every 15 minutes. Try again in ${mins} min.` }, { status: 429 });
   }
 
-  const { error: claimErr } = await sb.from("claims").insert({ combo: v.normalized, display: v.display, chain_id: chain.chainId, network: NETWORK });
+  const { error: claimErr } = await sb.from("claims").insert({ combo: v.normalized, display: v.display, chain_id: chain.chainId, network: NETWORK, stock_address: stock.address });
   if (claimErr) {
     const conflict = claimErr.code === "23505";
-    return NextResponse.json({ error: conflict ? "That combo was just claimed" : claimErr.message }, { status: conflict ? 409 : 500 });
+    return NextResponse.json({ error: conflict ? `${v.display} is already paired to ${stock.ticker} on ${chain.short}` : claimErr.message }, { status: conflict ? 409 : 500 });
   }
 
-  const metadataUrl = `${SITE_URL}/api/meta/${encodeURIComponent(v.display)}`;
+  const metadataUrl = `${SITE_URL}/api/meta/${encodeURIComponent(v.display)}?chain=${chain.chainId}&pair=${stock.address}`;
   const { data, error } = await sb
     .from("mojis")
     .insert({
@@ -118,6 +118,6 @@ export async function POST(req: Request) {
     await refreshOne(data as never);
   } catch {}
 
-  const href = `/m/${encodeURIComponent(v.display)}`;
+  const href = `/m/${encodeURIComponent(v.display)}/${encodeURIComponent(stock.ticker)}`;
   return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter.username });
 }

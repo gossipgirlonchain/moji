@@ -63,5 +63,6 @@ export type ClaimRow = {
   display: string;
   chain_id: number;
   network: "mainnet" | "testnet";
+  stock_address: string;
   created_at: string;
 };

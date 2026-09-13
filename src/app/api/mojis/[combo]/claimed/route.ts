@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Hex } from "viem";
-import { getMoji } from "@/lib/data";
+import { getMoji, getMojiByToken } from "@/lib/data";
 import { hasSupabase, supabaseServer } from "@/lib/supabase";
 import { decodeCombo } from "@/lib/emoji";
 import { summarizeClaim } from "@/lib/claims";
@@ -15,9 +15,13 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, ctx: { params: Promise<{ combo: string }> }) {
   if (!hasSupabase() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return NextResponse.json({ error: "no service key" }, { status: 500 });
   const { combo } = await ctx.params;
-  const m = await getMoji(decodeCombo(combo));
+  const u = new URL(req.url);
+  const body = (await req.json()) as { txHashes?: string[]; txHash?: string; tokenAddress?: string; chainId?: number };
+  const m =
+    body.tokenAddress && body.chainId
+      ? await getMojiByToken(body.chainId, body.tokenAddress)
+      : await getMoji(decodeCombo(combo), u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null);
   if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const body = (await req.json()) as { txHashes?: string[]; txHash?: string };
   const hashes = [...(body.txHashes ?? []), ...(body.txHash ? [body.txHash] : [])].filter((h) => /^0x[0-9a-fA-F]{64}$/.test(h)) as Hex[];
   if (hashes.length === 0) return NextResponse.json({ error: "no tx" }, { status: 400 });
 

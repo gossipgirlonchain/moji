@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { Card, Label, LinkButton } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
-import { getMoji } from "@/lib/data";
+import { getMoji, getMojiSiblings } from "@/lib/data";
+import { mojiHref } from "@/components/MojiBits";
 import { FeesCard } from "@/components/FeesCard";
 import { decodeCombo } from "@/lib/emoji";
 import { dateShort, num, short } from "@/lib/format";
@@ -14,13 +15,20 @@ import { SITE_URL } from "@/lib/network";
 
 export const revalidate = 15;
 
-export async function generateMetadata({ params }: { params: Promise<{ combo: string }> }) {
-  const { combo } = await params;
+type Params = Promise<{ combo: string; pair?: string[] }>;
+
+/** /m/🍎 → earliest launch of 🍎. /m/🍎/AAPL → the AAPL pair. /m/🍎/AAPL/8453 → that pair on that chain. */
+function pairOpts(pair?: string[]): [string | null, number | null] {
+  return [pair?.[0] ? decodeURIComponent(pair[0]) : null, Number(pair?.[1] ?? 0) || null];
+}
+
+export async function generateMetadata({ params }: { params: Params }) {
+  const { combo, pair } = await params;
   const d = decodeCombo(combo);
-  const m = await getMoji(d);
+  const m = await getMoji(d, ...pairOpts(pair));
   const title = m ? `${m.display} / ${m.stock_ticker} · moji` : `${d} · moji`;
   const description = m ? `${m.display} is a moji, paired to $${m.stock_ticker}.` : `${d} is a moji.`;
-  const url = `${SITE_URL}/m/${encodeURIComponent(d)}`;
+  const url = m ? `${SITE_URL}${mojiHref(m)}` : `${SITE_URL}/m/${encodeURIComponent(d)}`;
   return {
     title,
     description,
@@ -30,10 +38,11 @@ export async function generateMetadata({ params }: { params: Promise<{ combo: st
   };
 }
 
-export default async function MojiPage({ params }: { params: Promise<{ combo: string }> }) {
-  const { combo } = await params;
-  const m = await getMoji(decodeCombo(combo));
+export default async function MojiPage({ params }: { params: Params }) {
+  const { combo, pair } = await params;
+  const m = await getMoji(decodeCombo(combo), ...pairOpts(pair));
   if (!m) notFound();
+  const siblings = (await getMojiSiblings(m.combo)).filter((s) => s.id !== m.id);
   // Snapshot values for an instant first paint; FeesCard and PriceChart fetch live numbers after mount.
   const market = { marketCapUsd: Number(m.market_cap_usd ?? 0), priceUsd: Number(m.price_usd ?? 0) };
   const fees = {
@@ -74,16 +83,30 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
             </a>
           </p>
         )}
+        {siblings.length > 0 && (
+          <p className="heading mt-2 text-[13px] text-ink-soft">
+            also paired to{" "}
+            {siblings.map((s, i) => (
+              <span key={s.id}>
+                {i > 0 && " · "}
+                <Link href={mojiHref(s)} className="text-sky-600">
+                  ${s.stock_ticker}
+                </Link>
+              </span>
+            ))}
+          </p>
+        )}
       </div>
 
       <Card pop={1}>
-        <PriceChart combo={m.display} marketCapUsd={market.marketCapUsd} priceUsd={market.priceUsd} />
+        <PriceChart combo={m.display} chainId={m.chain_id} pair={m.stock_address} marketCapUsd={market.marketCapUsd} priceUsd={market.priceUsd} />
       </Card>
 
       <FeesCard
         combo={m.display}
         ticker={m.stock_ticker}
         chainId={m.chain_id}
+        stockAddress={m.stock_address}
         tokenAddress={m.token_address}
         poolId={m.pool_id}
         creatorAddress={m.creator_address}
@@ -113,7 +136,7 @@ export default async function MojiPage({ params }: { params: Promise<{ combo: st
         )}
       </div>
 
-      <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}/m/${encodeURIComponent(m.display)}`} ca={m.token_address} />
+      <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}${mojiHref(m)}`} ca={m.token_address} />
 
       <Card pop={4}>
         <Label className="mb-3">Details</Label>

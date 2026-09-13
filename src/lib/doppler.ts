@@ -60,7 +60,7 @@ export async function buildParams(input: LaunchInput) {
       type: "dopplerERC20V1", // 4663 has no standard TokenFactory, only DopplerERC20V1Factory
       name: input.combo,
       symbol: input.combo,
-      tokenURI: `${SITE_URL}/api/meta/${encodeURIComponent(input.combo)}`,
+      tokenURI: `${SITE_URL}/api/meta/${encodeURIComponent(input.combo)}?chain=${input.chain.chainId}&pair=${input.stock.address}`,
     })
     .saleConfig({
       initialSupply: supplyWei(curve),

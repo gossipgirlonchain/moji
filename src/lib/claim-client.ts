@@ -57,7 +57,7 @@ export async function claimPool(
   const hashes: Hex[] = [];
   const record = () =>
     hashes.length
-      ? fetch(`/api/mojis/${encodeURIComponent(t.combo)}/claimed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes }) }).catch(() => {})
+      ? fetch(`/api/mojis/${encodeURIComponent(t.combo)}/claimed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes, tokenAddress: t.tokenAddress, chainId: t.chainId }) }).catch(() => {})
       : Promise.resolve();
   try {
     for (let i = 0; i < steps.length; i++) {

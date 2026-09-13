@@ -40,21 +40,36 @@ function applyFilter(host: HTMLElement | null, names: string[]): boolean {
   return true;
 }
 
-export function EmojiSlots({ emoji, onChange }: { emoji: string[]; onChange: (next: string[]) => void }) {
+export function EmojiSlots({
+  emoji,
+  onChange,
+  chainId,
+  pair,
+  ticker,
+}: {
+  emoji: string[];
+  onChange: (next: string[]) => void;
+  chainId: number;
+  /** numeraire address of the selected pair; claims are per pair, so nothing is hidden until one is picked */
+  pair?: string;
+  ticker?: string;
+}) {
   const full = emoji.length >= MAX_EMOJI;
   const [onlyAvailable, setOnlyAvailable] = useState(true);
   const [claimed, setClaimed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/claims/singles", { cache: "no-store" })
+    setClaimed(new Set());
+    if (!pair) return;
+    fetch(`/api/claims/singles?chainId=${chainId}&pair=${pair}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j: { combos: string[] }) => alive && setClaimed(new Set(j.combos ?? [])))
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, []);
+  }, [chainId, pair]);
 
   // The single-emoji filter only matters for the first slot; 2 and 3 combos are their own claims.
   const filterActive = onlyAvailable && emoji.length === 0;
@@ -115,7 +130,11 @@ export function EmojiSlots({ emoji, onChange }: { emoji: string[]; onChange: (ne
       >
         <span className="text-[14px] text-ink">
           Available single emojis only
-          {claimed.size > 0 && <span className="text-ink-soft"> · {claimed.size} taken</span>}
+          {pair && ticker ? (
+            <span className="text-ink-soft"> · {claimed.size} taken on {ticker}</span>
+          ) : (
+            <span className="text-ink-soft"> · pick a pair first</span>
+          )}
         </span>
         <span
           className="relative inline-block h-[26px] w-[46px] shrink-0 transition-colors duration-200"

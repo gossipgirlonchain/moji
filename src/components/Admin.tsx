@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { mojiHref } from "@/components/MojiBits";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
@@ -304,7 +305,7 @@ function PoolsView({ pools }: { pools: Pool[] }) {
           <tbody>
             {sorted.map((p) => (
               <tr key={p.id} className="border-t border-sky-100">
-                <td className={td}><Link href={`/m/${encodeURIComponent(p.display)}`} className="heading text-[15px] text-ink">{p.display} / {p.stock_ticker}</Link></td>
+                <td className={td}><Link href={mojiHref(p)} className="heading text-[15px] text-ink">{p.display} / {p.stock_ticker}</Link></td>
                 <td className={`${td} text-ink-soft`}>{p.chain_id}</td>
                 <td className={`${td} num`}>{usd(p.market.marketCapUsd)}</td>
                 <td className={`${td} num`}>{usd(Number(p.volume_all_usd ?? 0))}</td>
@@ -337,11 +338,11 @@ function PoolRow({ p, i, claim }: { p: Pool; i: number; claim?: boolean }) {
   return (
     <section className={`clay pop pop-${Math.min(5, (i % 5) + 1)} bg-white p-4`}>
       <div className="flex items-center gap-3">
-        <Link href={`/m/${encodeURIComponent(p.display)}`} className="text-[34px] leading-none">
+        <Link href={mojiHref(p)} className="text-[34px] leading-none">
           {p.display}
         </Link>
         <div className="flex-1">
-          <Link href={`/m/${encodeURIComponent(p.display)}`} className="heading block text-[16px] text-ink">
+          <Link href={mojiHref(p)} className="heading block text-[16px] text-ink">
             {p.display} / {p.stock_ticker}
           </Link>
           <div className="text-[12px] text-ink-soft">

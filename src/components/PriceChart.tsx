@@ -8,7 +8,7 @@ const RANGES = ["1H", "4H", "1D", "7D", "ALL"] as const;
 type Range = (typeof RANGES)[number];
 type Point = { time: number; value: number };
 
-export function PriceChart({ combo, marketCapUsd, priceUsd }: { combo: string; marketCapUsd: number; priceUsd: number }) {
+export function PriceChart({ combo, chainId, pair, marketCapUsd, priceUsd }: { combo: string; chainId: number; pair: string; marketCapUsd: number; priceUsd: number }) {
   const [range, setRange] = useState<Range>("1D");
   const [points, setPoints] = useState<Point[] | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -17,14 +17,14 @@ export function PriceChart({ combo, marketCapUsd, priceUsd }: { combo: string; m
   useEffect(() => {
     let alive = true;
     setPoints(null);
-    fetch(`/api/mojis/${encodeURIComponent(combo)}/chart?range=${range}`, { cache: "no-store" })
+    fetch(`/api/mojis/${encodeURIComponent(combo)}/chart?range=${range}&chain=${chainId}&pair=${pair}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j: { points: Point[] }) => alive && setPoints(j.points ?? []))
       .catch(() => alive && setPoints([]));
     return () => {
       alive = false;
     };
-  }, [combo, range]);
+  }, [combo, chainId, pair, range]);
 
   useEffect(() => {
     if (!ref.current) return;

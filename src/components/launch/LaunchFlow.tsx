@@ -27,7 +27,7 @@ export function LaunchFlow() {
   const tokens = useMemo(() => tokenNumeraires(chain), [chain]);
   const [tab, setTab] = useState<"stock" | "token">(stocks.length ? "stock" : "token");
   const combo = emoji.join("");
-  const { loading, result } = useAvailability(combo);
+  const { loading, result } = useAvailability(combo, chain.chainId, stock?.address);
   const available = Boolean(combo && !loading && result?.valid && !result.claimed);
 
   return (
@@ -82,7 +82,7 @@ export function LaunchFlow() {
 
       <Card pop={3}>
         <Label className="mb-3">3 · Your moji</Label>
-        <EmojiSlots emoji={emoji} onChange={setEmoji} />
+        <EmojiSlots emoji={emoji} onChange={setEmoji} chainId={chain.chainId} pair={stock?.address} ticker={stock?.ticker} />
         <div className="mt-4">
           <AvailabilityLine combo={combo} loading={loading} result={result} onPick={(c) => setEmoji(graphemes(c))} />
         </div>

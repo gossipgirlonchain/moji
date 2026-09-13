@@ -37,14 +37,34 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
   return (data ?? []) as MojiRow[];
 }
 
-/** Deduped per request so generateMetadata + the page share one query. */
-export const getMoji = cache(async (comboInput: string): Promise<MojiRow | null> => {
+/**
+ * Find a moji by combo, optionally narrowed to a pair (ticker or numeraire address) and chain.
+ * Claims are per pair, so a combo can exist several times; without a pair the earliest launch wins
+ * (keeps old /m/🍎 links working). Deduped per request so generateMetadata + the page share one query.
+ */
+export const getMoji = cache(async (comboInput: string, pair: string | null = null, chainId: number | null = null): Promise<MojiRow | null> => {
   if (!hasSupabase()) return null;
   const combo = normalizeCombo(comboInput);
   const sb = supabaseServer();
-  const { data } = await sb.from("mojis").select("*").eq("combo", combo).eq("network", NETWORK).maybeSingle();
-  return (data as MojiRow) ?? null;
+  let q = sb.from("mojis").select("*").eq("combo", combo).eq("network", NETWORK);
+  if (pair) q = /^0x[0-9a-fA-F]{40}$/.test(pair) ? q.ilike("stock_address", pair) : q.ilike("stock_ticker", pair);
+  if (chainId) q = q.eq("chain_id", chainId);
+  const { data } = await q.order("launched_at", { ascending: true }).limit(1);
+  return ((data ?? [])[0] as MojiRow) ?? null;
 });
+
+export async function getMojiByToken(chainId: number, tokenAddress: string): Promise<MojiRow | null> {
+  if (!hasSupabase()) return null;
+  const { data } = await supabaseServer().from("mojis").select("*").eq("network", NETWORK).eq("chain_id", chainId).ilike("token_address", tokenAddress).maybeSingle();
+  return (data as MojiRow) ?? null;
+}
+
+/** All mojis sharing a combo (one per pair). */
+export async function getMojiSiblings(comboInput: string): Promise<MojiRow[]> {
+  if (!hasSupabase()) return [];
+  const { data } = await supabaseServer().from("mojis").select("*").eq("combo", normalizeCombo(comboInput)).eq("network", NETWORK).order("launched_at", { ascending: true });
+  return (data ?? []) as MojiRow[];
+}
 
 export async function listClaims(): Promise<ClaimRow[]> {
   if (!hasSupabase()) return [];
@@ -60,17 +80,19 @@ export async function claimsCount(): Promise<number> {
   return count ?? 0;
 }
 
-export async function isClaimed(normalized: string): Promise<{ claimed: boolean; display?: string }> {
+/** Claims are per pair: (combo, chain, numeraire). */
+export async function isClaimed(normalized: string, chainId: number, stockAddress: string): Promise<{ claimed: boolean; display?: string; ticker?: string }> {
   if (!hasSupabase()) return { claimed: false };
   const sb = supabaseServer();
-  const { data } = await sb.from("claims").select("combo, display").eq("combo", normalized).eq("network", NETWORK).maybeSingle();
-  return data ? { claimed: true, display: (data as { display: string }).display } : { claimed: false };
+  const { data } = await sb.from("mojis").select("display, stock_ticker").eq("combo", normalized).eq("network", NETWORK).eq("chain_id", chainId).ilike("stock_address", stockAddress).limit(1);
+  const row = (data ?? [])[0] as { display: string; stock_ticker: string } | undefined;
+  return row ? { claimed: true, display: row.display, ticker: row.stock_ticker } : { claimed: false };
 }
 
-export async function claimedSet(normalizedList: string[]): Promise<Set<string>> {
+export async function claimedSet(normalizedList: string[], chainId: number, stockAddress: string): Promise<Set<string>> {
   if (!hasSupabase() || normalizedList.length === 0) return new Set();
   const sb = supabaseServer();
-  const { data } = await sb.from("claims").select("combo").eq("network", NETWORK).in("combo", normalizedList);
+  const { data } = await sb.from("claims").select("combo").eq("network", NETWORK).eq("chain_id", chainId).ilike("stock_address", stockAddress).in("combo", normalizedList);
   return new Set(((data ?? []) as { combo: string }[]).map((r) => r.combo));
 }
 

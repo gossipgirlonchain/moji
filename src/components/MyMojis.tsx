@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { mojiHref } from "@/components/MojiBits";
 import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
@@ -132,11 +133,11 @@ function MyMojisInner() {
       {rows.map((m, i) => (
         <section key={m.id} className={`clay pop pop-${Math.min(5, i + 1)} bg-white p-4`}>
           <div className="flex items-center gap-3">
-            <Link href={`/m/${encodeURIComponent(m.display)}`} className="text-[36px] leading-none">
+            <Link href={mojiHref(m)} className="text-[36px] leading-none">
               {m.display}
             </Link>
             <div className="flex-1">
-              <Link href={`/m/${encodeURIComponent(m.display)}`} className="heading block text-[17px] text-ink">
+              <Link href={mojiHref(m)} className="heading block text-[17px] text-ink">
                 {m.display} / {m.stock_ticker}
               </Link>
               <div className="text-[12px] text-ink-soft">

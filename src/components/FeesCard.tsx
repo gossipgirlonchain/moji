@@ -17,6 +17,8 @@ export type FeesCardProps = {
   combo: string;
   ticker: string;
   chainId: number;
+  /** numeraire address, identifies the pair (a combo can exist on several pairs) */
+  stockAddress?: string | null;
   tokenAddress: string | null;
   poolId: string | null;
   creatorAddress: string | null;
@@ -45,7 +47,7 @@ function useLiveFees(initial: FeesCardProps): FeesCardProps {
     let alive = true;
     const load = async () => {
       try {
-        const r = await fetch(`/api/mojis/${encodeURIComponent(initial.combo)}/fees`, { cache: "no-store" });
+        const r = await fetch(`/api/mojis/${encodeURIComponent(initial.combo)}/fees?chain=${initial.chainId}&pair=${initial.stockAddress ?? ""}`, { cache: "no-store" });
         if (!r.ok) return;
         const j = (await r.json()) as { fees: FeesPayload };
         if (alive && j.fees) setState((s) => ({ ...s, ...j.fees }));
@@ -57,7 +59,7 @@ function useLiveFees(initial: FeesCardProps): FeesCardProps {
       alive = false;
       clearInterval(t);
     };
-  }, [initial.combo, initial.tokenAddress]);
+  }, [initial.combo, initial.tokenAddress, initial.chainId, initial.stockAddress]);
   return state;
 }
 
@@ -155,7 +157,7 @@ export function ClaimButton(p: FeesCardProps & { compact?: boolean; beneficiary?
       let done = 0;
       const record = () =>
         hashes.length
-          ? fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes }) })
+          ? fetch(`/api/mojis/${encodeURIComponent(p.combo)}/claimed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes, tokenAddress: p.tokenAddress, chainId: p.chainId }) })
           : Promise.resolve();
       for (let i = 0; i < steps.length; i++) {
         setBusy(steps.length > 1 ? `sign ${i + 1} of ${steps.length}: ${steps[i].label}` : `confirm: ${steps[i].label}`);

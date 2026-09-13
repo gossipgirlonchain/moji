@@ -8,12 +8,13 @@ export type CheckResult = {
   reason?: string;
   normalized?: string;
   claimed: boolean;
+  needsPair?: boolean;
   owner?: { display: string; href: string };
   suggestions: string[];
 };
 
-/** Live availability, debounced 200ms. */
-export function useAvailability(combo: string) {
+/** Live availability for a combo on a pair (claims are per chain + numeraire), debounced 200ms. */
+export function useAvailability(combo: string, chainId: number, pair: string | undefined) {
   const [state, setState] = useState<{ loading: boolean; result: CheckResult | null }>({ loading: false, result: null });
   useEffect(() => {
     if (!combo) {
@@ -24,7 +25,7 @@ export function useAvailability(combo: string) {
     setState((s) => ({ ...s, loading: true }));
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/claims/check?combo=${encodeURIComponent(combo)}`, { cache: "no-store" });
+        const r = await fetch(`/api/claims/check?combo=${encodeURIComponent(combo)}&chainId=${chainId}&pair=${pair ?? ""}`, { cache: "no-store" });
         const j = (await r.json()) as CheckResult;
         if (alive) setState({ loading: false, result: j });
       } catch {
@@ -35,7 +36,7 @@ export function useAvailability(combo: string) {
       alive = false;
       clearTimeout(t);
     };
-  }, [combo]);
+  }, [combo, chainId, pair]);
   return state;
 }
 
@@ -53,6 +54,7 @@ export function AvailabilityLine({
   if (!combo) return <p className="heading text-center text-[15px] text-ink-soft">pick 1 to 3 emoji</p>;
   if (loading || !result) return <p className="heading text-center text-[15px] text-ink-soft">checking…</p>;
   if (!result.valid) return <p className="heading text-center text-[15px] text-coral">{result.reason}</p>;
+  if (result.needsPair) return <p className="heading text-center text-[15px] text-ink-soft">pick a stock or token to check</p>;
   if (!result.claimed) {
     return (
       <p className="heading text-center text-[18px] uppercase tracking-[0.12em] text-mint">
@@ -63,7 +65,7 @@ export function AvailabilityLine({
   return (
     <div className="text-center">
       <p className="heading text-[18px] uppercase tracking-[0.12em] text-coral">
-        <span className="mr-1">●</span> claimed
+        <span className="mr-1">●</span> taken on this pair
       </p>
       {result.owner && (
         <Link href={result.owner.href} className="heading text-[13px] text-sky-600 underline underline-offset-4">

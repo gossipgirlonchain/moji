@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 
-export function mojiHref(m: Pick<MojiRow, "display">) {
-  return `/m/${encodeURIComponent(m.display)}`;
+export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker">) {
+  return `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
 }
 
 export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
