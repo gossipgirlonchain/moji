@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Hex } from "viem";
 import { getMoji, getMojiByToken } from "@/lib/data";
+import { refreshClaims } from "@/lib/snapshot";
 import { hasSupabase, supabaseServer } from "@/lib/supabase";
 import { decodeCombo } from "@/lib/emoji";
 import { summarizeClaim } from "@/lib/claims";
@@ -48,7 +49,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ combo: string 
   });
   if (insErr) return NextResponse.json({ ok: true, duplicate: insErr.code === "23505", error: insErr.code === "23505" ? undefined : insErr.message });
   if (role === "creator") {
-    await sb.from("mojis").update({ fees_claimed_usd: Number(m.fees_claimed_usd ?? 0) + sum.stockUsd + sum.mojiUsd, fees_unclaimed_usd: 0 }).eq("id", m.id);
+    await refreshClaims(m).catch(() => {});
   }
   return NextResponse.json({ ok: true, ...sum });
 }

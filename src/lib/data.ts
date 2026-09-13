@@ -24,7 +24,7 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
       query = query.order(VOLUME_COL[opts.window ?? "24h"], { ascending: false, nullsFirst: false });
       break;
     case "fees":
-      query = query.order("fees_unclaimed_usd", { ascending: false, nullsFirst: false }).order("fees_claimed_usd", { ascending: false, nullsFirst: false });
+      query = query.order("fees_total_usd", { ascending: false, nullsFirst: false });
       break;
     default:
       query = query.order("launched_at", { ascending: false });

@@ -51,6 +51,13 @@ export type MojiRow = {
   volume_all_at: string | null;
   fees_stock_pending: number | null;
   fees_moji_pending: number | null;
+  fees_stock_claimed: number | null;
+  fees_moji_claimed: number | null;
+  fees_creator_stock_claimed: number | null;
+  fees_creator_moji_claimed: number | null;
+  fees_claim_count: number | null;
+  fees_scanned_block: number | string | null;
+  fees_total_usd: number | null;
   fee_current: number | null;
   snapshot_at: string | null;
   image_url: string | null;

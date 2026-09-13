@@ -10,6 +10,7 @@ export async function GET(req: Request) {
   const auth = req.headers.get("authorization");
   if (secret && auth !== `Bearer ${secret}`) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const t0 = Date.now();
-  const res = await refreshSnapshots();
+  const u = new URL(req.url);
+  const res = await refreshSnapshots(Number(u.searchParams.get("limit") ?? 300), Number(u.searchParams.get("concurrency") ?? 6), Number(u.searchParams.get("scanChunks") ?? 6));
   return NextResponse.json({ ...res, ms: Date.now() - t0 });
 }
