@@ -22,6 +22,12 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("robinhood", "PONS", "Pons", "0x39dBED3a2bd333467115dE45665cC57F813C4571"),
     t("robinhood", "AI", "Artificial Inu", "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18"),
     t("robinhood", "PERPSPAD", "Perps Pad", "0xa34CB9fC73B8634a50688A724cd0E78afbf41204", 9),
+    t("robinhood", "CASHCAT", "Cash Cat", "0x020bfC650A365f8BB26819deAAbF3E21291018b4"),
+    t("robinhood", "BONER", "Boner Coin", "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"),
+    t("robinhood", "ZZZ", "ZZZ", "0x7dbf38976f6D3b9c529e7D9484A71898B409eE6a"),
+    t("robinhood", "RAM", "Ramses", "0x5173D45A1191eE33cBB7D8c7e65f21B04eD54802"),
+    t("robinhood", "LLM", "Large Language Model", "0x6f1A924b217e7Bb254605662C4223b604b7E07ff"),
+    // Waiting on CAs from winny: EMBER, ANSEM, 牛来, CATE, ZCAT (Dexscreener candidates were fake-liquidity or too thin to trust).
   ],
   8453: [
     t("base", "AERO", "Aerodrome", "0x940181a94A35A4569E4529A3CDfB74e38FD98631"),

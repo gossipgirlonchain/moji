@@ -157,7 +157,7 @@ Doppler's Airlock takes any ERC-20 as the numeraire, so a moji can pair against 
 
 | chain | id | gas | STOCK tab | TOKEN tab |
 |---|---|---|---|---|
-| Robinhood Chain (default) | 4663 | ETH | 63 Robinhood Stock Tokens, the LONG list (`stocks.ts`) | ETH (WETH), PONS, AI, PERPSPAD |
+| Robinhood Chain (default) | 4663 | ETH | 63 Robinhood Stock Tokens, the LONG list (`stocks.ts`) | ETH (WETH), PONS, AI, PERPSPAD, CASHCAT, BONER, ZZZ, RAM, LLM |
 | Base | 8453 | ETH | 8 Coinbase Tokenized Stocks: AAPL, AMZN, GOOGL, META, MSFT, MSTR, NVDA, TSLA (`stocks-base.ts`, 8 decimals) | ETH, AERO, VVV, VIRTUAL, NOCK, BNKR, CLANKER, BRETT, TOSHI, DEGEN |
 | Ethereum | 1 | ETH | soon | ETH, UNI, LINK, AAVE, PEPE, COMP, ONDO, LDO, ENA |
 | Arbitrum One | 42161 | ETH | soon | ETH, ARB, PENDLE, GMX, RAIN |
