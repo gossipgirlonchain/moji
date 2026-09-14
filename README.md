@@ -41,8 +41,9 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_SITE_URL` | client + server | Public origin baked into token metadata URIs and share links. Default `https://moji.wtf` |
 | `NEXT_PUBLIC_NETWORK` | client + server | `mainnet` (default) or `testnet`. Claims are scoped per network so testnet never burns a mainnet combo |
 | `CRON_SECRET` | server only | Protects `/api/cron/refresh`. Vercel cron (every 2 min, `vercel.json`) refreshes the per-moji snapshot: mcap, price, 24h volume, creator pending fees, current fee. Pages render from the snapshot; the client polls live numbers after paint |
-| `ADMIN_PASSWORD` | server only | Gates `/admin`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected |
+| `ADMIN_PASSWORD` | server only | Gates `/admin` and `/design`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected |
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
+| `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
 ### Privy dashboard setup
 
@@ -51,6 +52,38 @@ npm run dev                  # http://localhost:3000
 3. Embedded wallets: the app passes `embeddedWallets.ethereum.createOnLogin = 'users-without-wallets'` in code.
 4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
 5. Add `http://localhost:3000` and your production domain to allowed origins.
+
+## Social cards: `/design` and `/api/card`
+
+Brand imagery for X is rendered by one API route and nothing else, so the studio, the download and the post
+queue always produce the same pixels.
+
+- **`GET /api/card`** returns a PNG. Query: `template`, `w`, `h` (`1200x1200` default, or `1600x900`), `seed`
+  (drives the emoji scatter), plus the template's fields. Responses are cached immutably per query string.
+
+  | template | fields |
+  |---|---|
+  | `announcement` | `headline` (max 8 words, wraps to 3 lines then shrinks), `subline?` |
+  | `pair` | `combo`, `ticker`, `label?` (pill, e.g. `JUST CLAIMED`) |
+  | `leaderboard` | `title`, `row=emoji\|pair\|figure` x3 |
+  | `open` | `title`, `item=emoji\|ticker` x6 to 8 |
+  | `claimed` | `title`, `tile=emoji\|ticker` x8 to 12, `count` |
+  | `bignumber` | `pair`, `figure`, `label?` |
+
+  Example: `/api/card?template=pair&w=1600&h=900&seed=3&combo=🍎&ticker=AAPL&label=JUST%20CLAIMED`
+- **`/design`** (same `ADMIN_PASSWORD` cookie as `/admin`) is a form that builds that URL: template picker,
+  fields, size toggle (1600x900 first, since X shows it uncropped), reshuffle (bumps the seed), a live preview
+  on a 300ms debounce, and Download PNG (`moji-{template}-{date}.png`), Copy image URL, Copy to clipboard
+  (paste straight into the X composer). "Fill from data" loads the fields from Supabase with the queries in
+  `src/lib/social.ts` (top 3 by fees, 8 unclaimed pool emoji, last 7 days of claims, biggest 7 day mover).
+- **Rendering.** `next/og` (satori + resvg) like the token and OG images, with Fredoka 600 and Nunito 800
+  self hosted in `src/assets/fonts`. Colors, radii and the clay shadows come from `src/config/design.ts`,
+  a TypeScript mirror of `:root` in `globals.css` (`npm run check:tokens` keeps them in sync). Emoji are
+  Noto Color Emoji SVGs pinned to one release, so output is identical on every OS; the scatter pool is
+  bundled, anything else is fetched once and cached. Because satori blurs every shadow over the full canvas,
+  the clay surfaces and the pool emoji (glyph + shadow) are pre-baked to PNG sprites in `src/assets`
+  (`npm run cards:assets`, re-run after changing tokens or the pool). `npm run cards:preview` renders every
+  template and edge case to `card-previews/` for a visual check.
 
 ## Supabase schema
 

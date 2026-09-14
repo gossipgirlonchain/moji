@@ -2,13 +2,14 @@ import "server-only";
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { CLAY, INK, INK_SOFT, SKY } from "@/config/design";
 
 /**
  * Deterministic emoji rendering: next/og (satori) with Noto Color Emoji, so the PNG is identical
- * on every OS. The sky gradient and clay shadow mirror the CSS tokens in globals.css.
+ * on every OS. Colors and the clay shadow come from the shared design tokens (src/config/design.ts).
  */
-const SKY_GRADIENT = "linear-gradient(145deg, #F2FAFF 0%, #C3E3F8 55%, #9BD2F4 100%)";
-const CLAY_SHADOW = "8px 8px 24px rgba(18,64,92,0.15), inset -8px -8px 16px rgba(18,64,92,0.10), inset 8px 8px 16px rgba(255,255,255,0.45)";
+const SKY_GRADIENT = `linear-gradient(145deg, ${SKY[50]} 0%, ${SKY[200]} 55%, ${SKY[300]} 100%)`;
+const CLAY_SHADOW = CLAY;
 
 let wordmarkCache: string | null = null;
 async function wordmarkDataUrl(): Promise<string> {
@@ -60,7 +61,7 @@ export async function renderOgImage(combo: string, ticker: string): Promise<Imag
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#DCEEFB",
+          background: SKY[100],
           fontFamily: "sans-serif",
           position: "relative",
         }}
@@ -97,12 +98,12 @@ export async function renderOgImage(combo: string, ticker: string): Promise<Imag
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 18 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={wordmark} width={300} height={155} alt="moji" style={{ objectFit: "contain" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 84, fontWeight: 700, color: "#12405C" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 84, fontWeight: 700, color: INK }}>
               <span>{combo}</span>
-              <span style={{ color: "#5A8AA6" }}>/</span>
+              <span style={{ color: INK_SOFT }}>/</span>
               <span>{ticker}</span>
             </div>
-            <div style={{ color: "#5A8AA6", fontSize: 26, fontWeight: 700 }}>moji.wtf</div>
+            <div style={{ color: INK_SOFT, fontSize: 26, fontWeight: 700 }}>moji.wtf</div>
           </div>
         </div>
       </div>

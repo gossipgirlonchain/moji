@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed-launch.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:tokens": "tsx scripts/check-design-tokens.ts",
+    "cards:assets": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/gen-card-assets.ts",
+    "cards:preview": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/render-cards.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
