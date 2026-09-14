@@ -4,6 +4,7 @@ import { isEmoji } from "@/lib/emoji";
 import { cardFonts } from "./fonts";
 import { resolveSprites } from "./emoji";
 import { loadClay } from "./clay";
+import { wordmarkDataUrl } from "@/lib/render";
 import { ARTBOARD_INSET, scatter } from "./scatter";
 import { CARD_BG, Frame, emojiNeeded, makeCtx, renderTemplate } from "./templates";
 import type { CardSpec } from "./params";
@@ -15,12 +16,13 @@ import type { CardSpec } from "./params";
 export async function renderCard(spec: CardSpec): Promise<ImageResponse> {
   const placements = scatter(spec.seed, spec.w, spec.h);
   const needed = emojiNeeded(spec);
-  const [sprites, fonts, clay] = await Promise.all([
+  const [sprites, fonts, clay, wordmark] = await Promise.all([
     resolveSprites(needed.plain.filter(isEmoji), [...placements.map((p) => p.emoji), ...needed.shadowed.filter(isEmoji)]),
     cardFonts(),
     loadClay(spec.w - 2 * ARTBOARD_INSET, spec.h - 2 * ARTBOARD_INSET, CARD_BG[spec.template]),
+    wordmarkDataUrl(),
   ]);
-  const ctx = makeCtx(spec.w, spec.h, sprites, clay);
+  const ctx = makeCtx(spec.w, spec.h, sprites, clay, wordmark);
   return new ImageResponse(
     (
       <Frame ctx={ctx} placements={placements}>

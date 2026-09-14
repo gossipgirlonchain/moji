@@ -18,16 +18,18 @@ import { FREDOKA_600, NUNITO_800 } from "./metrics";
 
 /** The only gradient in the system: --sky-100 lifting to near white at the top left. */
 export const LIFT = `radial-gradient(120% 120% at 0% 0%, #EEF8FE 0%, ${SKY[100]} 58%, ${SKY[100]} 100%)`;
-const FOOTER_H = 40;
+/** Footer row: the wordmark image (public/moji.png, 689x347) at this height on the left, "moji.wtf" on the right. */
+const FOOTER_H = 56;
+const WORDMARK_W = Math.round((FOOTER_H * 689) / 347);
 
 /** Clear space kept between the content and the footer row so copy never kisses the wordmarks. */
 const BREATH = 40;
 
-export type Ctx = { w: number; h: number; contentW: number; contentH: number; wide: boolean; sprites: Sprites; clay: ClaySet };
+export type Ctx = { w: number; h: number; contentW: number; contentH: number; wide: boolean; sprites: Sprites; clay: ClaySet; wordmark: string };
 
-export function makeCtx(w: number, h: number, sprites: Sprites, clay: ClaySet): Ctx {
+export function makeCtx(w: number, h: number, sprites: Sprites, clay: ClaySet, wordmark: string): Ctx {
   const inset = ARTBOARD_INSET + CARD_PADDING;
-  return { w, h, contentW: w - 2 * inset, contentH: h - 2 * inset - FOOTER_H - BREATH, wide: w / h > 1.3, sprites, clay };
+  return { w, h, contentW: w - 2 * inset, contentH: h - 2 * inset - FOOTER_H - BREATH, wide: w / h > 1.3, sprites, clay, wordmark };
 }
 
 /** Card background per template: white for structured layouts, --sky-50 for the two single-subject cards. */
@@ -41,7 +43,7 @@ export const CARD_BG: Record<CardSpec["template"], ClayBg> = {
 };
 
 export function Frame({ ctx, placements, children }: { ctx: Ctx; placements: Placement[]; children: ReactNode }) {
-  const { w, h, sprites, clay } = ctx;
+  const { w, h, sprites, clay, wordmark } = ctx;
   const cardW = w - 2 * ARTBOARD_INSET;
   const cardH = h - 2 * ARTBOARD_INSET;
   return (
@@ -62,7 +64,8 @@ export function Frame({ ctx, placements, children }: { ctx: Ctx; placements: Pla
       >
         <div style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%", paddingBottom: BREATH }}>{children}</div>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, height: FOOTER_H }}>
-          <div style={{ fontFamily: FONT.heading, fontWeight: 600, fontSize: 40, color: SKY[600], lineHeight: 1 }}>moji</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={wordmark} width={WORDMARK_W} height={FOOTER_H} alt="moji" style={{ width: WORDMARK_W, height: FOOTER_H }} />
           <div style={{ fontFamily: FONT.body, fontWeight: 800, fontSize: 24, color: INK_SOFT, lineHeight: 1 }}>moji.wtf</div>
         </div>
       </div>

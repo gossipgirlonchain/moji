@@ -12,7 +12,8 @@ const SKY_GRADIENT = `linear-gradient(145deg, ${SKY[50]} 0%, ${SKY[200]} 55%, ${
 const CLAY_SHADOW = CLAY;
 
 let wordmarkCache: string | null = null;
-async function wordmarkDataUrl(): Promise<string> {
+/** public/moji.png as a data URL, shared by the OG image and the social cards. */
+export async function wordmarkDataUrl(): Promise<string> {
   if (wordmarkCache) return wordmarkCache;
   const buf = await readFile(path.join(process.cwd(), "public", "moji.png"));
   wordmarkCache = `data:image/png;base64,${buf.toString("base64")}`;
