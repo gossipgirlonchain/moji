@@ -122,15 +122,15 @@ export function DesignStudio() {
     }
   }
 
-  async function fillFromData() {
+  async function fillFromData(pair?: { combo: string; ticker: string }) {
     try {
       setStatus({ kind: "busy", text: "reading live data…" });
       const q = new URLSearchParams({ template });
       if (template === "leaderboard") q.set("metric", metric);
       if (template === "bignumber") q.set("stat", stat);
       if (template === "token") {
-        q.set("combo", fields.token.combo);
-        q.set("ticker", fields.token.ticker);
+        q.set("combo", pair?.combo ?? fields.token.combo);
+        q.set("ticker", pair?.ticker ?? fields.token.ticker);
       }
       const r = await fetch(`/api/design/fill?${q}`, { cache: "no-store" });
       if (r.status === 401) return router.refresh();
@@ -184,7 +184,7 @@ export function DesignStudio() {
           <div className="flex items-center justify-between gap-3">
             <Label>{TEMPLATE_LABEL[template]}</Label>
             {FILLABLE.includes(template) && (
-              <Chip onClick={fillFromData} disabled={status?.kind === "busy"}>
+              <Chip onClick={() => fillFromData()} disabled={status?.kind === "busy"}>
                 fill from data
               </Chip>
             )}
@@ -210,6 +210,18 @@ export function DesignStudio() {
           <div className="mt-3 flex flex-col gap-3">
             <FieldsEditor template={template} fields={fields} update={update} />
           </div>
+          {(template === "pair" || template === "token") && (
+            <PairPicker
+              busy={status?.kind === "busy"}
+              onPick={(p) => {
+                if (template === "pair") update("pair", { combo: p.combo, ticker: p.ticker });
+                else {
+                  update("token", { combo: p.combo, ticker: p.ticker });
+                  void fillFromData(p);
+                }
+              }}
+            />
+          )}
         </Card>
       </div>
 
@@ -254,6 +266,52 @@ export function DesignStudio() {
           </div>
           <p className="mono break-all text-[11px] leading-snug text-ink-soft">{url}</p>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+type PairRow = { combo: string; ticker: string; launched_at: string };
+let pairsCache: PairRow[] | null = null;
+
+/** Every launched pair as chips, newest first, with a filter box once the list is long. Loaded once per page. */
+function PairPicker({ onPick, busy }: { onPick: (p: PairRow) => void; busy?: boolean }) {
+  const router = useRouter();
+  const [pairs, setPairs] = useState<PairRow[] | null>(pairsCache);
+  const [err, setErr] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    if (pairsCache) return;
+    let alive = true;
+    fetch("/api/design/pairs", { cache: "no-store" })
+      .then(async (r) => {
+        if (r.status === 401) return router.refresh();
+        const j = (await r.json()) as { pairs?: PairRow[]; error?: string };
+        if (!r.ok || !j.pairs) throw new Error(j.error ?? "could not load pairs");
+        pairsCache = j.pairs;
+        if (alive) setPairs(j.pairs);
+      })
+      .catch((e) => alive && setErr(e instanceof Error ? e.message : "could not load pairs"));
+    return () => {
+      alive = false;
+    };
+  }, [router]);
+  const needle = q.trim().toLowerCase();
+  const shown = (pairs ?? []).filter((p) => !needle || p.ticker.toLowerCase().includes(needle) || p.combo.includes(needle)).slice(0, 80);
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <span className="flex items-center justify-between gap-2">
+        <Label>pairs</Label>
+        <span className="text-[11px] text-ink-soft">{pairs ? `${pairs.length} launched, newest first` : err ?? "loading…"}</span>
+      </span>
+      {pairs && pairs.length > 12 && <input className="clay-input" style={inputStyle} value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter by ticker or emoji" aria-label="filter pairs" />}
+      <div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto scroll-y pb-1">
+        {shown.map((p) => (
+          <Chip key={`${p.combo}-${p.ticker}-${p.launched_at}`} onClick={() => onPick(p)} disabled={busy} title={new Date(p.launched_at).toLocaleString()}>
+            {p.combo} ${p.ticker}
+          </Chip>
+        ))}
+        {pairs && !shown.length && <span className="text-[12px] text-ink-soft">{pairs.length ? "no match" : "no launches yet"}</span>}
       </div>
     </div>
   );
