@@ -31,7 +31,7 @@ npm run dev                  # http://localhost:3000
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Supabase anon key (read-only thanks to RLS) |
-| `SUPABASE_SERVICE_ROLE_KEY` | server only | Needed by `POST /api/launch` to write claims + mojis. Dashboard > Project Settings > API |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | Needed by `POST /api/launch` to write claims + mojis, and by every `/api/creators` route (the `creators` tables have no public RLS policy, so the anon key cannot read them). Dashboard > Project Settings > API |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | client | Privy app id. Login is disabled in the UI until this is set |
 | `PRIVY_APP_SECRET` | server only | Used by `/api/launch` to verify the caller's Privy access token and record their DID. If unset, launches are still recorded but without DID verification |
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | client + server | Optional RPC override for 4663 (default `https://rpc.mainnet.chain.robinhood.com`) |
@@ -41,7 +41,7 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_SITE_URL` | client + server | Public origin baked into token metadata URIs and share links. Default `https://moji.wtf` |
 | `NEXT_PUBLIC_NETWORK` | client + server | `mainnet` (default) or `testnet`. Claims are scoped per network so testnet never burns a mainnet combo |
 | `CRON_SECRET` | server only | Protects `/api/cron/refresh`. Vercel cron (every 2 min, `vercel.json`) refreshes the per-moji snapshot: mcap, price, 24h volume, creator pending fees, current fee. Pages render from the snapshot; the client polls live numbers after paint |
-| `ADMIN_PASSWORD` | server only | Gates `/admin` and `/design`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected |
+| `ADMIN_PASSWORD` | server only | Gates `/admin`, `/design` and `/creators`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected, the card studio, and the creator pipeline |
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 | `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
@@ -52,6 +52,28 @@ npm run dev                  # http://localhost:3000
 3. Embedded wallets: the app passes `embeddedWallets.ethereum.createOnLogin = 'users-without-wallets'` in code.
 4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
 5. Add `http://localhost:3000` and your production domain to allowed origins.
+
+## Creator pipeline: `/creators`
+
+Outreach CRM for the creators who applied through the Ratio form, gated by the same `ADMIN_PASSWORD` cookie as
+`/admin`. Rows live in moji's own Supabase in `creators` + `creator_events` (`supabase/creators.sql`; RLS on, no
+public policy, so only the service role key reads or writes). The 169 Ratio applicants were seeded once from the
+Ratio project's `creator_applications` table, deduped by X handle, with a starting priority from their follower
+band (50K+ = high, 15K+ = medium, 5K+ = low).
+
+- **Stages**: new → reached out → replied → negotiating → agreed → posted → paid, plus declined and no response.
+  Entering a stage for the first time stamps `reached_out_at`, `replied_at`, etc. and writes a `stage` event.
+- **Pipeline view** is one column per stage with a "→ next" button per card. **List view** is a sortable table
+  with checkboxes and a bulk bar: mark DM'd on X or Telegram, set stage, priority, owner, star.
+- **Drawer** (click any creator): stage pills, priority stars, owner, tags, deal size, follow-up date (with 2d /
+  1w snooze), notes, everything from their application (rates, audience, best posts, wallets), and the timeline.
+  "DM on X" / "DM on TG" open the profile and log the touch; a first DM moves them to reached out, "they replied"
+  moves them to replied, "they posted" to posted, "paid" to paid.
+- **DM template** (toolbar) is saved in the browser with `{name}`, `{first}`, `{handle}`, `{format}` placeholders.
+  "copy DM" on a card or in the drawer fills it for that creator.
+- **+ add** puts a creator in by hand. **export csv** downloads the whole pipeline.
+- API (all admin cookie): `GET /api/creators`, `POST /api/creators`, `GET|PATCH|DELETE /api/creators/[id]`,
+  `POST /api/creators/[id]/events`, `POST /api/creators/bulk`, `GET /api/creators/export`.
 
 ## Social cards: `/design` and `/api/card`
 
