@@ -30,17 +30,18 @@ export const SMALL_SPILL = 24;
 export const SMALL = {
   circle: { w: 132, h: 132, r: 999, bg: "sky50" as ClayBg },
   tile: { w: 400, h: 128, r: 24, bg: "sky50" as ClayBg },
+  stat: { w: 400, h: 172, r: 24, bg: "sky50" as ClayBg },
   pill: { w: 400, h: 74, r: 999, bg: "white" as ClayBg },
 } as const;
 export type SmallKind = keyof typeof SMALL;
 /** Width of the end caps of a sliced shape: spill + radius + a little straight edge. */
-const CAP = { tile: SMALL_SPILL + SMALL.tile.r + 8, pill: SMALL_SPILL + SMALL.pill.h / 2 + 8 } as const;
+const CAP = { tile: SMALL_SPILL + SMALL.tile.r + 8, stat: SMALL_SPILL + SMALL.stat.r + 8, pill: SMALL_SPILL + SMALL.pill.h / 2 + 8 } as const;
 const MID = 16;
 
 type Asset =
   | { kind: "card"; w: number; h: number; bg: ClayBg }
   | { kind: "circle" }
-  | { kind: "tile" | "pill"; slice: "left" | "mid" | "right" };
+  | { kind: "tile" | "stat" | "pill"; slice: "left" | "mid" | "right" };
 
 export function assetName(a: Asset): string {
   if (a.kind === "card") return `card-${a.w}x${a.h}-${a.bg}.png`;
@@ -53,7 +54,7 @@ export function allAssets(cardSizes: { w: number; h: number }[]): Asset[] {
   const out: Asset[] = [];
   for (const s of cardSizes) for (const bg of Object.keys(CLAY_BG) as ClayBg[]) out.push({ kind: "card", w: s.w, h: s.h, bg });
   out.push({ kind: "circle" });
-  for (const kind of ["tile", "pill"] as const) for (const slice of ["left", "mid", "right"] as const) out.push({ kind, slice });
+  for (const kind of ["tile", "stat", "pill"] as const) for (const slice of ["left", "mid", "right"] as const) out.push({ kind, slice });
   return out;
 }
 
@@ -106,15 +107,17 @@ function asset(a: Asset): Promise<string> {
   return p;
 }
 
-export type ClaySet = { card: string; circle: string; tile: [string, string, string]; pill: [string, string, string] };
+type Slices = [string, string, string];
+export type ClaySet = { card: string; circle: string; tile: Slices; stat: Slices; pill: Slices };
 /** Everything a card render needs, loaded in parallel. */
 export async function loadClay(cardW: number, cardH: number, bg: ClayBg): Promise<ClaySet> {
   const [card, circle, ...slices] = await Promise.all([
     asset({ kind: "card", w: cardW, h: cardH, bg }),
     asset({ kind: "circle" }),
-    ...(["tile", "pill"] as const).flatMap((kind) => (["left", "mid", "right"] as const).map((slice) => asset({ kind, slice }))),
+    ...(["tile", "stat", "pill"] as const).flatMap((kind) => (["left", "mid", "right"] as const).map((slice) => asset({ kind, slice }))),
   ]);
-  return { card, circle, tile: [slices[0], slices[1], slices[2]], pill: [slices[3], slices[4], slices[5]] };
+  const take = (i: number): Slices => [slices[i], slices[i + 1], slices[i + 2]];
+  return { card, circle, tile: take(0), stat: take(3), pill: take(6) };
 }
 
 const img = (src: string, x: number, y: number, w: number, h: number, key?: string | number) => (

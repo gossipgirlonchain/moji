@@ -40,6 +40,7 @@ export const CARD_BG: Record<CardSpec["template"], ClayBg> = {
   open: "white",
   claimed: "white",
   bignumber: "sky50",
+  token: "white",
 };
 
 export function Frame({ ctx, placements, children }: { ctx: Ctx; placements: Placement[]; children: ReactNode }) {
@@ -226,6 +227,48 @@ export function BigNumber({ ctx, f }: { ctx: Ctx; f: Fields["bignumber"] }) {
   );
 }
 
+/* 7. token: one pair's stats. Hero combo + "$MSFT" + creator line on top, 2 to 4 clay stat tiles below. */
+export function Token({ ctx, f }: { ctx: Ctx; f: Fields["token"] }) {
+  const stats = f.stats.filter((s) => s.label.trim() || s.value.trim()).slice(0, 4);
+  const n = Math.max(1, stats.length);
+  const hero = ctx.wide ? 140 : 168;
+  // The hero already shows the combo, so the text is just the ticker.
+  const pairText = dollar(f.ticker) || "$";
+  const textW = ctx.contentW - hero - 40;
+  const pairSize = fitLine(pairText, [92, 84, 76, 68, 60, 52], textW);
+  const creator = f.creator.trim();
+  const creatorSize = creator ? fitLine(creator, [32, 28, 24], textW, NUNITO_800) : 0;
+  const gap = 24;
+  const cols = ctx.wide || n <= 2 ? n : 2;
+  const rows = Math.ceil(n / cols);
+  const tileW = Math.floor((ctx.contentW - (cols - 1) * gap) / cols);
+  const headH = Math.max(hero, pairSize + (creator ? creatorSize * 1.3 + 12 : 0));
+  const tileH = Math.min(172, Math.floor((ctx.contentH - headH - 48 - (rows - 1) * gap) / rows));
+  const labelSize = 22;
+  const valueSize = Math.min(...stats.map((st) => fitLine(st.value, [60, 52, 44, 36], tileW - 48)), Math.floor((tileH - labelSize * 1.2 - 40) / 1.1));
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 48 }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 40 }}>
+        <ComboEmoji sprites={ctx.sprites} combo={f.combo} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Rich text={pairText} sprites={ctx.sprites} size={pairSize} color={INK} lineHeight={1} />
+          {creator ? <Rich text={creator} sprites={ctx.sprites} size={creatorSize} color={INK_SOFT} font={FONT.body} lineHeight={1.3} /> : null}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap }}>
+        {stats.map((st, i) => (
+          <ClayBox key={i} clay={ctx.clay} kind="stat" w={tileW} h={tileH}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", fontFamily: FONT.body, fontWeight: 800, fontSize: labelSize, lineHeight: 1.2, letterSpacing: `${0.1 * labelSize}px`, color: INK_SOFT }}>{st.label.toUpperCase()}</div>
+              <Rich text={st.value} sprites={ctx.sprites} size={valueSize} color={INK} lineHeight={1.1} />
+            </div>
+          </ClayBox>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Every emoji grapheme a spec needs (plain, and those drawn with a shadow), resolved before the synchronous render. */
 export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string[] } {
   const texts: string[] = [];
@@ -274,6 +317,12 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       texts.push(f.pair, f.figure, f.label);
       break;
     }
+    case "token": {
+      const f = spec.fields as Fields["token"];
+      shadowed.push(f.combo);
+      texts.push(f.combo, f.ticker, f.creator, ...f.stats.flatMap((st) => [st.label, st.value]));
+      break;
+    }
   }
   // Combos are drawn grapheme by grapheme; text fields are tokenised the same way in Rich.
   const g = (list: string[]) => list.flatMap((c) => graphemes(c)).filter((x) => x.trim());
@@ -294,5 +343,7 @@ export function renderTemplate(spec: CardSpec, ctx: Ctx): ReactNode {
       return <Claimed ctx={ctx} f={spec.fields as Fields["claimed"]} />;
     case "bignumber":
       return <BigNumber ctx={ctx} f={spec.fields as Fields["bignumber"]} />;
+    case "token":
+      return <Token ctx={ctx} f={spec.fields as Fields["token"]} />;
   }
 }

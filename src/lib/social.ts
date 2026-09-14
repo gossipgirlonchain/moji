@@ -1,9 +1,10 @@
 import "server-only";
 import { hasSupabase, supabaseServer, type MojiRow } from "./supabase";
 import { NETWORK } from "./network";
-import { topEarnersFast } from "./data";
+import { claimsCount, getMoji, topEarnersFast } from "./data";
 import { EXTENSION_POOL, normalizeCombo } from "./emoji";
 import { getPriceSeries } from "./market";
+import { timeAgo } from "./format";
 import { dollar, type Fields, type Template } from "./card/params";
 
 /**
@@ -18,14 +19,54 @@ export function money(v: number): string {
   if (v < 10) return `$${v.toFixed(2)}`;
   return `$${Math.round(v).toLocaleString("en-US")}`;
 }
+const n = (v: number | string | null | undefined) => Number(v ?? 0) || 0;
+const earned = (m: MojiRow) => n(m.fees_claimed_usd) + n(m.fees_unclaimed_usd);
 
-/** leaderboard: top 3 pairs by fees earned (pending + claimed, from the snapshot). */
-export async function leaderboardFill(): Promise<Partial<Fields["leaderboard"]>> {
-  const top = await topEarnersFast(3);
+/** Ranking metrics for the leaderboard. */
+export const METRICS = {
+  fees: { title: "top earners", col: "fees_total_usd", value: earned },
+  volume7d: { title: "top volume this week", col: "volume7d_usd", value: (m: MojiRow) => n(m.volume7d_usd) },
+  volume24: { title: "top volume today", col: "volume24_usd", value: (m: MojiRow) => n(m.volume24_usd) },
+  mcap: { title: "biggest by market cap", col: "market_cap_usd", value: (m: MojiRow) => n(m.market_cap_usd) },
+} as const;
+export type Metric = keyof typeof METRICS;
+export const isMetric = (s: string | null | undefined): s is Metric => Boolean(s) && s! in METRICS;
+
+/** Statistics for the big number card: the biggest mover, or a protocol wide total. */
+export const STATS = {
+  mover: "biggest 7 day mover",
+  volume7d: "volume this week",
+  volume24: "volume today",
+  claims: "combos claimed",
+  fees: "creator fees",
+  mcap: "combined market cap",
+  launches7d: "new pairs this week",
+} as const;
+export type Stat = keyof typeof STATS;
+export const isStat = (s: string | null | undefined): s is Stat => Boolean(s) && s! in STATS;
+
+async function livePools(orderCol?: string, limit = 5000): Promise<MojiRow[]> {
+  if (!hasSupabase()) return [];
+  let q = supabaseServer().from("mojis").select("*").eq("network", NETWORK).not("token_address", "is", null);
+  if (orderCol) q = q.order(orderCol, { ascending: false, nullsFirst: false });
+  const { data } = await q.limit(limit);
+  return (data ?? []) as MojiRow[];
+}
+
+/** leaderboard: top 3 pairs by the chosen metric (fees earned by default), from the snapshot columns. */
+export async function leaderboardFill(metric: Metric = "fees"): Promise<Partial<Fields["leaderboard"]>> {
+  const m = METRICS[metric];
+  const top = metric === "fees" ? await topEarnersFast(3) : (await livePools(m.col, 50)).sort((a, b) => m.value(b) - m.value(a)).slice(0, 3);
   if (!top.length) return {};
-  const rows = top.map((r) => ({ emoji: r.display, pair: dollar(r.stock_ticker), figure: money(r.earnedUsd) }));
+  const rows = top.map((r) => ({ emoji: r.display, pair: dollar(r.stock_ticker), figure: money(m.value(r)) }));
   while (rows.length < 3) rows.push({ emoji: "", pair: "", figure: "" }); // keep three editable rows
-  return { rows };
+  return { title: m.title, rows };
+}
+
+/** pair: the most recent launch, as a "just claimed" card. */
+export async function pairFill(): Promise<Partial<Fields["pair"]>> {
+  const [m] = await livePools("launched_at", 1);
+  return m ? { combo: m.display, ticker: dollar(m.stock_ticker).slice(1), label: "JUST CLAIMED" } : {};
 }
 
 /** open: 8 emoji from the curated pool that nobody has claimed yet on this network. */
@@ -49,25 +90,14 @@ export async function claimedFill(): Promise<Partial<Fields["claimed"]>> {
     sb.from("mojis").select("id", { count: "exact", head: true }).eq("network", NETWORK).gte("launched_at", since),
   ]);
   const rows = (data ?? []) as Pick<MojiRow, "display" | "stock_ticker">[];
-  const n = count ?? rows.length;
+  const total = count ?? rows.length;
   if (!rows.length) return { count: "0 claimed" };
-  return { tiles: rows.map((r) => ({ emoji: r.display, ticker: dollar(r.stock_ticker) })), count: `${n.toLocaleString("en-US")} claimed` };
+  return { tiles: rows.map((r) => ({ emoji: r.display, ticker: dollar(r.stock_ticker) })), count: `${total.toLocaleString("en-US")} claimed` };
 }
 
-/**
- * bignumber: the biggest 7 day price move among the pools with the most 7 day volume. Falls back to the
- * pool with the most 7 day volume when no price history is available.
- */
-export async function bignumberFill(): Promise<Partial<Fields["bignumber"]>> {
-  if (!hasSupabase()) return {};
-  const { data } = await supabaseServer()
-    .from("mojis")
-    .select("*")
-    .eq("network", NETWORK)
-    .not("token_address", "is", null)
-    .order("volume7d_usd", { ascending: false, nullsFirst: false })
-    .limit(10);
-  const rows = (data ?? []) as MojiRow[];
+/** The biggest 7 day price move among the pools with the most 7 day volume; falls back to the volume leader. */
+async function biggestMover(): Promise<Partial<Fields["bignumber"]>> {
+  const rows = await livePools("volume7d_usd", 10);
   if (!rows.length) return {};
   const moves = await Promise.all(
     rows.map(async (m) => {
@@ -83,21 +113,71 @@ export async function bignumberFill(): Promise<Partial<Fields["bignumber"]>> {
     return { pair: `${best.m.display} / ${dollar(best.m.stock_ticker)}`, figure: `${best.change >= 0 ? "+" : "-"}${pct.toLocaleString("en-US")}%`, label: "this week" };
   }
   const top = rows[0];
-  return { pair: `${top.display} / ${dollar(top.stock_ticker)}`, figure: money(Number(top.volume7d_usd ?? 0)), label: "7 day volume" };
+  return { pair: `${top.display} / ${dollar(top.stock_ticker)}`, figure: money(n(top.volume7d_usd)), label: "7 day volume" };
 }
 
-export const FILLABLE: Template[] = ["leaderboard", "open", "claimed", "bignumber"];
+/** bignumber: the biggest mover, or a total across every pair. */
+export async function bignumberFill(stat: Stat = "mover"): Promise<Partial<Fields["bignumber"]>> {
+  if (stat === "mover") return biggestMover();
+  if (!hasSupabase()) return {};
+  if (stat === "claims") {
+    const c = await claimsCount();
+    return { pair: "since launch", figure: c.toLocaleString("en-US"), label: "combos claimed" };
+  }
+  if (stat === "launches7d") {
+    const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+    const { count } = await supabaseServer().from("mojis").select("id", { count: "exact", head: true }).eq("network", NETWORK).gte("launched_at", since);
+    return { pair: "this week", figure: (count ?? 0).toLocaleString("en-US"), label: "new pairs" };
+  }
+  const pools = await livePools();
+  const sum = (f: (m: MojiRow) => number) => pools.reduce((acc, m) => acc + f(m), 0);
+  switch (stat) {
+    case "volume7d":
+      return { pair: "all pairs", figure: money(sum((m) => n(m.volume7d_usd))), label: "traded this week" };
+    case "volume24":
+      return { pair: "all pairs", figure: money(sum((m) => n(m.volume24_usd))), label: "traded today" };
+    case "fees":
+      return { pair: "all creators", figure: money(sum(earned)), label: "earned in fees" };
+    case "mcap":
+      return { pair: "all pairs", figure: money(sum((m) => n(m.market_cap_usd))), label: "combined market cap" };
+  }
+}
 
-export async function fillFor(template: Template): Promise<Partial<Fields[Template]> | null> {
+/** token: one pair's stats, looked up by combo and ticker exactly like the moji page does. */
+export async function tokenFill(combo: string, ticker: string): Promise<Partial<Fields["token"]> | null> {
+  if (!combo.trim()) return null;
+  const m = await getMoji(combo, ticker.trim().replace(/^\$/, "") || null);
+  if (!m) return null;
+  const who = m.creator_handle ? `launched by @${m.creator_handle}` : "launched";
+  return {
+    combo: m.display,
+    ticker: m.stock_ticker,
+    creator: `${who} · ${timeAgo(m.launched_at)}`,
+    stats: [
+      { label: "market cap", value: money(n(m.market_cap_usd)) },
+      { label: "volume 24h", value: money(n(m.volume24_usd)) },
+      { label: "volume 7d", value: money(n(m.volume7d_usd)) },
+      { label: "fees earned", value: money(earned(m)) },
+    ],
+  };
+}
+
+export type FillOptions = { metric?: Metric; stat?: Stat; combo?: string; ticker?: string };
+
+export async function fillFor(template: Template, opts: FillOptions = {}): Promise<Partial<Fields[Template]> | null> {
   switch (template) {
     case "leaderboard":
-      return leaderboardFill();
+      return leaderboardFill(opts.metric);
+    case "pair":
+      return pairFill();
     case "open":
       return openFill();
     case "claimed":
       return claimedFill();
     case "bignumber":
-      return bignumberFill();
+      return bignumberFill(opts.stat);
+    case "token":
+      return tokenFill(opts.combo ?? "", opts.ticker ?? "");
     default:
       return null;
   }

@@ -2,7 +2,7 @@
  * The card spec: one URL <-> one image. Shared by /design (builds the URL) and /api/card (renders it),
  * so the preview, the download and the post queue all go through the same renderer.
  */
-export const TEMPLATES = ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber"] as const;
+export const TEMPLATES = ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token"] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const TEMPLATE_LABEL: Record<Template, string> = {
@@ -12,6 +12,7 @@ export const TEMPLATE_LABEL: Record<Template, string> = {
   open: "still open",
   claimed: "claimed this week",
   bignumber: "big number",
+  token: "token stats",
 };
 
 /** The two supported canvases. 1600x900 is what X shows uncropped in the timeline. */
@@ -26,6 +27,7 @@ export function isSupportedSize(w: number, h: number): boolean {
 
 export type EmojiItem = { emoji: string; ticker: string };
 export type LeaderboardRow = { emoji: string; pair: string; figure: string };
+export type Stat = { label: string; value: string };
 
 export type Fields = {
   announcement: { headline: string; subline: string };
@@ -34,6 +36,7 @@ export type Fields = {
   open: { title: string; items: EmojiItem[] };
   claimed: { title: string; tiles: EmojiItem[]; count: string };
   bignumber: { pair: string; figure: string; label: string };
+  token: { combo: string; ticker: string; creator: string; stats: Stat[] };
 };
 
 export type CardSpec<T extends Template = Template> = {
@@ -51,6 +54,8 @@ export const LIMITS = {
   openMax: 8,
   claimedMin: 8,
   claimedMax: 12,
+  statsMin: 2,
+  statsMax: 4,
   text: 160,
 } as const;
 
@@ -94,6 +99,17 @@ export const SAMPLE: { [T in Template]: Fields[T] } = {
     count: "1,842 claimed",
   },
   bignumber: { pair: "🧇 / $TSM", figure: "+340%", label: "this week" },
+  token: {
+    combo: "🪟",
+    ticker: "MSFT",
+    creator: "launched by @winny · 12 days ago",
+    stats: [
+      { label: "market cap", value: "$184K" },
+      { label: "volume 24h", value: "$12,400" },
+      { label: "volume 7d", value: "$61,200" },
+      { label: "fees earned", value: "$2,884" },
+    ],
+  },
 };
 
 export function defaultFields<T extends Template>(template: T): Fields[T] {
@@ -159,6 +175,14 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
       if (f.label) sp.set("label", f.label);
       break;
     }
+    case "token": {
+      const f = spec.fields as Fields["token"];
+      sp.set("combo", f.combo);
+      sp.set("ticker", f.ticker);
+      if (f.creator) sp.set("creator", f.creator);
+      for (const st of f.stats) sp.append("stat", joinItem([st.label, st.value]));
+      break;
+    }
   }
   return sp;
 }
@@ -217,6 +241,16 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
         label: has("label") ? clean(sp.get("label"), 40) : "",
       };
       break;
+    case "token": {
+      const stats = sp.getAll("stat").map((r) => splitItem(r, 2)).map(([label, value]) => ({ label: clean(label, 24), value: clean(value, 24) }));
+      fields = {
+        combo: has("combo") ? clean(sp.get("combo"), 24) : sample.token.combo,
+        ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.token.ticker,
+        creator: has("creator") ? clean(sp.get("creator"), 80) : "",
+        stats: (stats.length ? stats : sample.token.stats).slice(0, LIMITS.statsMax),
+      };
+      break;
+    }
   }
   return { ok: true, spec: { template, w, h, seed, fields } as CardSpec };
 }
@@ -225,6 +259,13 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
 export function dollar(ticker: string): string {
   const t = ticker.trim().replace(/^\$+/, "");
   return t ? `$${t.toUpperCase()}` : "";
+}
+
+/** "🪟 / MSFT", "🪟/$msft" or "🪟 MSFT" -> { combo, ticker }. */
+export function parsePair(input: string): { combo: string; ticker: string } {
+  const m = input.trim().match(/^(.*?)\s*[/|·\s]\s*\$?([A-Za-z0-9.]+)\s*$/u);
+  if (!m) return { combo: input.trim(), ticker: "" };
+  return { combo: m[1].trim(), ticker: m[2].toUpperCase() };
 }
 
 export function wordCount(s: string): number {

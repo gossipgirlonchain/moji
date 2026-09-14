@@ -10,11 +10,13 @@ import {
   LIMITS,
   cardUrl,
   defaultFields,
+  parsePair,
   wordCount,
   type CardSpec,
   type EmojiItem,
   type Fields,
   type LeaderboardRow,
+  type Stat,
   type Template,
 } from "@/lib/card/params";
 
@@ -23,7 +25,23 @@ import {
  * see here is byte for byte what the download, the clipboard and the post queue get.
  */
 type AllFields = { [T in Template]: Fields[T] };
-const FILLABLE: Template[] = ["leaderboard", "open", "claimed", "bignumber"];
+const FILLABLE: Template[] = ["pair", "leaderboard", "open", "claimed", "bignumber", "token"];
+/** Options for "fill from data", mirrored from src/lib/social.ts. */
+const METRICS = [
+  ["fees", "fees earned"],
+  ["volume7d", "volume 7d"],
+  ["volume24", "volume 24h"],
+  ["mcap", "market cap"],
+] as const;
+const STATS = [
+  ["mover", "biggest mover"],
+  ["volume7d", "volume this week"],
+  ["volume24", "volume today"],
+  ["claims", "combos claimed"],
+  ["fees", "creator fees"],
+  ["mcap", "combined mcap"],
+  ["launches7d", "new pairs 7d"],
+] as const;
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function DesignStudio() {
@@ -32,6 +50,8 @@ export function DesignStudio() {
   const [size, setSize] = useState(0); // index into SIZES, 1600x900 first
   const [seed, setSeed] = useState(1);
   const [fields, setFields] = useState<AllFields>(() => Object.fromEntries(TEMPLATES.map((t) => [t, defaultFields(t)])) as AllFields);
+  const [metric, setMetric] = useState<(typeof METRICS)[number][0]>("fees");
+  const [stat, setStat] = useState<(typeof STATS)[number][0]>("mover");
   const [status, setStatus] = useState<{ kind: "ok" | "err" | "busy"; text: string } | null>(null);
 
   const spec = useMemo<CardSpec>(() => ({ template, w: SIZES[size].w, h: SIZES[size].h, seed: String(seed), fields: fields[template] }), [template, size, seed, fields]);
@@ -105,7 +125,14 @@ export function DesignStudio() {
   async function fillFromData() {
     try {
       setStatus({ kind: "busy", text: "reading live data…" });
-      const r = await fetch(`/api/design/fill?template=${template}`, { cache: "no-store" });
+      const q = new URLSearchParams({ template });
+      if (template === "leaderboard") q.set("metric", metric);
+      if (template === "bignumber") q.set("stat", stat);
+      if (template === "token") {
+        q.set("combo", fields.token.combo);
+        q.set("ticker", fields.token.ticker);
+      }
+      const r = await fetch(`/api/design/fill?${q}`, { cache: "no-store" });
       if (r.status === 401) return router.refresh();
       const j = (await r.json()) as { fields?: Partial<Fields[Template]>; error?: string };
       if (!r.ok || !j.fields) throw new Error(j.error ?? "fill failed");
@@ -162,6 +189,24 @@ export function DesignStudio() {
               </Chip>
             )}
           </div>
+          {template === "leaderboard" && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {METRICS.map(([k, label]) => (
+                <Chip key={k} active={metric === k} onClick={() => setMetric(k)}>
+                  {label}
+                </Chip>
+              ))}
+            </div>
+          )}
+          {template === "bignumber" && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {STATS.map(([k, label]) => (
+                <Chip key={k} active={stat === k} onClick={() => setStat(k)}>
+                  {label}
+                </Chip>
+              ))}
+            </div>
+          )}
           <div className="mt-3 flex flex-col gap-3">
             <FieldsEditor template={template} fields={fields} update={update} />
           </div>
@@ -307,6 +352,38 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
           <Input label="pair" value={f.pair} onChange={(e) => update("bignumber", { pair: e.target.value })} placeholder="🧇 / $TSM" />
           <Input label="figure" value={f.figure} onChange={(e) => update("bignumber", { figure: e.target.value })} placeholder="+340%" />
           <Input label="label" value={f.label} onChange={(e) => update("bignumber", { label: e.target.value })} placeholder="this week" />
+        </>
+      );
+    }
+    case "token": {
+      const f = fields.token;
+      const setStat = (i: number, patch: Partial<Stat>) => update("token", { stats: f.stats.map((st, j) => (j === i ? { ...st, ...patch } : st)) });
+      return (
+        <>
+          <Input
+            label="pair"
+            hint="type it like 🪟 / MSFT, then fill from data"
+            value={`${f.combo}${f.ticker ? ` / ${f.ticker}` : ""}`}
+            onChange={(e) => update("token", parsePair(e.target.value))}
+            placeholder="🪟 / MSFT"
+          />
+          <Input label="creator line (optional)" value={f.creator} onChange={(e) => update("token", { creator: e.target.value })} placeholder="launched by @handle · 3 days ago" />
+          <span className="flex items-center justify-between">
+            <Label>stats</Label>
+            <span className={`text-[11px] ${f.stats.length < LIMITS.statsMin || f.stats.length > LIMITS.statsMax ? "text-coral" : "text-ink-soft"}`}>
+              {f.stats.length} of {LIMITS.statsMin} to {LIMITS.statsMax}
+            </span>
+          </span>
+          {f.stats.map((st, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_36px] gap-2">
+              <input className="clay-input" style={inputStyle} value={st.label} onChange={(e) => setStat(i, { label: e.target.value })} placeholder="market cap" aria-label={`stat ${i + 1} label`} />
+              <input className="clay-input" style={inputStyle} value={st.value} onChange={(e) => setStat(i, { value: e.target.value })} placeholder="$184K" aria-label={`stat ${i + 1} value`} />
+              <button type="button" className="press clay-pill heading bg-sky-50 text-ink-soft disabled:opacity-40" onClick={() => update("token", { stats: f.stats.filter((_, j) => j !== i) })} disabled={f.stats.length <= 1} aria-label={`remove stat ${i + 1}`}>
+                ×
+              </button>
+            </div>
+          ))}
+          {f.stats.length < LIMITS.statsMax && <Chip onClick={() => update("token", { stats: [...f.stats, { label: "", value: "" }] })}>+ add</Chip>}
         </>
       );
     }
