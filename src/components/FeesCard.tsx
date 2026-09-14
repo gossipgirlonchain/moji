@@ -116,9 +116,7 @@ export function FeesCard(initial: FeesCardProps) {
           </span>
         </div>
       )}
-      <p className={`mt-2 text-center text-[11px] ${p.error ? "text-coral" : "text-ink-soft"}`}>
-        {p.error ? "couldn't read the pool just now, retrying…" : p.live ? "read live from the pool" : "no on-chain data yet"}
-      </p>
+      {p.error && <p className="mt-2 text-center text-[11px] text-coral">couldn&apos;t read the pool just now, retrying…</p>}
     </section>
   );
 }
