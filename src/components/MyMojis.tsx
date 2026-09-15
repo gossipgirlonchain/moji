@@ -12,7 +12,7 @@ import { ClaimButton } from "./FeesCard";
 import { Button, Label } from "./ui";
 import { MOJI_TREASURY } from "@/config/fees";
 
-type Row = MojiRow & { fees: MojiFees };
+type Row = MojiRow & { fees: MojiFees; drops_enabled?: boolean };
 
 export function MyMojis() {
   if (!PRIVY_ENABLED) return <p className="text-center text-[14px] text-ink-soft">login is off until NEXT_PUBLIC_PRIVY_APP_ID is set.</p>;
@@ -146,7 +146,7 @@ function MyMojisInner() {
                 {m.token_address ? "unclaimed fees" : "on-chain data pending"}
               </div>
             </div>
-            {drops && m.token_address && (
+            {(drops || m.drops_enabled) && m.token_address && (
               <Link href={`/drops/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}/${m.chain_id}`} className="press clay-pill heading shrink-0 bg-sky-50 px-3 py-1.5 text-[12px] text-sky-600">
                 🪂 drops
               </Link>

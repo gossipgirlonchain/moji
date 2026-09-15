@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
  * Public view: campaigns, recent rounds, and (with address) what that wallet has received.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ combo: string }> }) {
-  if (!(await dropsEnabled())) return NextResponse.json({ error: "not available" }, { status: 404 });
   const { combo } = await ctx.params;
   const u = new URL(req.url);
   const m = await getMoji(decodeCombo(combo), u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null);
   if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await dropsEnabled(m))) return NextResponse.json({ error: "not available" }, { status: 404 });
   const address = u.searchParams.get("address") ?? "";
   const [campaigns, rounds, mine] = await Promise.all([listCampaigns(m.id), listRounds(m.id), isAddress(address) ? payoutsFor(m.id, address) : Promise.resolve([])]);
   return NextResponse.json(
@@ -33,11 +33,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
  * funds the escrow; POST …/drops/[id]/funded confirms that from the receipt.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ combo: string }> }) {
-  if (!(await dropsEnabled())) return NextResponse.json({ error: "not available" }, { status: 404 });
   const { combo } = await ctx.params;
   const u = new URL(req.url);
   const m = await getMoji(decodeCombo(combo), u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null);
   if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await dropsEnabled(m))) return NextResponse.json({ error: "not available" }, { status: 404 });
   let body: { rules?: Partial<CampaignRules>; signature?: string; signer?: string };
   try {
     body = (await req.json()) as typeof body;

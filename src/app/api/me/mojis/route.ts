@@ -61,12 +61,13 @@ export async function GET(req: Request) {
   const rows = (data ?? []) as MojiRow[];
   if (light) return NextResponse.json({ mojis: rows, isTreasury });
 
+  const admin = await dropsEnabled();
   const withFees = await Promise.all(
     rows.map(async (m) => {
       const [stockUsd, mojiUsd] = await Promise.all([m.token_address ? stockPriceServer(m.chain_id, m.stock_address, m.stock_ticker) : 0, mojiPriceUsd(m)]);
       const fees = await getMojiFees(m, { stockUsd, mojiUsd });
-      return { ...m, fees };
+      return { ...m, fees, drops_enabled: admin || (await dropsEnabled(m)) };
     }),
   );
-  return NextResponse.json({ mojis: withFees, isTreasury, drops: await dropsEnabled() });
+  return NextResponse.json({ mojis: withFees, isTreasury, drops: admin });
 }

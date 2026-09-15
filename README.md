@@ -82,7 +82,8 @@ band (50K+ = high, 15K+ = medium, 5K+ = low).
 
 A creator gives a fixed amount of the paired stock token or of their moji to the holders who stick around:
 "distribute X to the top N holders over D days". Everything is configurable per campaign and nothing can
-change once it is funded. While in testing every drops surface sits behind the `ADMIN_PASSWORD` cookie
+change once it is funded. While in testing, drops are open for the mojis in `src/config/drops.ts` (🍎, plus
+`NEXT_PUBLIC_DROPS_ALLOWLIST`) and behind the `ADMIN_PASSWORD` cookie for every other moji
 (`src/lib/drops/gate.ts` is the one switch).
 
 - **Contract.** `contracts/MojiDrops.sol` is a small escrow: `fund(token, amount, reclaimAfter, key)` pulls the

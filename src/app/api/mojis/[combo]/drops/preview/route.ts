@@ -15,12 +15,12 @@ export const maxDuration = 60;
  * Runs the round maths on today's holders so the form can show who would be paid and how much.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ combo: string }> }) {
-  if (!(await dropsEnabled())) return NextResponse.json({ error: "not available" }, { status: 404 });
   const { combo } = await ctx.params;
   const u = new URL(req.url);
   const q = u.searchParams;
   const m = await getMoji(decodeCombo(combo), q.get("pair"), Number(q.get("chain") ?? 0) || null);
   if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await dropsEnabled(m))) return NextResponse.json({ error: "not available" }, { status: 404 });
   const input: Partial<CampaignRules> = {
     token: (q.get("token") as "moji" | "stock") ?? "stock",
     amount: q.get("amount") ?? "0",

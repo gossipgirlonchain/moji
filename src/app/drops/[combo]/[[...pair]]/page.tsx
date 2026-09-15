@@ -21,7 +21,7 @@ export default async function DropsPage({ params }: { params: Params }) {
   const d = decodeCombo(combo);
   const m = await getMoji(d, pair?.[0] ? decodeURIComponent(pair[0]) : null, Number(pair?.[1] ?? 0) || null);
   if (!m) notFound();
-  const ok = await dropsEnabled();
+  const ok = await dropsEnabled(m);
   const stock = findNumeraire(m.chain_id, m.stock_address);
   return (
     <main className="flex flex-col gap-4">

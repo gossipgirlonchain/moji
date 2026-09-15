@@ -15,11 +15,11 @@ export const maxDuration = 60;
  * older than 10 minutes (capped so the request stays under the function limit; the cron finishes it).
  */
 export async function GET(req: Request, ctx: { params: Promise<{ combo: string }> }) {
-  if (!(await dropsEnabled())) return NextResponse.json({ error: "not available" }, { status: 404 });
   const { combo } = await ctx.params;
   const u = new URL(req.url);
   let m = await getMoji(decodeCombo(combo), u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null);
   if (!m || !m.token_address) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await dropsEnabled(m))) return NextResponse.json({ error: "not available" }, { status: 404 });
   const stale = !m.holders_scanned_at || Date.now() - new Date(m.holders_scanned_at).getTime() > 10 * 60_000;
   let scan = null;
   let scanError: string | undefined;
