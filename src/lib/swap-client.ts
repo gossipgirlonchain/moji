@@ -62,7 +62,7 @@ export function encodeSwap(key: PoolKey, tokenIn: Address, tokenOut: Address, am
     ),
     encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [tokenIn, amountIn]),
   ];
-  if (feeBps > 0) {
+  if (feeBps > 0 && /^0x[0-9a-fA-F]{40}$/.test(MOJI_TREASURY)) {
     actions.push(TAKE_PORTION);
     params.push(encodeAbiParameters([{ type: "address" }, { type: "address" }, { type: "uint256" }], [tokenOut, MOJI_TREASURY, BigInt(feeBps)]));
   }
