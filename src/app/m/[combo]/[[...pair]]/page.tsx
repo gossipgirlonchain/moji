@@ -12,6 +12,8 @@ import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/
 import { findStock } from "@/config/stocks";
 import { PostIt } from "@/components/PostIt";
 import { SITE_URL } from "@/lib/network";
+import { TradeCard } from "@/components/TradeCard";
+import { findNumeraire } from "@/lib/numeraire";
 
 export const revalidate = 15;
 
@@ -105,6 +107,10 @@ export default async function MojiPage({ params }: { params: Params }) {
           <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
         )}
       </div>
+
+      {m.token_address && m.pool_id && (
+        <TradeCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} stockAddress={m.stock_address} stockDecimals={findNumeraire(m.chain_id, m.stock_address)?.decimals ?? 18} poolId={m.pool_id} />
+      )}
 
       <FeesCard
         combo={m.display}
