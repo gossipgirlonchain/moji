@@ -30,8 +30,8 @@ export function DropsPill({ m, className = "" }: { m: RewardsKey; className?: st
 export function DropsDot({ m, className = "" }: { m: RewardsKey; className?: string }) {
   if (!hasHolderRewards(m)) return null;
   return (
-    <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-mint text-[20px] leading-none ${className}`} title="holder rewards" aria-label="holder rewards">
-      🪂
+    <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mint ${className}`} title="holder rewards" aria-label="holder rewards">
+      <span className="block text-[22px] leading-[1]" style={{ transform: "translateY(1px)" }}>🪂</span>
     </span>
   );
 }
@@ -42,7 +42,7 @@ export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
       href={mojiHref(m)}
       className={`press clay relative flex flex-col items-center gap-1 bg-white px-3 py-5 text-center ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
-      <DropsDot m={m} className="absolute right-2.5 top-2.5" />
+      <DropsDot m={m} className="absolute right-3 top-3" />
       <span className="text-[44px] leading-none">{m.display}</span>
       <span className="heading mt-2 text-[15px] text-ink">
         {m.display} / {m.stock_ticker}
