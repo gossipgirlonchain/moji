@@ -3,6 +3,9 @@
  * 80px band outside the clay card or bleeding over its corners. Fully determined by (seed, w, h) so the
  * preview and the download are the same image and a refresh only reshuffles when the seed changes.
  *
+ * `seed` drives the layout (which slots, positions, sizes, rotations); `mix` drives which emoji fill them and
+ * defaults to the seed, so "swap emoji" can change the faces while every position stays put.
+ *
  * Hard rules (from the design handoff):
  *  - 🍎 is always present, always the largest, and always top left or bottom right
  *  - sizes 40 to 120px, rotation between -18 and 18 degrees
@@ -12,8 +15,12 @@
  */
 export const APPLE = "🍎";
 
-/** Decorative pool. Local Noto SVGs for all of these are bundled in src/assets/emoji. */
-export const SCATTER_POOL = ["🪟", "🍕", "☕", "🪙", "🔮", "📦", "🩹", "🧇", "🎢", "🏠", "💊", "☁️", "💾", "✈️", "🔍", "💻", "⚡", "🚀", "🌙", "🐕"] as const;
+/** Decorative pool. Sprites for all of these are bundled in src/assets/emoji (`npm run cards:assets`). */
+export const SCATTER_POOL = [
+  "🪟", "🍕", "☕", "🪙", "🔮", "📦", "🩹", "🧇", "🎢", "🏠", "💊", "☁️", "💾", "✈️", "🔍", "💻", "⚡", "🚀", "🌙", "🐕",
+  "🦖", "🧊", "🪝", "🫧", "🛼", "🧲", "🔥", "💎", "🧠", "🎯", "🌈", "🍀", "📈", "🛸", "🍒", "🌊", "🐸", "🦄", "👑", "🎲",
+  "🍩", "🎈", "🐳", "🦊", "🌵", "🍄", "🧬", "🎸", "🍔", "🎮", "🛹", "🍿", "🎧", "🏀", "🍋", "🐙", "🦋", "🪐", "🧸", "📱",
+] as const;
 
 export const ARTBOARD_INSET = 80;
 export const CARD_PADDING = 88;
@@ -92,17 +99,18 @@ function keepOut(p: Placement, w: number, h: number): Placement {
   return p;
 }
 
-export function scatter(seed: string, w: number, h: number): Placement[] {
+export function scatter(seed: string, w: number, h: number, mix: string = seed): Placement[] {
   const rng = mulberry32(hash(`${seed}`));
+  const pick = mulberry32(hash(`mix:${mix}`));
   const { corners, rest } = slots(w, h);
   const appleTopLeft = rng() < 0.5;
   const appleSlot = appleTopLeft ? corners.tl : corners.br;
   const otherCorner = appleTopLeft ? corners.br : corners.tl;
 
-  // Shuffle the pool and the remaining slots, then drop one or two slots so the ring stays uneven.
+  // Shuffle the pool (from the mix seed) and the remaining slots, then drop one or two slots so the ring stays uneven.
   const pool = [...SCATTER_POOL];
   for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = Math.floor(pick() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   const candidates = [otherCorner, ...rest];

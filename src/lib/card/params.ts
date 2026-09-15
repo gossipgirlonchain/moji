@@ -45,7 +45,10 @@ export type CardSpec<T extends Template = Template> = {
   template: T;
   w: number;
   h: number;
+  /** Scatter layout seed. */
   seed: string;
+  /** Which emoji fill the scatter; defaults to the seed. */
+  mix?: string;
   fields: Fields[T];
 };
 
@@ -150,6 +153,7 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
   sp.set("w", String(spec.w));
   sp.set("h", String(spec.h));
   sp.set("seed", spec.seed);
+  if (spec.mix && spec.mix !== spec.seed) sp.set("mix", spec.mix);
   switch (spec.template) {
     case "announcement": {
       const f = spec.fields as Fields["announcement"];
@@ -226,6 +230,7 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
   const h = Number(sp.get("h") ?? DEFAULT_SIZE.h);
   if (!isSupportedSize(w, h)) return { ok: false, error: `unsupported size ${w}x${h}. use ${SIZES.map((s) => `${s.w}x${s.h}`).join(" or ")}` };
   const seed = clean(sp.get("seed"), 64) || "1";
+  const mix = clean(sp.get("mix"), 64) || seed;
   const sample = SAMPLE;
   const has = (k: string) => sp.has(k);
   let fields: Fields[Template];
@@ -289,7 +294,7 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
       break;
     }
   }
-  return { ok: true, spec: { template, w, h, seed, fields } as CardSpec };
+  return { ok: true, spec: { template, w, h, seed, mix, fields } as CardSpec };
 }
 
 /** "AAPL" or "$aapl" -> "$AAPL" */
