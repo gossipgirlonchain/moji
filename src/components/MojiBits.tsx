@@ -2,15 +2,17 @@ import Link from "next/link";
 import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 
-export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker">) {
-  return `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
+/** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
+export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
+  const base = `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
+  return m.chain_id && m.chain_id !== 4663 ? `${base}/${m.chain_id}` : base;
 }
 
-/** Small signal that this moji is paying its holders right now (a running drop campaign). */
+/** Small signal that this moji dropped to its holders recently (mojis.drops_active, last 14 days). */
 export function DropsPill({ m, className = "" }: { m: Pick<MojiRow, "drops_active">; className?: string }) {
   if (!m.drops_active) return null;
   return (
-    <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="this moji is paying holders">
+    <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="this moji drops to holders">
       🪂 drops
     </span>
   );
@@ -26,7 +28,7 @@ export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
       <span className="heading mt-2 text-[15px] text-ink">
         {m.display} / {m.stock_ticker}
       </span>
-      <span className="heading text-[13px] text-ink-soft">mcap {usd(m.market_cap_usd)}</span>
+      <span className="heading text-[13px] text-ink-soft">{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
       <DropsPill m={m} className="mt-1" />
     </Link>
   );

@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     valid: true,
     normalized: v.normalized,
     claimed,
-    owner: claimed ? { display: display ?? v.display, href: `/m/${encodeURIComponent(display ?? v.display)}/${encodeURIComponent(ticker ?? "")}` } : undefined,
+    owner: claimed ? { display: display ?? v.display, href: `/m/${encodeURIComponent(display ?? v.display)}/${encodeURIComponent(ticker ?? "")}${chainId !== 4663 ? `/${chainId}` : ""}` } : undefined,
     suggestions,
   });
 }

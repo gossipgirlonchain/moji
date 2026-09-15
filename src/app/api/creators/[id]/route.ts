@@ -39,14 +39,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 }
 
-/** DELETE /api/creators/[id] (admin) → remove a creator and its timeline. Only for rows added by hand; Ratio rows are declined instead. */
+/** DELETE /api/creators/[id] (admin) → remove a creator and its timeline. */
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guard();
   if (g) return g;
   const { id } = await ctx.params;
   const row = await getCreator(id).catch(() => null);
   if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (row.source !== "manual") return NextResponse.json({ error: "Ratio applicants cannot be deleted. Mark them declined." }, { status: 400 });
   const { error } = await supabaseServer().from("creators").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

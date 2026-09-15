@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Card, Label, LinkButton, Circle } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
 import { ClaimsCounter } from "@/components/ClaimsCounter";
-import { McapRow, MojiTile } from "@/components/MojiBits";
+import { McapRow } from "@/components/MojiBits";
+import { HomeTiles } from "@/components/HomeTiles";
 import { claimsCount, listMojis } from "@/lib/data";
 
 export const revalidate = 30;
 
 export default async function Home() {
-  const [count, top, recent] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 3 }), listMojis({ sort: "newest", limit: 6 })]);
+  const [count, top, recent] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 16 }), listMojis({ sort: "newest", limit: 16 })]);
 
   return (
     <main className="flex flex-col gap-4">
@@ -28,7 +29,7 @@ export default async function Home() {
         <Label className="mb-3">Top market cap</Label>
         <div className="flex flex-col gap-2.5">
           {top.length === 0 && <p className="text-[14px] text-ink-soft">Nothing yet. Be first.</p>}
-          {top.map((m, i) => (
+          {top.slice(0, 3).map((m, i) => (
             <McapRow key={m.id} m={m} rank={i + 1} />
           ))}
         </div>
@@ -61,23 +62,7 @@ export default async function Home() {
         </div>
       </Card>
 
-      <Card pop={5}>
-        <div className="mb-3 flex items-center justify-between">
-          <Label>Recently launched</Label>
-          <Link href="/explore" className="heading text-[13px] text-sky-600">
-            see all
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <p className="text-[14px] text-ink-soft">Nothing yet. Be first.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {recent.map((m, i) => (
-              <MojiTile key={m.id} m={m} pop={Math.min(5, i)} />
-            ))}
-          </div>
-        )}
-      </Card>
+      <HomeTiles top={top} recent={recent} />
 
       <p className="mt-2 text-center text-[13px] text-ink-soft">
         built on <Link href="/about" className="text-sky-600">Doppler</Link>.

@@ -7,12 +7,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/creators/bulk (admin) → apply one patch to many creators, optionally logging the same event on each.
- * Body: { ids: string[], patch?: Patch, event?: { kind, body? } }
+ * Body: { ids: string[], patch?: Patch, event?: { kind, body? } } or { ids: string[], delete: true }
  */
 export async function POST(req: Request) {
   const g = await guard();
   if (g) return g;
-  let body: { ids?: unknown; patch?: unknown; event?: { kind?: string; body?: string } };
+  let body: { ids?: unknown; patch?: unknown; event?: { kind?: string; body?: string }; delete?: boolean };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -20,6 +20,11 @@ export async function POST(req: Request) {
   }
   const ids = Array.isArray(body.ids) ? body.ids.map(String).slice(0, 500) : [];
   if (!ids.length) return NextResponse.json({ error: "ids required" }, { status: 400 });
+  if (body.delete === true) {
+    const { error } = await supabaseServer().from("creators").delete().in("id", ids);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ deleted: ids });
+  }
   let patch;
   try {
     patch = body.patch ? cleanPatch(body.patch) : {};
