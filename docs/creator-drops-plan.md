@@ -67,10 +67,10 @@ A new "Drops" card directly under `FeesCard`, visible to everyone. This is the c
 
 ```
 Drops
-🍎 shares 25% of creator fees with holders
-last round · Sep 14 · 0.09 AAPL to 298 holders
+@handle is giving 0.5 AAPL to the top 100 holders over 7 days · day 3 of 7
+yesterday · 0.0714 AAPL to 100 holders
 your share · 0.0021 AAPL ≈ $0.70            [ Claim ]
-next round when the creator claims · 0.10 AAPL pending
+next round · today 09:00 UTC · you are rank 41
 ```
 
 For a wallet that is not eligible: "hold $10 of 🍎 to be in the next round". For a moji with no drops: the card is not rendered, but explore and the leaderboard show a "drops" pill on mojis that share, and the leaderboard gets a "paid to holders" sort.
