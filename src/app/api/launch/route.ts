@@ -128,6 +128,6 @@ export async function POST(req: Request) {
     await refreshOne(data as never);
   } catch {}
 
-  const href = `/m/${encodeURIComponent(v.display)}/${encodeURIComponent(stock.ticker)}`;
+  const href = `/m/${encodeURIComponent(v.display)}/${encodeURIComponent(stock.ticker)}${chain.chainId !== 4663 ? `/${chain.chainId}` : ""}`;
   return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter?.username ?? null });
 }

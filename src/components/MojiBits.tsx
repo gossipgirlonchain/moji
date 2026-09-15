@@ -2,8 +2,10 @@ import Link from "next/link";
 import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 
-export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker">) {
-  return `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
+/** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
+export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
+  const base = `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
+  return m.chain_id && m.chain_id !== 4663 ? `${base}/${m.chain_id}` : base;
 }
 
 export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {

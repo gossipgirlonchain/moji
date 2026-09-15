@@ -1,4 +1,4 @@
-export type Issuer = "robinhood" | "coinbase" | "doppler";
+export type Issuer = "robinhood" | "coinbase" | "doppler" | "reality";
 
 export type Stock = {
   ticker: string;
