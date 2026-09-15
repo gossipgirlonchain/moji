@@ -34,6 +34,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
   };
   const v = validateRules(m, input);
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
+  if (!m.holders_scanned_at) return NextResponse.json({ scanning: true, holdersScannedAt: null }, { headers: { "cache-control": "no-store" } });
   const r = v.rules;
   const t = tokenFor(m, r.token);
   const { res } = await previewDrop(m, r);

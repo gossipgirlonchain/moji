@@ -19,13 +19,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
   const u = new URL(req.url);
   const m = await getMoji(decodeCombo(combo), u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null);
   if (!m) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (!(await dropsEnabled(m))) return NextResponse.json({ error: "not available" }, { status: 404 });
   const address = u.searchParams.get("address") ?? "";
   const drops = await listDrops(m.id);
   const latest = drops.find((d) => d.status !== "cancelled");
   const [payouts, mine] = await Promise.all([latest ? listPayouts(latest.id) : Promise.resolve([]), isAddress(address) ? payoutsFor(m.id, address) : Promise.resolve([])]);
   return NextResponse.json(
-    { drops, latestPayouts: payouts, mine, creator: m.creator_address, mojiId: m.id, feeBps: dropsFeeBps(), feeRecipient: dropsFeeRecipient(), holders: m.holders_count ?? 0 },
+    { drops, latestPayouts: payouts, mine, creator: m.creator_address, mojiId: m.id, feeBps: dropsFeeBps(), feeRecipient: dropsFeeRecipient(), holders: m.holders_count ?? 0, badge: Boolean(m.rewards_badge), enabled: await dropsEnabled(m) },
     { headers: { "cache-control": "no-store" } },
   );
 }

@@ -3,6 +3,7 @@ import { supabaseServer, type MojiRow } from "@/lib/supabase";
 import { NETWORK } from "@/lib/network";
 import { scanHolders } from "@/lib/drops/holders";
 import { expireDropsActive } from "@/lib/drops/drops";
+import { dropsAllowlisted } from "@/lib/drops/gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -22,8 +23,10 @@ export async function GET(req: Request) {
   const sb = supabaseServer();
   const { data: active } = await sb.from("mojis").select("*").eq("network", NETWORK).eq("drops_active", true).not("token_address", "is", null).limit(limit);
   const { data: rest } = await sb.from("mojis").select("*").eq("network", NETWORK).eq("drops_active", false).not("token_address", "is", null).order("holders_scanned_at", { ascending: true, nullsFirst: true }).limit(limit);
+  const { data: all } = await sb.from("mojis").select("*").eq("network", NETWORK).not("token_address", "is", null).limit(1000);
+  const allowlisted = ((all ?? []) as MojiRow[]).filter((m) => dropsAllowlisted(m));
   const seen = new Set<string>();
-  const queue = [...((active ?? []) as MojiRow[]), ...((rest ?? []) as MojiRow[])].filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+  const queue = [...allowlisted, ...((active ?? []) as MojiRow[]), ...((rest ?? []) as MojiRow[])].filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
   let scanned = 0;
   let scanErrors = 0;
   let firstError: string | undefined;

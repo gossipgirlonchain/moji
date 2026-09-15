@@ -36,6 +36,7 @@ type Summary = {
 };
 
 type Preview = {
+  scanning?: boolean;
   toHolders: string;
   feeBps: number;
   fee: string;
@@ -53,7 +54,7 @@ type Preview = {
   error?: string;
 };
 
-type DropsView = { drops: DropRow[]; latestPayouts: PayoutRow[]; feeBps: number; feeRecipient: string | null };
+type DropsView = { drops: DropRow[]; latestPayouts: PayoutRow[]; feeBps: number; feeRecipient: string | null; badge: boolean };
 
 function fmtTok(n: number | string, max = 4): string {
   const v = Number(n);
@@ -175,7 +176,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "mi
 
 /* ───────────────────────── drops ───────────────────────── */
 
-const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "20", holdDays: "0", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, maxPct: "5", excluded: "" };
+const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "20", holdDays: "0", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, excluded: "" };
 
 /** Big labelled input. Own styling (not .clay-input) so widths come from the grid, never from the class. */
 function Field({ label, unit, hint, value, onChange, disabled, mode = "decimal", children }: { label: string; unit?: string; hint?: string; value?: string; onChange?: (v: string) => void; disabled?: boolean; mode?: "decimal" | "numeric"; children?: React.ReactNode }) {
@@ -220,8 +221,26 @@ function DropsTab(p: ManageProps) {
   const [err, setErr] = useState<string | null>(null);
   /** the drop being sent right now (or resumed) */
   const [active, setActive] = useState<{ drop: DropRow; payouts: PayoutRow[] } | null>(null);
+  const [scan, setScan] = useState<{ holders: number; at: string | null } | null>(null);
+  const [scanTick, setScanTick] = useState(0);
   const running = useRef(false);
   const stop = useRef(false);
+
+  // make sure this moji's holders have been scanned (the route scans when the cursor is stale)
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/mojis/${encodeURIComponent(p.combo)}/holders?chain=${p.chainId}&pair=${p.stockAddress}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { summary?: { holders: number; scannedAt: string | null } } | null) => {
+        if (!alive || !j?.summary) return;
+        setScan({ holders: j.summary.holders, at: j.summary.scannedAt });
+        setScanTick((t) => t + 1);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [p.combo, p.chainId, p.stockAddress]);
 
   const tokenAddr = (f.token === "moji" ? p.tokenAddress : p.stockAddress) as Address | null;
   const decimals = f.token === "moji" ? 18 : p.stockDecimals;
@@ -237,7 +256,7 @@ function DropsTab(p: ManageProps) {
   const feeBps = preview?.feeBps ?? view?.feeBps ?? 50;
   const totalWei = amountWei != null ? amountWei + (amountWei * BigInt(feeBps)) / 10_000n : null;
   const overBalance = balance != null && totalWei != null && totalWei > balance;
-  const capBps = Math.round(Math.min(100, Math.max(0, Number(f.maxPct) || 0)) * 100);
+  const capBps = 0; // no per-wallet cap: "by holding" is plain pro-rata, "equal" is equal
   const [stockPrice, setStockPrice] = useState<number>(0);
   useEffect(() => {
     fetch(`/api/price?ticker=${encodeURIComponent(p.ticker)}`, { cache: "no-store" })
@@ -294,7 +313,7 @@ function DropsTab(p: ManageProps) {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [f, capBps, base, p.chainId, p.stockAddress]);
+  }, [f, capBps, base, p.chainId, p.stockAddress, scanTick]);
 
   const set = (k: keyof typeof DEFAULTS) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
@@ -399,6 +418,20 @@ function DropsTab(p: ManageProps) {
     }
   }
 
+  async function toggleBadge(on: boolean) {
+    if (!wallet || !address || !chain?.viem) return;
+    try {
+      const provider = await ensureChain(wallet, chain.viem);
+      const wc = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
+      const signature = await wc.signMessage({ message: `rewards badge ${p.mojiId} ${on ? "on" : "off"}` });
+      const r = await fetch(`${base}/badge?${qs}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on, signature, signer: address }) });
+      if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? "could not update");
+      await load();
+    } catch (e) {
+      setErr(friendly(e));
+    }
+  }
+
   async function cancel() {
     if (!active || !wallet || !address || !chain?.viem) return;
     try {
@@ -414,14 +447,17 @@ function DropsTab(p: ManageProps) {
     }
   }
 
-  const ready = Boolean(preview && !preview.error && preview.paid > 0) && !previewing;
+  const lastSent = view?.drops.find((d) => d.status === "sent");
+  const scanning = scan ? !scan.at : preview?.scanning === true;
+  const ready = Boolean(preview && !preview.error && !preview.scanning && preview.paid > 0) && !previewing;
   const transfers = preview ? preview.paid + (Number(preview.fee) > 0 ? 1 : 0) : 0;
   const canStart = isCreator && Boolean(p.tokenAddress) && amountWei != null && amountWei > 0n && !overBalance && !busy && !active && ready;
   const pendingCount = active ? active.payouts.filter((x) => !x.tx_hash).length : 0;
-  const lastSent = view?.drops.find((d) => d.status === "sent");
   const problem = !isCreator
     ? `connect the wallet that launched ${p.combo}`
-    : overBalance
+    : scanning || preview?.scanning
+      ? "scanning holders, about a minute…"
+      : overBalance
       ? `not enough ${symbol} for the amount plus the ${feeBps / 100}% fee`
       : preview?.error
         ? preview.error
@@ -434,11 +470,20 @@ function DropsTab(p: ManageProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-2">
-        <Tile label="holders" value={String(p.stats.holders)} />
+        <Tile label="holders" value={scan ? String(scan.holders) : scanning || !p.stats.holders ? "…" : String(p.stats.holders)} sub={scan && !scan.at ? "scanning" : undefined} />
         <Tile label="dropped so far" value={usd(p.stats.dropsPaidUsd)} sub={lastSent ? `last ${dateShort(lastSent.completed_at ?? lastSent.cut_at)}` : undefined} tone="mint" />
         <Tile label={`your ${p.ticker}`} value={balances ? fmtTok(formatUnits(balances.stock, p.stockDecimals)) : "—"} />
         <Tile label={`your ${p.combo}`} value={balances ? fmtTok(formatUnits(balances.moji, 18), 0) : "—"} />
       </div>
+
+      {view && lastSent && isCreator && (
+        <label className="clay-sm flex items-center justify-between bg-white px-4 py-3">
+          <span className="heading text-[14px] text-ink">🪂 show &ldquo;rewards&rdquo; on {p.combo}</span>
+          <button type="button" role="switch" aria-checked={view.badge} onClick={() => toggleBadge(!view.badge)} className={`relative h-7 w-12 rounded-full transition-colors ${view.badge ? "bg-mint" : "bg-sky-200"}`}>
+            <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-[left] ${view.badge ? "left-6" : "left-1"}`} />
+          </button>
+        </label>
+      )}
 
       {active && (
         <section className="clay pop pop-1 bg-sky-50 p-4">
@@ -504,21 +549,20 @@ function DropsTab(p: ManageProps) {
         </div>
 
         <button type="button" onClick={() => setMore((v) => !v)} className="heading mt-3 text-[12px] text-sky-600">
-          {more ? "fewer options" : "more options"}
+          {more ? "hide options" : "options"}
         </button>
         {more && (
           <div className="mt-2 flex flex-col gap-2">
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="split">
-                <select className="heading w-full bg-transparent text-[15px] text-ink outline-none" value={f.split} onChange={(e) => set("split")(e.target.value)} disabled={Boolean(active)}>
-                  <option value="prorata">by holding</option>
-                  <option value="equal">equal</option>
-                </select>
-              </Field>
-              <Field label="max per wallet" unit="%" value={f.maxPct} onChange={set("maxPct")} disabled={Boolean(active) || f.split === "equal"} />
-              <Field label="min payout" unit="$" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => set("split")("prorata")} data-pressed={f.split === "prorata" ? "true" : undefined} className={`press clay-pill heading px-3 py-2.5 text-[13px] ${f.split === "prorata" ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`} disabled={Boolean(active)}>
+                bigger holders get more
+              </button>
+              <button type="button" onClick={() => set("split")("equal")} data-pressed={f.split === "equal" ? "true" : undefined} className={`press clay-pill heading px-3 py-2.5 text-[13px] ${f.split === "equal" ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`} disabled={Boolean(active)}>
+                everyone gets the same
+              </button>
             </div>
-            <textarea className="clay-input min-h-[48px] text-[12px]" placeholder="skip these wallets (one per line)" value={f.excluded} onChange={(e) => set("excluded")(e.target.value)} disabled={Boolean(active)} />
+            <Field label="skip anyone getting under" unit="$" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
+            <textarea className="clay-input min-h-[44px] text-[12px]" placeholder="wallets to leave out, one per line" value={f.excluded} onChange={(e) => set("excluded")(e.target.value)} disabled={Boolean(active)} />
           </div>
         )}
 

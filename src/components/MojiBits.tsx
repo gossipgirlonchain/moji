@@ -9,11 +9,11 @@ export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_
 }
 
 /** Small signal that this moji dropped to its holders recently (mojis.drops_active, last 14 days). */
-export function DropsPill({ m, className = "" }: { m: Pick<MojiRow, "drops_active">; className?: string }) {
-  if (!m.drops_active) return null;
+export function DropsPill({ m, className = "" }: { m: Pick<MojiRow, "drops_active" | "rewards_badge">; className?: string }) {
+  if (!m.drops_active && !m.rewards_badge) return null;
   return (
     <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="this moji drops to holders">
-      🪂 drops
+      🪂 rewards
     </span>
   );
 }

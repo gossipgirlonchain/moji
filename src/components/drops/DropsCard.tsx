@@ -10,7 +10,7 @@ import { explorerTx } from "@/lib/links";
 import type { DropRow, PayoutRow } from "@/lib/drops/types";
 
 type Mine = PayoutRow & { token_symbol?: string; token_decimals?: number };
-type View = { drops: DropRow[]; mine: Mine[]; creator: string | null };
+type View = { drops: DropRow[]; mine: Mine[]; creator: string | null; badge: boolean; enabled: boolean };
 
 function tok(n: string | number, max = 5): string {
   const v = Number(n);
@@ -19,10 +19,7 @@ function tok(n: string | number, max = 5): string {
   return v.toLocaleString(undefined, { maximumFractionDigits: max });
 }
 
-/**
- * Public "Drops" card on the moji page. Renders nothing until the drops API answers (it is gated while
- * drops are in testing), and nothing when the moji has never dropped.
- */
+/** Public "Rewards" card on every moji page: what the creator has dropped to holders, and what this wallet got. */
 export function DropsCard({ combo, ticker, chainId, stockAddress, manageHref }: { combo: string; ticker: string; chainId: number; stockAddress: string; manageHref: string }) {
   const { address } = useAccount();
   const [v, setV] = useState<View | null>(null);
@@ -41,7 +38,6 @@ export function DropsCard({ combo, ticker, chainId, stockAddress, manageHref }: 
   if (!v) return null;
   const isCreator = Boolean(address && v.creator && address.toLowerCase() === v.creator.toLowerCase());
   const sent = v.drops.filter((d) => d.sent_count > 0);
-  if (sent.length === 0 && !isCreator) return null;
   const last = sent[0];
   const totalUsd = sent.reduce((s, d) => s + Number(d.sent_usd ?? 0), 0);
   const mineTotal = v.mine.reduce((s, p) => s + Number(p.amount_usd ?? 0), 0);
@@ -51,10 +47,13 @@ export function DropsCard({ combo, ticker, chainId, stockAddress, manageHref }: 
     <section className="clay pop pop-3 bg-white p-5">
       <div className="flex items-start justify-between">
         <div>
-          <Label>Drops 🪂</Label>
-          <p className="mt-0.5 text-[13px] text-ink-soft">{last ? `${sent.length} drop${sent.length === 1 ? "" : "s"} to holders · ${usd(totalUsd)} so far` : "no drops yet"}</p>
+          <Label>Rewards 🪂</Label>
+          <p className="mt-0.5 text-[13px] text-ink-soft">
+            {last ? `${sent.length} drop${sent.length === 1 ? "" : "s"} to holders · ${usd(totalUsd)} so far` : "the creator has not dropped anything to holders yet"}
+            {v.badge && last && <span className="ml-1 rounded-full bg-mint px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-white">rewards on</span>}
+          </p>
         </div>
-        {isCreator && (
+        {isCreator && v.enabled && (
           <Link href={manageHref} className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-sky-600">
             {last ? "drop again" : "start a drop"}
           </Link>

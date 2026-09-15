@@ -69,6 +69,7 @@ export type MojiRow = {
   holders_count?: number | null;
   drops_active?: boolean | null;
   drops_paid_usd?: number | null;
+  rewards_badge?: boolean | null;
 };
 
 export type ClaimRow = {

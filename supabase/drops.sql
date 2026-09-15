@@ -11,6 +11,8 @@ alter table public.mojis add column if not exists holders_count integer default 
 alter table public.mojis add column if not exists drops_active boolean not null default false; -- dropped to holders in the last 14 days
 alter table public.mojis add column if not exists drops_last_at timestamptz;
 alter table public.mojis add column if not exists drops_paid_usd numeric default 0;
+alter table public.mojis add column if not exists rewards_badge boolean not null default false; -- creator-controlled, once a drop has been sent
+create index if not exists mojis_rewards_badge_idx on public.mojis (rewards_badge) where rewards_badge;
 create index if not exists mojis_drops_active_idx on public.mojis (drops_active) where drops_active;
 
 -- Every ERC-20 Transfer of a moji token, so holding time and minimum-over-window balances can be
