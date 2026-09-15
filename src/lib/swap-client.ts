@@ -9,7 +9,7 @@ import { FEE_TICK_SPACING, MOJI_TREASURY } from "@/config/fees";
  * Stock <-> moji only (no ETH hop yet). Pool fees keep flowing to the launcher and treasury like any
  * other venue; APP_SWAP_FEE_BPS is an optional extra cut of the output paid to the treasury (0 = off).
  */
-export const APP_SWAP_FEE_BPS = 0;
+export const APP_SWAP_FEE_BPS = 50;
 export const SLIPPAGE_BPS = 100;
 const DYNAMIC_FEE_FLAG = 8388608;
 
