@@ -8,10 +8,17 @@ import { dropsAllowlisted } from "@/lib/drops/gate";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+const RUN_BUDGET_MS = 240_000;
+const PER_MOJI_BUDGET_MS = 45_000;
+
 /**
  * Vercel cron target (vercel.json, every 10 minutes). Protected by CRON_SECRET.
- * Scans holders only for the pairs that use drops: the allowlist plus any moji that has ever dropped.
- * Nothing else is touched. Also clears the 🪂 pill on mojis that have not dropped in 14 days.
+ *
+ * Keeps every moji's holder index warm so a creator never opens the drops page onto a cold backfill:
+ * each run walks the pairs that use drops first (allowlist, anything that has dropped), then every
+ * other moji in order of staleness, and advances each one's cursor by at most 45s of work. Because
+ * the cursor persists per chunk, a busy token catches up over a few runs and after that every run is
+ * only the last ten minutes of blocks. Also clears the 🪂 pill on mojis that have not dropped in 14 days.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -21,22 +28,28 @@ export async function GET(req: Request) {
   const sb = supabaseServer();
   const { data: dropped } = await sb.from("drops").select("moji_id").gt("sent_count", 0);
   const droppedIds = new Set(((dropped ?? []) as { moji_id: string }[]).map((d) => d.moji_id));
-  const { data: all } = await sb.from("mojis").select("*").eq("network", NETWORK).not("token_address", "is", null).limit(2000);
-  const queue = ((all ?? []) as MojiRow[]).filter((m) => dropsAllowlisted(m) || droppedIds.has(m.id));
+  const { data: all } = await sb.from("mojis").select("*").eq("network", NETWORK).not("token_address", "is", null).order("holders_scanned_at", { ascending: true, nullsFirst: true }).limit(2000);
+  const rows = (all ?? []) as MojiRow[];
+  const first = rows.filter((m) => dropsAllowlisted(m) || droppedIds.has(m.id));
+  const rest = rows.filter((m) => !first.includes(m));
+  const queue = [...first, ...rest];
 
   let scanned = 0;
+  let incomplete = 0;
   let scanErrors = 0;
   let firstError: string | undefined;
   for (const m of queue) {
-    if (Date.now() - t0 > 240_000) break;
+    const left = RUN_BUDGET_MS - (Date.now() - t0);
+    if (left < 5_000) break;
     try {
-      await scanHolders(m, { maxChunks: 20 });
+      const r = await scanHolders(m, { maxChunks: 200, budgetMs: Math.min(PER_MOJI_BUDGET_MS, left) });
       scanned++;
+      if (r && !r.complete) incomplete++;
     } catch (e) {
       scanErrors++;
-      firstError ??= e instanceof Error ? e.message : String(e);
+      firstError ??= `${m.display}/${m.stock_ticker}: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
   const expired = await expireDropsActive();
-  return NextResponse.json({ pairs: queue.map((m) => `${m.display}/${m.stock_ticker}@${m.chain_id}`), scanned, scanErrors, firstError, expired, ms: Date.now() - t0 });
+  return NextResponse.json({ queued: queue.length, scanned, incomplete, scanErrors, firstError, expired, ms: Date.now() - t0 });
 }

@@ -99,8 +99,10 @@ carry the 🪂 rewards marker before their first drop; every other moji gets it 
   come from the chain, never the client). The **0.5% processing fee** (`NEXT_PUBLIC_DROPS_FEE_BPS`) is one more
   transfer to the treasury at the end. Closing the page mid-way is fine: the drop reopens with "N to go"; "cancel
   rest" (signed) closes it and what was sent stays recorded. Nothing is ever held by moji.
-- **Holders.** `/api/cron/drops` (every 10 min) replays every `Transfer` of the token into `token_transfers` and
-  `holder_balances` (with cached `block_times`), only for the allowlisted pairs and mojis that have dropped before. `GET /api/mojis/[combo]/holders`
+- **Holders.** `/api/cron/drops` (every 10 min) replays every `Transfer` of each moji token into `token_transfers` and
+  `holder_balances` (with cached `block_times`): pairs that use drops first, then every other moji by staleness, at most
+  45s of work per moji per run with the cursor saved after every chunk, so the index stays warm for all of them and a
+  creator never opens the drops page onto a cold backfill. The page itself also scans in 40s slices until complete. `GET /api/mojis/[combo]/holders`
   serves the stats tab (count, top-10 share, share in the pool, buckets in moji units, top 20 with held-since) and
   runs an incremental scan when the cursor is stale. Open the stats tab once before the first drop on a moji.
 - **Surfaces.** `/drops/🍎/AAPL/4663`: stats tab (market, fees, holders) and drops tab (form with live preview,
