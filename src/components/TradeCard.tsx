@@ -14,7 +14,7 @@ import { erc20Abi } from "viem";
 
 type Props = { combo: string; ticker: string; chainId: number; tokenAddress: string; stockAddress: string; stockDecimals: number; poolId: string };
 
-/** Beta: buy or sell a moji with its paired stock, straight through the Doppler pool. */
+/** Buy or sell a moji with its paired stock, straight through the Doppler pool. */
 export function TradeCard(p: Props) {
   const chain = chainById(p.chainId);
   const { authenticated, login } = usePrivy();
@@ -29,14 +29,6 @@ export function TradeCard(p: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Hex | null>(null);
-  // Beta gate: only browsers logged into /admin see the card. The page itself stays static.
-  const [beta, setBeta] = useState(false);
-  useEffect(() => {
-    fetch("/api/admin/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok: boolean }) => setBeta(Boolean(j.ok)))
-      .catch(() => {});
-  }, []);
 
   const pc = useMemo(() => (chain?.viem ? createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) }) : null), [chain]);
   const key = useMemo(() => poolKeyFor(p.chainId, p.tokenAddress as Address, p.stockAddress as Address, p.poolId as Hex), [p.chainId, p.tokenAddress, p.stockAddress, p.poolId]);
@@ -117,11 +109,11 @@ export function TradeCard(p: Props) {
     }
   }
 
-  if (!beta || !key) return null;
+  if (!key) return null;
   return (
     <section className="clay pop pop-3 bg-white p-5">
       <div className="mb-3 flex items-center justify-between">
-        <Label>Trade · beta</Label>
+        <Label>Trade</Label>
         <div className="flex gap-2">
           {(["buy", "sell"] as const).map((s) => (
             <button key={s} type="button" onClick={() => { setSide(s); setAmount(""); setDone(null); setError(null); }} data-pressed={side === s ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${side === s ? (s === "buy" ? "bg-mint text-white" : "bg-coral text-white") : "bg-sky-50 text-ink"}`}>
