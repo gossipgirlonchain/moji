@@ -178,7 +178,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "mi
 const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "20", holdDays: "0", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, maxPct: "5", excluded: "" };
 
 /** Big labelled input. Own styling (not .clay-input) so widths come from the grid, never from the class. */
-function Field({ label, unit, value, onChange, disabled, mode = "decimal", children }: { label: string; unit?: string; value?: string; onChange?: (v: string) => void; disabled?: boolean; mode?: "decimal" | "numeric"; children?: React.ReactNode }) {
+function Field({ label, unit, hint, value, onChange, disabled, mode = "decimal", children }: { label: string; unit?: string; hint?: string; value?: string; onChange?: (v: string) => void; disabled?: boolean; mode?: "decimal" | "numeric"; children?: React.ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
       <span className="heading pl-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">{label}</span>
@@ -188,6 +188,7 @@ function Field({ label, unit, value, onChange, disabled, mode = "decimal", child
         )}
         {unit && <span className="heading shrink-0 text-[13px] text-ink-soft">{unit}</span>}
       </span>
+      {hint && <span className="num pl-1 text-[12px] text-ink-soft">{hint}</span>}
     </label>
   );
 }
@@ -237,6 +238,15 @@ function DropsTab(p: ManageProps) {
   const totalWei = amountWei != null ? amountWei + (amountWei * BigInt(feeBps)) / 10_000n : null;
   const overBalance = balance != null && totalWei != null && totalWei > balance;
   const capBps = Math.round(Math.min(100, Math.max(0, Number(f.maxPct) || 0)) * 100);
+  const [stockPrice, setStockPrice] = useState<number>(0);
+  useEffect(() => {
+    fetch(`/api/price?ticker=${encodeURIComponent(p.ticker)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { price?: number } | null) => j && setStockPrice(Number(j.price ?? 0)))
+      .catch(() => {});
+  }, [p.ticker]);
+  const unitUsd = preview && !preview.error ? preview.tokenPriceUsd : f.token === "moji" ? p.stats.priceUsd : stockPrice;
+  const giveUsd = Number(f.amount) > 0 && unitUsd > 0 ? Number(f.amount) * unitUsd : 0;
 
   const base = `/api/mojis/${encodeURIComponent(p.combo)}/drops`;
   const qs = `chain=${p.chainId}&pair=${p.stockAddress}`;
@@ -479,7 +489,7 @@ function DropsTab(p: ManageProps) {
       <section className={`clay pop pop-2 bg-white p-4 ${active ? "pointer-events-none opacity-50" : ""}`}>
         <Label className="mb-3">New drop</Label>
         <div className="grid grid-cols-[1fr_auto] gap-2">
-          <Field label="give" value={f.amount} onChange={set("amount")} disabled={Boolean(active)} />
+          <Field label="give" unit={symbol} hint={giveUsd > 0 ? `≈ ${usd(giveUsd)}` : unitUsd > 0 ? `1 ${symbol} ≈ ${usd(unitUsd)}` : undefined} value={f.amount} onChange={set("amount")} disabled={Boolean(active)} />
           <Field label="in">
             <select className="heading bg-transparent text-[18px] text-ink outline-none" value={f.token} onChange={(e) => set("token")(e.target.value)} disabled={Boolean(active)}>
               <option value="stock">{p.ticker}</option>
@@ -490,7 +500,7 @@ function DropsTab(p: ManageProps) {
         <div className="mt-2 grid grid-cols-3 gap-2">
           <Field label="top" unit="holders" mode="numeric" value={f.topN} onChange={set("topN")} disabled={Boolean(active)} />
           <Field label="held for" unit="days" mode="numeric" value={f.holdDays} onChange={set("holdDays")} disabled={Boolean(active)} />
-          <Field label="min" unit={p.combo} value={f.minHold} onChange={set("minHold")} disabled={Boolean(active)} />
+          <Field label="min" unit={p.combo} hint={Number(f.minHold) > 0 && p.stats.priceUsd > 0 ? `≈ ${usd(Number(f.minHold) * p.stats.priceUsd)}` : undefined} value={f.minHold} onChange={set("minHold")} disabled={Boolean(active)} />
         </div>
 
         <button type="button" onClick={() => setMore((v) => !v)} className="heading mt-3 text-[12px] text-sky-600">
