@@ -18,7 +18,7 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
         disabled={soon && !tease}
         onClick={() => onChange(c)}
         data-pressed={active ? "true" : undefined}
-        className={`press clay-pill heading flex shrink-0 items-center gap-1 px-3 py-2 text-[13px] ${
+        className={`press clay-pill heading flex shrink-0 items-center gap-0.5 px-1.5 py-2 text-[12.5px] ${
           active ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"
         } ${soon ? "opacity-55" : ""}`}
       >
@@ -30,8 +30,8 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
   };
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap gap-2">{top.map(pill)}</div>
-      <div className="flex flex-wrap gap-2">{rest.map(pill)}</div>
+      <div className="flex flex-wrap gap-1.5">{top.map(pill)}</div>
+      <div className="flex flex-wrap gap-1.5">{rest.map(pill)}</div>
     </div>
   );
 }
