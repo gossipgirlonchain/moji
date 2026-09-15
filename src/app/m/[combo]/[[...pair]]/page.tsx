@@ -102,11 +102,11 @@ export default async function MojiPage({ params }: { params: Params }) {
       <div className="grid grid-cols-2 gap-3">
         {m.token_address ? (
           <>
-            <LinkButton href={matchaUrl(m.chain_id, m.token_address)} tone="outline" external className="pop pop-2 text-[15px]">
-              Trade on Matcha ↗
+            <LinkButton href={matchaUrl(m.chain_id, m.token_address)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
+              Matcha ↗
             </LinkButton>
-            <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" external className="pop pop-2 text-[15px]">
-              View on Dexscreener ↗
+            <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
+              Dexscreener ↗
             </LinkButton>
           </>
         ) : (
