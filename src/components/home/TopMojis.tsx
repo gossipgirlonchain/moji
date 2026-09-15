@@ -28,7 +28,7 @@ export function TopMojis({ mojis }: { mojis: MojiRow[] }) {
                 </span>
                 <span className="num text-[21px] text-ink">{Number(m.market_cap_usd ?? 0) > 0 ? usd(m.market_cap_usd) : "just launched"}</span>
                 <span className="truncate text-[12px] text-ink-soft">
-                  {chain ? `${chain.emoji} ${chain.short}` : ""}
+                  {chain ? chain.short : ""}
                   {m.creator_handle ? ` · @${m.creator_handle}` : ""}
                   {Number(m.holders_count ?? 0) > 0 ? ` · ${m.holders_count} holders` : ""}
                 </span>
