@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 import { dropsAllowlisted } from "@/config/drops";
+import { chainById } from "@/config/chains";
 
 /** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
 export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
@@ -36,18 +37,31 @@ export function DropsDot({ m, className = "" }: { m: RewardsKey; className?: str
   );
 }
 
-export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
+/** Chain identifier: the chain's emoji, pinned to a tile corner or inline in a row. */
+export function ChainDot({ chainId, className = "" }: { chainId: number; className?: string }) {
+  const c = chainById(chainId);
+  if (!c) return null;
+  return (
+    <span className={`block text-[16px] leading-[1] ${className}`} title={c.name} aria-label={c.name}>
+      {c.emoji}
+    </span>
+  );
+}
+
+export function MojiTile({ m, pop, compact }: { m: MojiRow; pop?: number; compact?: boolean }) {
   return (
     <Link
       href={mojiHref(m)}
-      className={`press clay relative flex flex-col items-center gap-1 bg-white px-3 py-5 text-center ${pop !== undefined ? `pop pop-${pop}` : ""}`}
+      className={`press relative flex flex-col items-center gap-1 text-center ${compact ? "clay-sm bg-sky-50 px-2 pb-4 pt-5" : "clay bg-white px-3 py-5"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
+      <ChainDot chainId={m.chain_id} className="absolute left-3 top-3 opacity-80" />
       <DropsDot m={m} className="absolute right-3 top-3" />
       <span className="text-[44px] leading-none">{m.display}</span>
-      <span className="heading mt-2 text-[15px] text-ink">
+      <span className="heading mt-2 max-w-full truncate text-[15px] text-ink">
         {m.display} / {m.stock_ticker}
       </span>
       <span className="heading text-[13px] text-ink-soft">{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
+      {compact && Number(m.volume24_usd ?? 0) > 0 && <span className="text-[11px] text-ink-soft">vol {usd(m.volume24_usd)}</span>}
     </Link>
   );
 }
@@ -92,7 +106,7 @@ export function MojiListRow({ m, window = "24h" }: { m: MojiRow; window?: VolWin
       <span className="text-[30px] leading-none">{m.display}</span>
       <span className="flex-1">
         <span className="heading block text-[15px] text-ink">
-          {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
+          {m.display} / {m.stock_ticker} <ChainDot chainId={m.chain_id} className="ml-1 inline-block align-middle" /> <DropsPill m={m} className="ml-1 align-middle" />
         </span>
         <span className="heading block text-[12px] text-ink-soft">
           {vol > 0 ? `vol ${window} ${usd(vol)} · ` : ""}fees <span className="text-mint">{usd(total)}</span>
