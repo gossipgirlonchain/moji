@@ -4,7 +4,7 @@ import { Card, Label, LinkButton } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { PriceChart } from "@/components/PriceChart";
 import { getMoji } from "@/lib/data";
-import { mojiHref } from "@/components/MojiBits";
+import { mojiHref, hasHolderRewards } from "@/components/MojiBits";
 import { FeesCard } from "@/components/FeesCard";
 import { decodeCombo } from "@/lib/emoji";
 import { dateShort, num, short } from "@/lib/format";
@@ -88,6 +88,11 @@ export default async function MojiPage({ params }: { params: Params }) {
             </a>
           </p>
         )}
+        {hasHolderRewards(m) && (
+          <a href="#rewards" className="press clay-pill heading mt-3 inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
+            🪂 holder rewards
+          </a>
+        )}
       </div>
 
       <Card pop={1}>
@@ -134,6 +139,7 @@ export default async function MojiPage({ params }: { params: Params }) {
       />
 
 
+      <div id="rewards" className="scroll-mt-4" />
       <DropsCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} stockAddress={m.stock_address} manageHref={`/drops/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}/${m.chain_id}`} />
 
       <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}${mojiHref(m)}`} ca={m.token_address} />

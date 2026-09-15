@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
+import { dropsAllowlisted } from "@/config/drops";
 
 /** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
 export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
@@ -8,11 +9,18 @@ export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_
   return m.chain_id && m.chain_id !== 4663 ? `${base}/${m.chain_id}` : base;
 }
 
-/** Small signal that this moji dropped to its holders recently (mojis.drops_active, last 14 days). */
-export function DropsPill({ m, className = "" }: { m: Pick<MojiRow, "drops_active" | "rewards_badge">; className?: string }) {
-  if (!m.drops_active && !m.rewards_badge) return null;
+type RewardsKey = Pick<MojiRow, "combo" | "stock_ticker" | "chain_id" | "drops_active" | "rewards_badge">;
+
+/** This pair pays its holders: rewards are enabled for it, the creator turned the badge on, or it dropped in the last 14 days. */
+export function hasHolderRewards(m: RewardsKey): boolean {
+  return Boolean(m.rewards_badge) || Boolean(m.drops_active) || dropsAllowlisted(m);
+}
+
+/** 🪂 marker shown everywhere a moji with holder rewards appears. */
+export function DropsPill({ m, className = "" }: { m: RewardsKey; className?: string }) {
+  if (!hasHolderRewards(m)) return null;
   return (
-    <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="this moji drops to holders">
+    <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="holder rewards">
       🪂 rewards
     </span>
   );
@@ -54,7 +62,7 @@ export function EarnerRow({ m, rank }: { m: MojiRow & { earnedUsd?: number }; ra
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
       <span className="text-[30px] leading-none">{m.display}</span>
       <span className="heading flex-1 text-[15px] text-ink">
-        {m.display} / {m.stock_ticker}
+        {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
       </span>
       <span className="heading text-[17px] text-mint">{usd(total)}</span>
     </Link>
