@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "wagmi";
-import { useWallets } from "@privy-io/react-auth";
-import { createPublicClient, createWalletClient, custom, formatUnits, parseUnits, type Address, type Hex } from "viem";
+import { useSendTransaction, useWallets } from "@privy-io/react-auth";
+import { createPublicClient, createWalletClient, custom, encodeFunctionData, formatUnits, parseUnits, type Address, type Hex } from "viem";
 import { transportFor } from "@/lib/rpc";
 import { ensureChain, pickWallet } from "@/lib/wallet";
 import { chainById } from "@/config/chains";
@@ -207,9 +207,12 @@ function Tile({ label, value, sub, tone }: { label: string; value: string; sub?:
 function DropsTab(p: ManageProps) {
   const { address } = useAccount();
   const { wallets } = useWallets();
+  const { sendTransaction } = useSendTransaction();
   const wallet = useMemo(() => wallets.find((w) => address && w.address.toLowerCase() === address.toLowerCase()) ?? pickWallet(wallets), [wallets, address]);
   const isCreator = Boolean(address && p.creatorAddress && address.toLowerCase() === p.creatorAddress.toLowerCase());
   const chain = chainById(p.chainId);
+  /** Privy embedded wallets can sign without a prompt per transfer; external wallets confirm each one. */
+  const silent = wallet?.walletClientType === "privy";
 
   const [f, setF] = useState(DEFAULTS);
   const [more, setMore] = useState(false);
@@ -327,6 +330,14 @@ function DropsTab(p: ManageProps) {
     const pending = d.payouts.filter((x) => !x.tx_hash);
     const total = d.payouts.length;
     let hashes: Hex[] = [];
+    // one transfer; embedded wallets sign silently (the Send button was the confirmation), external wallets prompt
+    const transfer = async (to: Address, value: bigint): Promise<Hex> => {
+      if (silent) {
+        const { hash } = await sendTransaction({ to: token, chainId: chain.viem!.id, data: encodeFunctionData({ abi: ERC20_MIN_ABI, functionName: "transfer", args: [to, value] }) }, { address, uiOptions: { showWalletUIs: false } });
+        return hash;
+      }
+      return wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [to, value] });
+    };
     const flush = async () => {
       if (!hashes.length) return;
       const r = await fetch(`${base}/${d.drop.id}/sent?${qs}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes }) });
@@ -340,7 +351,7 @@ function DropsTab(p: ManageProps) {
     for (const x of pending) {
       if (stop.current) break;
       setBusy(`${done + 1} of ${total} · ${short(x.address)}`);
-      const h = await wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [x.address as Address, BigInt(x.amount_wei)] });
+      const h = await transfer(x.address as Address, BigInt(x.amount_wei));
       await pc.waitForTransactionReceipt({ hash: h });
       hashes.push(h);
       done++;
@@ -351,7 +362,7 @@ function DropsTab(p: ManageProps) {
     const fee = BigInt(d.drop.fee_wei);
     if (fee > 0n && !d.drop.fee_tx && view?.feeRecipient) {
       setBusy("fee → moji");
-      const h = await wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [view.feeRecipient as Address, fee] });
+      const h = await transfer(view.feeRecipient as Address, fee);
       await pc.waitForTransactionReceipt({ hash: h });
       hashes.push(h);
       await flush();
@@ -615,7 +626,7 @@ function DropsTab(p: ManageProps) {
         <button onClick={start} disabled={!canStart} className="press clay heading mt-3 w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white disabled:opacity-60">
           {busy ?? (ready ? `Send ${transfers} transfers` : f.amount ? "Send" : "Enter an amount")}
         </button>
-        <p className="mt-2 text-center text-[11px] text-ink-soft">one wallet signature per transfer · {feeBps / 100}% fee to moji · stop any time</p>
+        <p className="mt-2 text-center text-[11px] text-ink-soft">{silent ? "sends straight from your moji wallet" : "one wallet signature per transfer"} · {feeBps / 100}% fee to moji · stop any time</p>
         {err && (
           <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">
             {err}

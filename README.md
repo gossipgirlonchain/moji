@@ -81,9 +81,10 @@ band (50K+ = high, 15K+ = medium, 5K+ = low).
 
 A creator gives a set amount of the paired stock token or of their moji to the holders who stick around, by hand:
 "give X to the top N holders who held for D days". No contract, no escrow, no schedule. Every drop is a one-off of
-plain ERC-20 transfers from the creator's own wallet, one per holder, confirmed on-chain before the next. While in
-testing, drops are open for the exact pairs in `src/config/drops.ts` (`🍎/AAPL@4663`, plus `NEXT_PUBLIC_DROPS_ALLOWLIST` in the same format) and behind the
-`ADMIN_PASSWORD` cookie for every other moji (`src/lib/drops/gate.ts` is the one switch).
+plain ERC-20 transfers from the creator's own wallet, one per holder, confirmed on-chain before the next. Open for
+every moji (`src/lib/drops/gate.ts`). Privy embedded wallets send the whole batch without a prompt per transfer;
+external wallets confirm each one. The pairs in `src/config/drops.ts` (`🍎/AAPL@4663`, plus `NEXT_PUBLIC_DROPS_ALLOWLIST`)
+carry the 🪂 rewards marker before their first drop; every other moji gets it once it drops or turns the badge on.
 
 - **Rules a creator sets** (`drops`): what to give (moji or stock) and how much; top N; **hold days** (a wallet is
   ranked on the smallest balance it held across the whole window, so buying this morning does not count); minimum

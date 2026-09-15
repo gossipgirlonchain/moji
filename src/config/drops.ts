@@ -1,6 +1,6 @@
 /**
- * Pairs whose drops are open while the feature is in testing. One entry is one exact pair on one chain,
- * written `combo/TICKER@chainId`. Everything else needs the admin password.
+ * Pairs that carry the 🪂 rewards marker before they have dropped anything (featured for rewards). One entry
+ * is one exact pair on one chain, written `combo/TICKER@chainId`. Drops themselves are open for every moji.
  * `NEXT_PUBLIC_DROPS_ALLOWLIST` (comma-separated, same format) extends the list without a code change.
  */
 export const DROPS_ALLOWLIST: string[] = ["🍎/AAPL@4663", ...(process.env.NEXT_PUBLIC_DROPS_ALLOWLIST ?? "").split(",").map((s) => s.trim()).filter(Boolean)];

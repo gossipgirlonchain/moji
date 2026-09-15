@@ -66,7 +66,7 @@ export async function GET(req: Request) {
     rows.map(async (m) => {
       const [stockUsd, mojiUsd] = await Promise.all([m.token_address ? stockPriceServer(m.chain_id, m.stock_address, m.stock_ticker) : 0, mojiPriceUsd(m)]);
       const fees = await getMojiFees(m, { stockUsd, mojiUsd });
-      return { ...m, fees, drops_enabled: admin || (await dropsEnabled(m)) };
+      return { ...m, fees, drops_enabled: true };
     }),
   );
   return NextResponse.json({ mojis: withFees, isTreasury, drops: admin });
