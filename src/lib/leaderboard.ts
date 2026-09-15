@@ -12,7 +12,7 @@ export type Launcher = {
   mcapUsd: number;
   volume24Usd: number;
   volumeAllUsd: number;
-  best: Pick<MojiRow, "display" | "stock_ticker"> | null;
+  best: Pick<MojiRow, "display" | "stock_ticker" | "chain_id"> | null;
   firstLaunch: string;
 };
 
@@ -51,7 +51,7 @@ export async function listLaunchers(): Promise<Launcher[]> {
     row.volumeAllUsd += Number(m.volume_all_usd ?? 0);
     if (mcap > row.bestMcap) {
       row.bestMcap = mcap;
-      row.best = { display: m.display, stock_ticker: m.stock_ticker };
+      row.best = { display: m.display, stock_ticker: m.stock_ticker, chain_id: m.chain_id };
     }
     if (m.launched_at < row.firstLaunch) row.firstLaunch = m.launched_at;
     by.set(key, row);
