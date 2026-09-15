@@ -16,11 +16,21 @@ export function hasHolderRewards(m: RewardsKey): boolean {
   return Boolean(m.rewards_badge) || Boolean(m.drops_active) || dropsAllowlisted(m);
 }
 
-/** 🪂 in a mint circle, shown everywhere a moji with holder rewards appears. */
+/** 🪂 rewards pill, shown on list rows for a moji with holder rewards. */
 export function DropsPill({ m, className = "" }: { m: RewardsKey; className?: string }) {
   if (!hasHolderRewards(m)) return null;
   return (
-    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-mint text-[13px] leading-none ${className}`} title="holder rewards" aria-label="holder rewards">
+    <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="holder rewards">
+      🪂 rewards
+    </span>
+  );
+}
+
+/** 🪂 in a mint circle, pinned to a tile corner. */
+export function DropsDot({ m, className = "" }: { m: RewardsKey; className?: string }) {
+  if (!hasHolderRewards(m)) return null;
+  return (
+    <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-mint text-[20px] leading-none ${className}`} title="holder rewards" aria-label="holder rewards">
       🪂
     </span>
   );
@@ -32,7 +42,7 @@ export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
       href={mojiHref(m)}
       className={`press clay relative flex flex-col items-center gap-1 bg-white px-3 py-5 text-center ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
-      <DropsPill m={m} className="absolute right-3 top-3" />
+      <DropsDot m={m} className="absolute right-2.5 top-2.5" />
       <span className="text-[44px] leading-none">{m.display}</span>
       <span className="heading mt-2 text-[15px] text-ink">
         {m.display} / {m.stock_ticker}
