@@ -44,7 +44,7 @@ npm run dev                  # http://localhost:3000
 | `ADMIN_PASSWORD` | server only | Gates `/admin`, `/design` and `/creators`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected, the card studio, and the creator pipeline |
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 | `NEXT_PUBLIC_DROPS_FEE_BPS` | client + server | Processing fee on drops, in bps of what goes to holders (default `50` = 0.5%). Sent to `NEXT_PUBLIC_MOJI_TREASURY` as one extra transfer |
-| `NEXT_PUBLIC_DROPS_ALLOWLIST` | client + server | Optional. Comma-separated combos whose drops are open to everyone while the feature is in testing, on top of `src/config/drops.ts` (🍎) |
+| `NEXT_PUBLIC_DROPS_ALLOWLIST` | client + server | Optional. Comma-separated pairs (`combo/TICKER@chainId`) whose drops are open while the feature is in testing, on top of `src/config/drops.ts` (`🍎/AAPL@4663`) |
 | `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
 ### Privy dashboard setup
@@ -82,7 +82,7 @@ band (50K+ = high, 15K+ = medium, 5K+ = low).
 A creator gives a set amount of the paired stock token or of their moji to the holders who stick around, by hand:
 "give X to the top N holders who held for D days". No contract, no escrow, no schedule. Every drop is a one-off of
 plain ERC-20 transfers from the creator's own wallet, one per holder, confirmed on-chain before the next. While in
-testing, drops are open for the mojis in `src/config/drops.ts` (🍎, plus `NEXT_PUBLIC_DROPS_ALLOWLIST`) and behind the
+testing, drops are open for the exact pairs in `src/config/drops.ts` (`🍎/AAPL@4663`, plus `NEXT_PUBLIC_DROPS_ALLOWLIST` in the same format) and behind the
 `ADMIN_PASSWORD` cookie for every other moji (`src/lib/drops/gate.ts` is the one switch).
 
 - **Rules a creator sets** (`drops`): what to give (moji or stock) and how much; top N; **hold days** (a wallet is
@@ -98,8 +98,8 @@ testing, drops are open for the mojis in `src/config/drops.ts` (🍎, plus `NEXT
   come from the chain, never the client). The **0.5% processing fee** (`NEXT_PUBLIC_DROPS_FEE_BPS`) is one more
   transfer to the treasury at the end. Closing the page mid-way is fine: the drop reopens with "N to go"; "cancel
   rest" (signed) closes it and what was sent stays recorded. Nothing is ever held by moji.
-- **Holders.** `/api/cron/drops` (every 10 min) replays every `Transfer` of each moji token into `token_transfers`
-  and `holder_balances` (with cached `block_times`), recently dropping mojis first. `GET /api/mojis/[combo]/holders`
+- **Holders.** `/api/cron/drops` (every 10 min) replays every `Transfer` of the token into `token_transfers` and
+  `holder_balances` (with cached `block_times`), only for the allowlisted pairs and mojis that have dropped before. `GET /api/mojis/[combo]/holders`
   serves the stats tab (count, top-10 share, share in the pool, buckets in moji units, top 20 with held-since) and
   runs an incremental scan when the cursor is stale. Open the stats tab once before the first drop on a moji.
 - **Surfaces.** `/drops/🍎/AAPL/4663`: stats tab (market, fees, holders) and drops tab (form with live preview,
