@@ -14,11 +14,11 @@ const SORTS = [
 ] as const;
 type Sort = (typeof SORTS)[number][0];
 
-export function ExploreList({ initial }: { initial: MojiRow[] }) {
+export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; initialQ?: string }) {
   const [rows, setRows] = useState(initial);
   const [sort, setSort] = useState<Sort>("mcap");
   const [window, setWindow] = useState<VolWindow>("24h");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ);
   const [chain, setChain] = useState<number | null>(null);
   const chains = useMemo(() => {
     const present = new Set(rows.map((m) => m.chain_id));
