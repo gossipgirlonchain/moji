@@ -15,12 +15,15 @@ const DYNAMIC_FEE_FLAG = 8388608;
 
 // Uniswap v4 periphery Actions + Universal Router command ids.
 const V4_SWAP = 0x10;
+/** Chains whose Universal Router is built on the older v4 periphery: the exact-in struct carries sqrtPriceLimitX96. Robinhood's is. */
+const LEGACY_SWAP_STRUCT = new Set([4663]);
 const SWAP_EXACT_IN_SINGLE = 0x06;
 const SETTLE_ALL = 0x0c;
 const TAKE_ALL = 0x0f;
 const TAKE_PORTION = 0x10;
 
 export type PoolKey = { currency0: Address; currency1: Address; fee: number; tickSpacing: number; hooks: Address };
+const POOL_KEY_ABI = { name: "poolKey", type: "tuple", components: [{ name: "currency0", type: "address" }, { name: "currency1", type: "address" }, { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" }, { name: "hooks", type: "address" }] } as const;
 
 const routerAbi = parseAbi(["function execute(bytes commands, bytes[] inputs, uint256 deadline) payable"]);
 const permit2Abi = parseAbi([
@@ -52,14 +55,19 @@ export async function quoteExactIn(pc: PublicClient, chainId: number, key: PoolK
 }
 
 /** Universal Router calldata: one exact-in v4 swap, settle input via Permit2, optional treasury portion, take the rest. */
-export function encodeSwap(key: PoolKey, tokenIn: Address, tokenOut: Address, amountIn: bigint, minOut: bigint, feeBps = APP_SWAP_FEE_BPS): Hex {
+export function encodeSwap(chainId: number, key: PoolKey, tokenIn: Address, tokenOut: Address, amountIn: bigint, minOut: bigint, feeBps = APP_SWAP_FEE_BPS): Hex {
   const zeroForOne = tokenIn.toLowerCase() === key.currency0.toLowerCase();
   const actions: number[] = [SWAP_EXACT_IN_SINGLE, SETTLE_ALL];
   const params: Hex[] = [
-    encodeAbiParameters(
-      [{ type: "tuple", components: [{ name: "poolKey", type: "tuple", components: [{ name: "currency0", type: "address" }, { name: "currency1", type: "address" }, { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" }, { name: "hooks", type: "address" }] }, { name: "zeroForOne", type: "bool" }, { name: "amountIn", type: "uint128" }, { name: "amountOutMinimum", type: "uint128" }, { name: "hookData", type: "bytes" }] }],
-      [{ poolKey: key, zeroForOne, amountIn, amountOutMinimum: minOut, hookData: "0x" }],
-    ),
+    LEGACY_SWAP_STRUCT.has(chainId)
+      ? encodeAbiParameters(
+          [{ type: "tuple", components: [POOL_KEY_ABI, { name: "zeroForOne", type: "bool" }, { name: "amountIn", type: "uint128" }, { name: "amountOutMinimum", type: "uint128" }, { name: "sqrtPriceLimitX96", type: "uint160" }, { name: "hookData", type: "bytes" }] }],
+          [{ poolKey: key, zeroForOne, amountIn, amountOutMinimum: minOut, sqrtPriceLimitX96: 0n, hookData: "0x" }],
+        )
+      : encodeAbiParameters(
+          [{ type: "tuple", components: [POOL_KEY_ABI, { name: "zeroForOne", type: "bool" }, { name: "amountIn", type: "uint128" }, { name: "amountOutMinimum", type: "uint128" }, { name: "hookData", type: "bytes" }] }],
+          [{ poolKey: key, zeroForOne, amountIn, amountOutMinimum: minOut, hookData: "0x" }],
+        ),
     encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [tokenIn, amountIn]),
   ];
   if (feeBps > 0 && /^0x[0-9a-fA-F]{40}$/.test(MOJI_TREASURY)) {

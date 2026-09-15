@@ -106,7 +106,7 @@ export function TradeCard(p: Props) {
       await ensureAllowances(pc, wc, p.chainId, address, tokenIn, amountIn, setBusy);
       setBusy("confirm swap");
       const minOut = (quote * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
-      const hash = await sendSwap(pc, wc, p.chainId, address, encodeSwap(key, tokenIn, tokenOut, amountIn, minOut));
+      const hash = await sendSwap(pc, wc, p.chainId, address, encodeSwap(p.chainId, key, tokenIn, tokenOut, amountIn, minOut));
       setDone(hash);
       setAmount("");
     } catch (e) {
