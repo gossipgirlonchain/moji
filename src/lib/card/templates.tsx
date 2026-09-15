@@ -41,6 +41,7 @@ export const CARD_BG: Record<CardSpec["template"], ClayBg> = {
   claimed: "white",
   bignumber: "sky50",
   token: "white",
+  airdrop: "sky50",
 };
 
 export function Frame({ ctx, placements, children }: { ctx: Ctx; placements: Placement[]; children: ReactNode }) {
@@ -269,6 +270,53 @@ export function Token({ ctx, f }: { ctx: Ctx; f: Fields["token"] }) {
   );
 }
 
+/* 8. airdrop: a creator's drop to holders. Hero combo, pill, the USD figure and a one line summary, then stat tiles. */
+export function Airdrop({ ctx, f }: { ctx: Ctx; f: Fields["airdrop"] }) {
+  const stats = f.stats.filter((s) => s.label.trim() || s.value.trim()).slice(0, 4);
+  const n = Math.max(1, stats.length);
+  const hero = ctx.wide ? 140 : 168;
+  const textW = ctx.contentW - hero - 40;
+  const label = f.label.trim().toUpperCase();
+  const pillH = label ? 24 * 1.2 + 32 : 0;
+  const figureSize = fitLine(f.figure, ctx.wide ? [108, 96, 84, 72] : [132, 120, 108, 96, 84], textW);
+  const sub = f.sub.trim();
+  const subSize = sub ? fitLine(sub, [32, 28, 24, 20], textW, NUNITO_800) : 0;
+  const headH = Math.max(hero, (label ? pillH + 14 : 0) + figureSize + (sub ? subSize * 1.3 + 12 : 0));
+  const gap = 24;
+  const cols = ctx.wide || n <= 2 ? n : 2;
+  const rows = Math.ceil(n / cols);
+  const tileW = Math.floor((ctx.contentW - (cols - 1) * gap) / cols);
+  const tileH = Math.max(120, Math.min(172, Math.floor((ctx.contentH - headH - 40 - (rows - 1) * gap) / rows)));
+  const labelSize = 22;
+  const valueSize = Math.min(...stats.map((st) => fitLine(st.value, [60, 52, 44, 36], tileW - 48)), Math.floor((tileH - labelSize * 1.2 - 40) / 1.1));
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 40 }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 40 }}>
+        <ComboEmoji sprites={ctx.sprites} combo={f.combo} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14 }}>
+          {label ? (
+            <ClayBox clay={ctx.clay} kind="pill" w={Math.ceil(lineWidth(label, 24, NUNITO_800, 0.16)) + 64} h={pillH}>
+              <Rich text={label} sprites={ctx.sprites} size={24} color={MINT} font={FONT.body} lineHeight={1.2} letterSpacingEm={0.16} />
+            </ClayBox>
+          ) : null}
+          <Rich text={f.figure} sprites={ctx.sprites} size={figureSize} color={INK} lineHeight={1} letterSpacingEm={-0.01} />
+          {sub ? <Rich text={sub} sprites={ctx.sprites} size={subSize} color={INK_SOFT} font={FONT.body} lineHeight={1.3} /> : null}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap }}>
+        {stats.map((st, i) => (
+          <ClayBox key={i} clay={ctx.clay} kind="stat" w={tileW} h={tileH}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", fontFamily: FONT.body, fontWeight: 800, fontSize: labelSize, lineHeight: 1.2, letterSpacing: `${0.1 * labelSize}px`, color: INK_SOFT }}>{st.label.toUpperCase()}</div>
+              <Rich text={st.value} sprites={ctx.sprites} size={valueSize} color={INK} lineHeight={1.1} />
+            </div>
+          </ClayBox>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Every emoji grapheme a spec needs (plain, and those drawn with a shadow), resolved before the synchronous render. */
 export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string[] } {
   const texts: string[] = [];
@@ -323,6 +371,12 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       texts.push(f.combo, f.ticker, f.creator, ...f.stats.flatMap((st) => [st.label, st.value]));
       break;
     }
+    case "airdrop": {
+      const f = spec.fields as Fields["airdrop"];
+      shadowed.push(f.combo);
+      texts.push(f.combo, f.ticker, f.label, f.figure, f.sub, ...f.stats.flatMap((st) => [st.label, st.value]));
+      break;
+    }
   }
   // Combos are drawn grapheme by grapheme; text fields are tokenised the same way in Rich.
   const g = (list: string[]) => list.flatMap((c) => graphemes(c)).filter((x) => x.trim());
@@ -345,5 +399,7 @@ export function renderTemplate(spec: CardSpec, ctx: Ctx): ReactNode {
       return <BigNumber ctx={ctx} f={spec.fields as Fields["bignumber"]} />;
     case "token":
       return <Token ctx={ctx} f={spec.fields as Fields["token"]} />;
+    case "airdrop":
+      return <Airdrop ctx={ctx} f={spec.fields as Fields["airdrop"]} />;
   }
 }
