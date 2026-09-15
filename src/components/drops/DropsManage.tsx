@@ -128,7 +128,7 @@ function StatsTab(p: ManageProps) {
           {sum?.scannedAt && <span className="text-[11px] text-ink-soft">scanned {new Date(sum.scannedAt).toLocaleTimeString()}</span>}
         </div>
         {!sum && !err && <p className="mt-2 text-[13px] text-ink-soft">reading transfer logs…</p>}
-        {err && <p className="mt-2 text-[12px] text-coral">{err}</p>}
+        {err && <p className="mt-2 text-[12px] text-coral">couldn&apos;t finish reading holders just now; it retries in the background. {err.split("\n")[0].slice(0, 100)}</p>}
         {sum && (
           <>
             <div className="mt-2 grid grid-cols-3 gap-2">

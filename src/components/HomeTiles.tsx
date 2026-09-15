@@ -4,16 +4,17 @@ import Link from "next/link";
 import { useState } from "react";
 import type { MojiRow } from "@/lib/supabase";
 import { MojiTile } from "./MojiBits";
-import { Label, Pill } from "./ui";
+import { Pill } from "./ui";
+import { ClaimsCounter } from "./ClaimsCounter";
 
 /** Home grid: top mojis by market cap, or the newest launches. */
-export function HomeTiles({ top, recent }: { top: MojiRow[]; recent: MojiRow[] }) {
+export function HomeTiles({ top, recent, count }: { top: MojiRow[]; recent: MojiRow[]; count: number }) {
   const [tab, setTab] = useState<"top" | "new">("top");
   const rows = tab === "top" ? top : recent;
   return (
     <section className="clay pop pop-5 bg-white p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <Label>mojis</Label>
+        <ClaimsCounter initial={count} />
         <div className="flex gap-2">
           <Pill active={tab === "top"} onClick={() => setTab("top")} className="px-3.5 py-1.5 text-[13px]">
             top

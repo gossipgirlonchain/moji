@@ -4,9 +4,28 @@ import { getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { chainById } from "@/config/chains";
 import { MOJI_TREASURY } from "@/config/fees";
 import { publicClientFor } from "@/lib/rpc";
+import { createPublicClient, fallback, http, type Chain, type PublicClient } from "viem";
 import { supabaseServer, type MojiRow } from "@/lib/supabase";
 
 const TRANSFER = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
+const MIN_CHUNK = 2_000n;
+
+/**
+ * Client for log scans. On Robinhood Chain the general fallback list ends at Pocket Network, which does not
+ * serve historical logs ("historical state is not available"), so scans use only the RPCs that do.
+ */
+const scanClients = new Map<number, PublicClient>();
+function scanClient(chain: Chain): PublicClient {
+  let pc = scanClients.get(chain.id);
+  if (pc) return pc;
+  if (chain.id === 4663) {
+    const urls = [process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL, "https://rpc.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com"].filter((u): u is string => Boolean(u));
+    const opts = { fetchOptions: { headers: { "user-agent": "moji.wtf" } }, retryCount: 2, retryDelay: 400, timeout: 20_000 } as const;
+    pc = createPublicClient({ chain, transport: fallback(urls.map((u) => http(u, opts)), { retryCount: 1 }) }) as PublicClient;
+  } else pc = publicClientFor(chain);
+  scanClients.set(chain.id, pc);
+  return pc;
+}
 const CHUNK: Record<number, bigint> = { 4663: 200_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n };
 const ZERO = "0x0000000000000000000000000000000000000000";
 const DEAD = "0x000000000000000000000000000000000000dead";
@@ -65,7 +84,7 @@ async function blockTimes(chainId: number, blocks: bigint[]): Promise<Map<bigint
   }
   const still = missing.filter((b) => !out.has(b));
   if (still.length) {
-    const pc = publicClientFor(chain.viem);
+    const pc = scanClient(chain.viem);
     const rows: { chain_id: number; block: string; ts: string }[] = [];
     for (let i = 0; i < still.length; i += 8) {
       const batch = still.slice(i, i + 8);
@@ -89,7 +108,7 @@ async function blockTimes(chainId: number, blocks: bigint[]): Promise<Map<bigint
 export async function scanHolders(m: MojiRow, opts: { maxChunks?: number } = {}): Promise<HolderScan | null> {
   const chain = chainById(m.chain_id);
   if (!chain?.viem || !m.token_address) return null;
-  const pc = publicClientFor(chain.viem);
+  const pc = scanClient(chain.viem);
   const sb = supabaseServer();
 
   let from: bigint;
@@ -114,12 +133,13 @@ export async function scanHolders(m: MojiRow, opts: { maxChunks?: number } = {})
     try {
       logs = await pc.getLogs({ address: token, event: TRANSFER, fromBlock: cursor, toBlock: to });
     } catch (e) {
-      const msg = String((e as { details?: string }).details ?? e).toLowerCase();
-      if (chunk > 500n && /range|limit|too many|exceed|block|response size/.test(msg)) {
-        chunk /= 2n;
+      // any RPC complaint (range too wide, too many results, a node without history): retry a smaller range
+      if (chunk > MIN_CHUNK) {
+        chunk = chunk / 4n < MIN_CHUNK ? MIN_CHUNK : chunk / 4n;
         continue;
       }
-      throw e;
+      const msg = String((e as { shortMessage?: string }).shortMessage ?? (e as Error).message ?? e);
+      throw new Error(`could not read transfers around block ${cursor}: ${msg.split("\n")[0].slice(0, 120)}`);
     }
     if (logs.length) {
       const times = await blockTimes(m.chain_id, [...new Set(logs.map((l) => l.blockNumber))]);
