@@ -38,6 +38,8 @@ type Summary = {
 
 type Preview = {
   perRound: string;
+  feeBps: number;
+  feePerRound: string;
   tokenPriceUsd: number;
   eligible: number;
   paid: number;
@@ -341,7 +343,11 @@ function DropsTab(p: ManageProps) {
             <span className="text-ink-soft">:00 UTC</span>
           </div>
           <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">
-            {amountWei != null && amountWei > 0n ? `${fmtTok(perDay, 6)} ${symbol} per round` : ""}
+            {amountWei != null && amountWei > 0n
+              ? preview && !preview.error
+                ? `${fmtTok(preview.perRound, 6)} ${symbol} to holders per round + ${fmtTok(preview.feePerRound, 6)} ${symbol} processing fee (${preview.feeBps / 100}%)`
+                : `≈ ${fmtTok(perDay, 6)} ${symbol} per round before the processing fee`
+              : ""}
           </p>
 
           <Label className="mt-1">Who counts as a holder</Label>
@@ -416,7 +422,7 @@ function DropsTab(p: ManageProps) {
         <label className="mt-4 flex items-start gap-2 text-[12px] text-ink-soft">
           <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5" />
           <span>
-            the full amount is locked in the moji escrow until every round has paid. rules cannot change once funded. anything left over (rounds nobody qualified for) comes back to your wallet at the end.
+            the full amount is locked in the moji escrow until every round has paid. rules cannot change once funded. moji takes a {preview ? preview.feeBps / 100 : 0.5}% processing fee on what each round pays out, in {symbol}; nothing is charged on skipped rounds. anything left over comes back to your wallet at the end.
           </span>
         </label>
         <button onClick={start} disabled={!canStart} className="press clay heading mt-3 w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white disabled:opacity-60">
@@ -443,7 +449,7 @@ function CampaignList({ p, view }: { p: ManageProps; view: DropsView | null }) {
       <Label>Your drops</Label>
       {view.campaigns.map((c) => {
         const rounds = view.rounds.filter((r) => r.campaign_id === c.id);
-        const paid = Number(formatUnits(BigInt(c.paid_wei), c.token_decimals));
+        const paid = Number(formatUnits(BigInt(c.paid_wei) - BigInt(c.fees_wei ?? "0"), c.token_decimals));
         return (
           <section key={c.id} className="clay pop bg-white p-4">
             <div className="flex items-center justify-between">
@@ -456,7 +462,7 @@ function CampaignList({ p, view }: { p: ManageProps; view: DropsView | null }) {
               hold {c.hold_days}d · min {fmtTok(c.min_hold, 0)} {p.combo} · {c.split === "equal" ? "equal shares" : `pro-rata, cap ${c.cap_bps / 100}%`} · floor ${c.min_payout_usd} · {c.cut_hour_utc}:00 UTC
             </p>
             <p className="mt-1 text-[12px] text-ink">
-              round {c.rounds_paid} of {c.days} · paid {fmtTok(paid, 5)} {c.token_symbol} ({usd(c.paid_usd)})
+              round {c.rounds_paid} of {c.days} · paid {fmtTok(paid, 5)} {c.token_symbol} ({usd(c.paid_usd)}) · fee {c.fee_bps / 100}%
               {c.next_cut_at && c.status === "running" && <span className="text-ink-soft"> · next {new Date(c.next_cut_at).toLocaleString()}</span>}
             </p>
             <p className="mt-1 text-[11px] text-ink-soft">

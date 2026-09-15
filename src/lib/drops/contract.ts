@@ -15,6 +15,12 @@ export function dropsContract(chainId: number): Address | null {
   return v && /^0x[0-9a-fA-F]{40}$/.test(v) ? (v as Address) : null;
 }
 
+/** Processing fee on drop payouts, in bps. The escrow snapshots its own value per campaign at funding; this is what the form previews. */
+export function dropsFeeBps(): number {
+  const v = Number(process.env.NEXT_PUBLIC_DROPS_FEE_BPS ?? 50);
+  return Number.isInteger(v) && v >= 0 && v <= 500 ? v : 50;
+}
+
 export const ERC20_MIN_ABI = [
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "value", type: "uint256" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] },

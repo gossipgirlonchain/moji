@@ -3,7 +3,8 @@ import { formatUnits, parseUnits } from "viem";
 import { getMoji } from "@/lib/data";
 import { decodeCombo } from "@/lib/emoji";
 import { dropsEnabled } from "@/lib/drops/gate";
-import { previewRound, tokenFor, validateRules } from "@/lib/drops/campaigns";
+import { distributable, previewRound, tokenFor, validateRules } from "@/lib/drops/campaigns";
+import { dropsFeeBps } from "@/lib/drops/contract";
 import type { CampaignRules } from "@/lib/drops/types";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
   const r = v.rules;
   const t = tokenFor(m, r.token);
   const amountWei = parseUnits(r.amount, t.decimals);
-  const pot = amountWei / BigInt(r.days);
+  const feeBps = dropsFeeBps();
+  const pot = distributable(amountWei, r.days, feeBps);
   const res = await previewRound(
     m,
     { token_kind: r.token, token_decimals: t.decimals, top_n: r.topN, hold_days: r.holdDays, min_hold_wei: parseUnits(r.minHold, 18).toString(), min_payout_usd: r.minPayoutUsd, split: r.split, cap_bps: r.capBps, excluded: r.excluded },
@@ -50,6 +52,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
       rules: r,
       token: t,
       perRound: formatUnits(pot, t.decimals),
+      feeBps,
+      feePerRound: formatUnits((pot * BigInt(feeBps)) / 10_000n, t.decimals),
       tokenPriceUsd: res.tokenPriceUsd,
       eligible: res.eligible,
       paid: res.payouts.length,

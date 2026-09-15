@@ -7,7 +7,7 @@ import { stockPriceServer } from "@/lib/market";
 import { findNumeraire } from "@/lib/numeraire";
 import { supabaseServer, type MojiRow } from "@/lib/supabase";
 import { NETWORK } from "@/lib/network";
-import { MOJI_DROPS_ABI, campaignKey, dropsContract } from "./contract";
+import { MOJI_DROPS_ABI, campaignKey, dropsContract, dropsFeeBps } from "./contract";
 import { computeRound, type RoundResult } from "./rounds";
 import { scanHolders } from "./holders";
 import { CAMPAIGN_LIMITS, canonicalRulesMessage, type CampaignRow, type CampaignRules, type PayoutRow, type RoundRow } from "./types";
@@ -145,18 +145,18 @@ export async function confirmFunded(c: CampaignRow, m: MojiRow, txHash: Hex): Pr
   const receipt = await pc.getTransactionReceipt({ hash: txHash });
   if (receipt.status !== "success") throw new Error("the funding transaction failed");
   const key = campaignKey(c.id).toLowerCase();
-  let found: { id: bigint; amount: bigint; reclaimAfter: bigint } | null = null;
+  let found: { id: bigint; amount: bigint; reclaimAfter: bigint; feeBps: number } | null = null;
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== escrow.toLowerCase()) continue;
     try {
       const ev = decodeEventLog({ abi: MOJI_DROPS_ABI, data: log.data, topics: log.topics });
       if (ev.eventName !== "CampaignFunded") continue;
-      const a = ev.args as unknown as { id: bigint; creator: Address; token: Address; amount: bigint; reclaimAfter: bigint; key: Hex };
+      const a = ev.args as unknown as { id: bigint; creator: Address; token: Address; amount: bigint; reclaimAfter: bigint; feeBps: number; key: Hex };
       if (a.key.toLowerCase() !== key) continue;
       if (a.creator.toLowerCase() !== c.creator_address.toLowerCase()) throw new Error("funded from a different wallet");
       if (a.token.toLowerCase() !== c.token_address.toLowerCase()) throw new Error("funded with a different token");
       if (a.amount < BigInt(c.amount_wei)) throw new Error("funded amount is less than the campaign amount");
-      found = { id: a.id, amount: a.amount, reclaimAfter: a.reclaimAfter };
+      found = { id: a.id, amount: a.amount, reclaimAfter: a.reclaimAfter, feeBps: Number(a.feeBps) };
     } catch (e) {
       if (e instanceof Error && /different|less than/.test(e.message)) throw e;
     }
@@ -179,6 +179,7 @@ export async function confirmFunded(c: CampaignRow, m: MojiRow, txHash: Hex): Pr
       ends_at: ends.toISOString(),
       reclaim_after: new Date(Number(found.reclaimAfter) * 1000).toISOString(),
       next_cut_at: first.toISOString(),
+      fee_bps: found.feeBps,
     })
     .eq("id", c.id)
     .eq("status", "draft")
@@ -200,10 +201,18 @@ export async function previewRound(m: MojiRow, c: Pick<CampaignRow, "token_kind"
   );
 }
 
+/**
+ * What one round can hand to holders: the remaining balance spread over the rounds left, less the
+ * processing fee the escrow will add on top of the payouts (fee = payouts × feeBps / 10000).
+ */
+export function distributable(remainingWei: bigint, roundsLeft: number, feeBps: number): bigint {
+  const share = roundsLeft <= 1 ? remainingWei : remainingWei / BigInt(roundsLeft);
+  return (share * 10_000n) / BigInt(10_000 + Math.max(0, feeBps));
+}
+
 export function roundPot(c: CampaignRow): bigint {
   const remaining = BigInt(c.amount_wei) - BigInt(c.paid_wei);
-  const roundsLeft = Math.max(1, c.days - c.rounds_paid);
-  return roundsLeft === 1 ? remaining : remaining / BigInt(roundsLeft);
+  return distributable(remaining, c.days - c.rounds_paid, Number(c.fee_bps ?? dropsFeeBps()));
 }
 
 /**
@@ -267,7 +276,7 @@ async function cutRound(c: CampaignRow, m: MojiRow): Promise<void> {
   if (res.payouts.length === 0) {
     // nobody qualifies today: the pot rolls into the remaining rounds; on the last day it goes back to the creator
     await sb.from("drop_rounds").update({ status: "skipped", error: res.belowFloor > 0 ? `${res.belowFloor} wallets under the $${c.min_payout_usd} floor` : "no holders met the rules" }).eq("id", round.id);
-    await finishRound(c, m, { roundNo, paidWei: 0n, paidUsd: 0, nextCut, lastRound, op, escrow });
+    await finishRound(c, m, { roundNo, paidWei: 0n, feeWei: 0n, paidUsd: 0, nextCut, lastRound, op, escrow });
     return;
   }
 
@@ -288,14 +297,16 @@ async function cutRound(c: CampaignRow, m: MojiRow): Promise<void> {
     throw new Error("payRound reverted");
   }
   let paidWei = 0n;
+  let feeWei = 0n;
   let skipped = 0;
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== escrow.toLowerCase()) continue;
     try {
       const ev = decodeEventLog({ abi: MOJI_DROPS_ABI, data: log.data, topics: log.topics });
       if (ev.eventName === "RoundPaid") {
-        const a = ev.args as unknown as { total: bigint; recipients: bigint; skipped: bigint };
+        const a = ev.args as unknown as { total: bigint; fee: bigint; recipients: bigint; skipped: bigint };
         paidWei = a.total;
+        feeWei = a.fee;
         skipped = Number(a.skipped);
       }
     } catch {}
@@ -312,19 +323,21 @@ async function cutRound(c: CampaignRow, m: MojiRow): Promise<void> {
     amount_usd: p.amountUsd,
   }));
   for (let i = 0; i < payoutRows.length; i += 500) await sb.from("drop_payouts").upsert(payoutRows.slice(i, i + 500), { onConflict: "round_id,address" });
-  await sb.from("drop_rounds").update({ status: "paid", tx_hash: txHash, paid_wei: paidWei.toString(), paid_usd: paidUsd, skipped, block: String(receipt.blockNumber) }).eq("id", round.id);
-  await finishRound(c, m, { roundNo, paidWei, paidUsd, nextCut, lastRound, op, escrow });
+  await sb.from("drop_rounds").update({ status: "paid", tx_hash: txHash, paid_wei: paidWei.toString(), paid_usd: paidUsd, fee_wei: feeWei.toString(), skipped, block: String(receipt.blockNumber) }).eq("id", round.id);
+  await finishRound(c, m, { roundNo, paidWei, feeWei, paidUsd, nextCut, lastRound, op, escrow });
 }
 
 async function finishRound(
   c: CampaignRow,
   m: MojiRow,
-  x: { roundNo: number; paidWei: bigint; paidUsd: number; nextCut: Date; lastRound: boolean; op: NonNullable<ReturnType<typeof operator>>; escrow: Address },
+  x: { roundNo: number; paidWei: bigint; feeWei: bigint; paidUsd: number; nextCut: Date; lastRound: boolean; op: NonNullable<ReturnType<typeof operator>>; escrow: Address },
 ): Promise<void> {
   const sb = supabaseServer();
   const patch: Record<string, unknown> = {
     rounds_paid: x.roundNo,
-    paid_wei: (BigInt(c.paid_wei) + x.paidWei).toString(),
+    // paid_wei mirrors the escrow's `paid`: payouts plus the fee, so remaining = amount − paid stays exact
+    paid_wei: (BigInt(c.paid_wei) + x.paidWei + x.feeWei).toString(),
+    fees_wei: (BigInt(c.fees_wei ?? "0") + x.feeWei).toString(),
     paid_usd: Number(c.paid_usd) + x.paidUsd,
     next_cut_at: x.lastRound ? null : x.nextCut.toISOString(),
   };

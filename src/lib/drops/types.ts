@@ -24,6 +24,8 @@ export type CampaignRow = {
   cap_bps: number;
   cut_hour_utc: number;
   excluded: string[];
+  fee_bps: number;
+  fees_wei: string;
   signed_message: string | null;
   signature: string | null;
   status: CampaignStatus;
@@ -51,6 +53,7 @@ export type RoundRow = {
   pot_wei: string;
   paid_wei: string;
   paid_usd: number;
+  fee_wei: string;
   eligible: number;
   recipients: number;
   skipped: number;

@@ -68,6 +68,9 @@ create table if not exists public.drop_campaigns (
   cap_bps integer not null default 500 check (cap_bps between 0 and 10000),
   cut_hour_utc integer not null default 9 check (cut_hour_utc between 0 and 23),
   excluded text[] not null default '{}',
+  -- processing fee on payouts (bps), fixed by the escrow at funding; fees_wei is what has been charged so far
+  fee_bps integer not null default 50,
+  fees_wei numeric not null default 0,
   -- the creator's signature over the rules; the rules cannot change after funding
   signed_message text,
   signature text,
@@ -99,6 +102,7 @@ create table if not exists public.drop_rounds (
   pot_wei numeric not null,
   paid_wei numeric not null default 0,
   paid_usd numeric not null default 0,
+  fee_wei numeric not null default 0,
   eligible integer not null default 0,
   recipients integer not null default 0,
   skipped integer not null default 0,
