@@ -18,7 +18,7 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
         disabled={soon && !tease}
         onClick={() => onChange(c)}
         data-pressed={active ? "true" : undefined}
-        className={`press clay-pill heading flex shrink-0 items-center gap-1 px-2 py-2 text-[12.5px] ${
+        className={`press clay-pill heading flex shrink-0 items-center gap-0.5 px-1.5 py-2 text-[12.5px] ${
           active ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"
         } ${soon ? "opacity-55" : ""}`}
       >
