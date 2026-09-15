@@ -35,15 +35,8 @@ export function TradeCard(p: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Hex | null>(null);
-  // Hidden from the public until buying with ETH exists: stock-only trading skews toward selling.
-  // Browsers logged into /admin still see it for testing.
-  const [beta, setBeta] = useState(false);
-  useEffect(() => {
-    fetch("/api/admin/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok: boolean }) => setBeta(Boolean(j.ok)))
-      .catch(() => {});
-  }, []);
+  // Open to everyone (was admin-only during beta).
+  const beta = true;
 
   const pc = useMemo(() => (chain?.viem ? createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) }) : null), [chain]);
   const key = useMemo(() => poolKeyFor(p.chainId, p.tokenAddress as Address, p.stockAddress as Address, p.poolId as Hex), [p.chainId, p.tokenAddress, p.stockAddress, p.poolId]);
