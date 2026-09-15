@@ -7,6 +7,7 @@ import { stockPriceServer } from "@/lib/market";
 import { chainById } from "@/config/chains";
 import { MOJI_TREASURY } from "@/config/fees";
 import type { Address } from "viem";
+import { dropsEnabled } from "@/lib/drops/gate";
 
 export const dynamic = "force-dynamic";
 
@@ -67,5 +68,5 @@ export async function GET(req: Request) {
       return { ...m, fees };
     }),
   );
-  return NextResponse.json({ mojis: withFees, isTreasury });
+  return NextResponse.json({ mojis: withFees, isTreasury, drops: await dropsEnabled() });
 }

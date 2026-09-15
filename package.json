@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "check:tokens": "tsx scripts/check-design-tokens.ts",
     "cards:assets": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/gen-card-assets.ts",
-    "cards:preview": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/render-cards.ts"
+    "cards:preview": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/render-cards.ts",
+    "drops:compile": "tsx scripts/compile-drops.ts",
+    "drops:deploy": "tsx scripts/deploy-drops.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -40,6 +42,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
+    "solc": "^0.8.28",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

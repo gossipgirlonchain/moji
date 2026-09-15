@@ -48,6 +48,7 @@ function MyMojisInner() {
   const { address } = useAccount();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [treasuryRows, setTreasuryRows] = useState<Row[] | null>(null);
+  const [drops, setDrops] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const isTreasury = Boolean(address && MOJI_TREASURY && address.toLowerCase() === MOJI_TREASURY.toLowerCase());
 
@@ -58,9 +59,10 @@ function MyMojisInner() {
       try {
         const token = await getAccessToken();
         const r = await fetch(`/api/me/mojis${address ? `?address=${address}` : ""}`, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
-        const j = (await r.json()) as { mojis?: Row[]; error?: string };
+        const j = (await r.json()) as { mojis?: Row[]; error?: string; drops?: boolean };
         if (!r.ok) throw new Error(j.error ?? "failed");
         if (alive) setRows(j.mojis ?? []);
+        if (alive) setDrops(Boolean(j.drops));
         if (isTreasury) {
           const rt = await fetch(`/api/me/mojis?as=treasury&address=${address}`, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
           const jt = (await rt.json()) as { mojis?: Row[] };
@@ -144,6 +146,11 @@ function MyMojisInner() {
                 {m.token_address ? "unclaimed fees" : "on-chain data pending"}
               </div>
             </div>
+            {drops && m.token_address && (
+              <Link href={`/drops/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}/${m.chain_id}`} className="press clay-pill heading shrink-0 bg-sky-50 px-3 py-1.5 text-[12px] text-sky-600">
+                🪂 drops
+              </Link>
+            )}
           </div>
           {m.token_address && <Amounts stock={m.fees.pending.stock} ticker={m.stock_ticker} moji={m.fees.pending.moji} combo={m.display} />}
           <div className="mt-3">

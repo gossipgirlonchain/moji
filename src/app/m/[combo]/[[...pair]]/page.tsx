@@ -11,6 +11,7 @@ import { dateShort, num, short } from "@/lib/format";
 import { dexscreenerUrl, explorerAddress, explorerTx, matchaUrl, xUrl } from "@/lib/links";
 import { findStock } from "@/config/stocks";
 import { PostIt } from "@/components/PostIt";
+import { DropsCard } from "@/components/drops/DropsCard";
 import { SITE_URL } from "@/lib/network";
 
 export const revalidate = 15;
@@ -126,6 +127,8 @@ export default async function MojiPage({ params }: { params: Params }) {
         error={fees.error}
       />
 
+
+      <DropsCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} stockAddress={m.stock_address} manageHref={`/drops/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}/${m.chain_id}`} />
 
       <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}${mojiHref(m)}`} ca={m.token_address} />
 

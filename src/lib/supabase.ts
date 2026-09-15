@@ -63,6 +63,12 @@ export type MojiRow = {
   image_url: string | null;
   metadata_url: string | null;
   launched_at: string;
+  /** creator drops (supabase/drops.sql) */
+  holders_scanned_block?: number | string | null;
+  holders_scanned_at?: string | null;
+  holders_count?: number | null;
+  drops_active?: boolean | null;
+  drops_paid_usd?: number | null;
 };
 
 export type ClaimRow = {

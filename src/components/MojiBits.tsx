@@ -6,6 +6,16 @@ export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker">) {
   return `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
 }
 
+/** Small signal that this moji is paying its holders right now (a running drop campaign). */
+export function DropsPill({ m, className = "" }: { m: Pick<MojiRow, "drops_active">; className?: string }) {
+  if (!m.drops_active) return null;
+  return (
+    <span className={`heading inline-flex items-center gap-1 rounded-full bg-mint px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white ${className}`} title="this moji is paying holders">
+      🪂 drops
+    </span>
+  );
+}
+
 export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
   return (
     <Link
@@ -17,6 +27,7 @@ export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
         {m.display} / {m.stock_ticker}
       </span>
       <span className="heading text-[13px] text-ink-soft">mcap {usd(m.market_cap_usd)}</span>
+      <DropsPill m={m} className="mt-1" />
     </Link>
   );
 }
@@ -27,7 +38,7 @@ export function McapRow({ m, rank }: { m: MojiRow; rank: number }) {
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
       <span className="text-[30px] leading-none">{m.display}</span>
       <span className="heading flex-1 text-[15px] text-ink">
-        {m.display} / {m.stock_ticker}
+        {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
       </span>
       <span className="heading text-[17px] text-ink">{usd(m.market_cap_usd)}</span>
     </Link>
@@ -61,7 +72,7 @@ export function MojiListRow({ m, window = "24h" }: { m: MojiRow; window?: VolWin
       <span className="text-[30px] leading-none">{m.display}</span>
       <span className="flex-1">
         <span className="heading block text-[15px] text-ink">
-          {m.display} / {m.stock_ticker}
+          {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
         </span>
         <span className="heading block text-[12px] text-ink-soft">
           {vol > 0 ? `vol ${window} ${usd(vol)} · ` : ""}fees <span className="text-mint">{usd(total)}</span>

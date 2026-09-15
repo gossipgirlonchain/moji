@@ -1,6 +1,14 @@
 # Drops: let any creator share fees with their holders
 
-Product and build plan. Companion to `aapl-airdrop-tokenomics.md`, which has the mechanism research and the fairness rules this plan assumes. Nothing here is built yet.
+Product and build plan. Companion to `aapl-airdrop-tokenomics.md`, which has the mechanism research and the fairness rules this plan assumes.
+
+**Status: phase 2 (escrow + operator-paid rounds) is built and admin-gated.** See the "Drops" section of the README for what shipped. Decisions taken after the first draft of this plan:
+- A campaign has both a length (days) **and a hold requirement (hold days)**: a wallet is ranked on the smallest balance it held across the whole window before each round.
+- Minimum holding is in **moji tokens**, not USD. Minimum payout is in USD, default **$2**; wallets under it are skipped and their share goes to the rest.
+- The creator chooses **moji or stock** as the payout token. Top N, days, hold days, split, cap, floor, payout hour and exclusions are all per campaign.
+- **Funds are locked** in the MojiDrops escrow at start; rules cannot change; the form refuses more than the wallet holds.
+- Home and explore show a 🪂 pill on mojis with a running drop.
+
 
 ## The idea in one line
 
