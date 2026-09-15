@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Card, Label, LinkButton, Circle } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
-import { ClaimsCounter } from "@/components/ClaimsCounter";
 import { McapRow } from "@/components/MojiBits";
 import { HomeTiles } from "@/components/HomeTiles";
 import { claimsCount, listMojis } from "@/lib/data";
@@ -16,9 +15,6 @@ export default async function Home() {
       <div className="pop text-center">
         <Wordmark />
         <p className="heading text-[20px] text-ink">pick an emoji. pick a stock or token. launch.</p>
-        <Link href="/explore" className="press clay-pill mt-3 inline-block bg-white px-4 py-2">
-          <ClaimsCounter initial={count} />
-        </Link>
       </div>
 
       <LinkButton href="/launch" size="lg" className="pop pop-1">
@@ -54,7 +50,7 @@ export default async function Home() {
         </div>
       </Card>
 
-      <HomeTiles top={top} recent={recent} />
+      <HomeTiles top={top} recent={recent} count={count} />
 
       <p className="mt-2 text-center text-[13px] text-ink-soft">
         built on <Link href="/about" className="text-sky-600">Doppler</Link>.
