@@ -16,7 +16,7 @@ export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
       <span className="heading mt-2 text-[15px] text-ink">
         {m.display} / {m.stock_ticker}
       </span>
-      <span className="heading text-[13px] text-ink-soft">mcap {usd(m.market_cap_usd)}</span>
+      <span className="heading text-[13px] text-ink-soft">{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
     </Link>
   );
 }
