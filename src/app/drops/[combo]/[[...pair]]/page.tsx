@@ -4,7 +4,6 @@ import { getMoji } from "@/lib/data";
 import { decodeCombo } from "@/lib/emoji";
 import { mojiHref } from "@/components/MojiBits";
 import { dropsEnabled } from "@/lib/drops/gate";
-import { dropsContract } from "@/lib/drops/contract";
 import { findNumeraire } from "@/lib/numeraire";
 import { DropsManage } from "@/components/drops/DropsManage";
 import { AdminGate } from "@/components/Admin";
@@ -15,7 +14,7 @@ export const metadata = { title: "drops · moji", robots: { index: false, follow
 
 type Params = Promise<{ combo: string; pair?: string[] }>;
 
-/** /drops/🍎/AAPL: the creator's page for one moji: stats and drops. Admin-gated while drops are in testing. */
+/** /drops/🍎/AAPL/4663: the creator's page for one moji: stats and drops. Allowlisted mojis are open; the rest need the admin cookie. */
 export default async function DropsPage({ params }: { params: Params }) {
   const { combo, pair } = await params;
   const d = decodeCombo(combo);
@@ -51,7 +50,6 @@ export default async function DropsPage({ params }: { params: Params }) {
           tokenAddress={m.token_address}
           creatorAddress={m.creator_address}
           mojiId={m.id}
-          escrow={dropsContract(m.chain_id)}
           stats={{
             marketCapUsd: Number(m.market_cap_usd ?? 0),
             priceUsd: Number(m.price_usd ?? 0),

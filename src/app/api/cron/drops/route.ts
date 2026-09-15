@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { supabaseServer, type MojiRow } from "@/lib/supabase";
 import { NETWORK } from "@/lib/network";
 import { scanHolders } from "@/lib/drops/holders";
-import { cutDueRounds } from "@/lib/drops/campaigns";
+import { expireDropsActive } from "@/lib/drops/drops";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
  * Vercel cron target (vercel.json, every 10 minutes). Protected by CRON_SECRET.
- * 1. Keeps holder balances fresh: mojis with a running campaign first, then the stalest others.
- * 2. Pays every round whose cut time has passed.
+ * Keeps holder balances fresh (allowlisted / recently dropping mojis first, then the stalest) and
+ * clears the 🪂 pill on mojis that have not dropped in a while. Drops themselves are sent by creators.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -20,17 +20,15 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   const limit = Number(u.searchParams.get("limit") ?? 20);
   const sb = supabaseServer();
-
   const { data: active } = await sb.from("mojis").select("*").eq("network", NETWORK).eq("drops_active", true).not("token_address", "is", null).limit(limit);
   const { data: rest } = await sb.from("mojis").select("*").eq("network", NETWORK).eq("drops_active", false).not("token_address", "is", null).order("holders_scanned_at", { ascending: true, nullsFirst: true }).limit(limit);
   const seen = new Set<string>();
   const queue = [...((active ?? []) as MojiRow[]), ...((rest ?? []) as MojiRow[])].filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
-
   let scanned = 0;
   let scanErrors = 0;
   let firstError: string | undefined;
   for (const m of queue) {
-    if (Date.now() - t0 > 200_000) break; // leave time for the round cuts
+    if (Date.now() - t0 > 240_000) break;
     try {
       await scanHolders(m, { maxChunks: 10 });
       scanned++;
@@ -39,6 +37,6 @@ export async function GET(req: Request) {
       firstError ??= e instanceof Error ? e.message : String(e);
     }
   }
-  const rounds = await cutDueRounds();
-  return NextResponse.json({ scanned, scanErrors, firstError, rounds, ms: Date.now() - t0 });
+  const expired = await expireDropsActive();
+  return NextResponse.json({ scanned, scanErrors, firstError, expired, ms: Date.now() - t0 });
 }

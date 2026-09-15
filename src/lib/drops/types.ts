@@ -1,8 +1,9 @@
 export type TokenKind = "moji" | "stock";
 export type Split = "prorata" | "equal";
-export type CampaignStatus = "draft" | "running" | "done" | "ended" | "failed";
+export type DropStatus = "draft" | "sending" | "sent" | "cancelled";
 
-export type CampaignRow = {
+/** One drop: rules + the ranking it was cut on + sending progress. */
+export type DropRow = {
   id: string;
   moji_id: string;
   chain_id: number;
@@ -14,98 +15,73 @@ export type CampaignRow = {
   token_symbol: string;
   amount: number;
   amount_wei: string;
+  fee_bps: number;
+  fee_wei: string;
+  fee_tx: string | null;
   top_n: number;
-  days: number;
   hold_days: number;
   min_hold: number;
   min_hold_wei: string;
   min_payout_usd: number;
   split: Split;
   cap_bps: number;
-  cut_hour_utc: number;
   excluded: string[];
-  fee_bps: number;
-  fees_wei: string;
   signed_message: string | null;
   signature: string | null;
-  status: CampaignStatus;
-  onchain_id: number | string | null;
-  fund_tx: string | null;
-  funded_at: string | null;
-  starts_at: string | null;
-  ends_at: string | null;
-  reclaim_after: string | null;
-  next_cut_at: string | null;
-  rounds_paid: number;
-  paid_wei: string;
-  paid_usd: number;
-  end_tx: string | null;
+  cut_at: string;
+  eligible: number;
+  recipients: number;
+  threshold_wei: string | null;
+  token_price_usd: number | null;
+  status: DropStatus;
+  sent_count: number;
+  sent_wei: string;
+  sent_usd: number;
+  completed_at: string | null;
   created_at: string;
 };
 
-export type RoundRow = {
-  id: string;
-  campaign_id: string;
-  moji_id: string;
-  round_no: number;
-  cut_at: string;
-  block: number | string | null;
-  pot_wei: string;
-  paid_wei: string;
-  paid_usd: number;
-  fee_wei: string;
-  eligible: number;
-  recipients: number;
-  skipped: number;
-  threshold_wei: string | null;
-  token_price_usd: number | null;
-  tx_hash: string | null;
-  status: "pending" | "paid" | "skipped" | "failed";
-  error: string | null;
-};
-
 export type PayoutRow = {
-  round_id: string;
-  campaign_id: string;
+  drop_id: string;
   moji_id: string;
   address: string;
   rank: number;
   held_wei: string;
   amount_wei: string;
   amount_usd: number;
+  tx_hash: string | null;
+  sent_at: string | null;
+  error: string | null;
 };
 
-/** The rules a creator signs. Everything a round needs is in here; nothing changes after funding. */
-export type CampaignRules = {
-  v: 1;
+/** The rules a creator signs. The ranking is cut from these the moment the drop is created. */
+export type DropRules = {
+  v: 2;
   moji: string; // display combo
   mojiId: string;
   chainId: number;
   token: TokenKind;
   tokenAddress: string;
-  amount: string; // whole units as typed
+  amount: string; // whole units to holders, as typed
   topN: number;
-  days: number;
   holdDays: number;
   minHold: string; // whole moji tokens
   minPayoutUsd: number;
   split: Split;
   capBps: number;
-  cutHourUtc: number;
   excluded: string[];
 };
 
-/** Limits the form and the API both enforce. All configurable per campaign within these bounds. */
-export const CAMPAIGN_LIMITS = {
-  topN: { min: 1, max: 5000 },
-  days: { min: 1, max: 365 },
+/** Limits the form and the API both enforce. Everything inside them is the creator's call. */
+export const DROP_LIMITS = {
+  topN: { min: 1, max: 2000 },
   holdDays: { min: 0, max: 365 },
   minPayoutUsd: { min: 0, max: 1000 },
   capBps: { min: 0, max: 10000 },
 } as const;
 
-export function canonicalRulesMessage(r: CampaignRules): string {
+export function canonicalRulesMessage(r: DropRules): string {
   const ordered: Record<string, unknown> = {};
   for (const k of Object.keys(r).sort()) ordered[k] = (r as Record<string, unknown>)[k];
-  return `moji drops v1\n${JSON.stringify(ordered)}`;
+  return `moji drops v2\n${JSON.stringify(ordered)}`;
 }

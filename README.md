@@ -42,10 +42,9 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_NETWORK` | client + server | `mainnet` (default) or `testnet`. Claims are scoped per network so testnet never burns a mainnet combo |
 | `CRON_SECRET` | server only | Protects `/api/cron/refresh`. Vercel cron (every 2 min, `vercel.json`) refreshes the per-moji snapshot: mcap, price, 24h volume, creator pending fees, current fee. Pages render from the snapshot; the client polls live numbers after paint |
 | `ADMIN_PASSWORD` | server only | Gates `/admin`, `/design` and `/creators`: treasury dashboard (every pool, treasury pending fees per token, market caps) with Claim buttons that go live when the treasury wallet is connected, the card studio, and the creator pipeline |
-| `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` and `npm run drops:deploy` |
-| `NEXT_PUBLIC_DROPS_CONTRACT` | client + server | MojiDrops escrow on Robinhood Chain (`npm run drops:deploy`). `NEXT_PUBLIC_DROPS_CONTRACT_<chainId>` per chain. Unset = drops off on that chain |
-| `NEXT_PUBLIC_DROPS_FEE_BPS` | client + server | Processing fee the escrow was deployed with, in bps (default `50` = 0.5%), so the form previews the right per-round amounts. The contract is the source of truth per campaign |
-| `DROPS_OPERATOR_PRIVATE_KEY` | server only | Key that pays drop rounds from the escrow (`payRound` / `end`). Needs a little ETH for gas, never holds campaign funds. Set the same address as the contract's operator |
+| `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
+| `NEXT_PUBLIC_DROPS_FEE_BPS` | client + server | Processing fee on drops, in bps of what goes to holders (default `50` = 0.5%). Sent to `NEXT_PUBLIC_MOJI_TREASURY` as one extra transfer |
+| `NEXT_PUBLIC_DROPS_ALLOWLIST` | client + server | Optional. Comma-separated combos whose drops are open to everyone while the feature is in testing, on top of `src/config/drops.ts` (🍎) |
 | `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
 ### Privy dashboard setup
@@ -78,43 +77,36 @@ band (50K+ = high, 15K+ = medium, 5K+ = low).
 - API (all admin cookie): `GET /api/creators`, `POST /api/creators`, `GET|PATCH|DELETE /api/creators/[id]`,
   `POST /api/creators/[id]/events`, `POST /api/creators/bulk`, `GET /api/creators/export`.
 
-## Drops: `/drops/[combo]/[pair]` (testing, admin-gated)
+## Drops: `/drops/[combo]/[pair]/[chainId]` (testing)
 
-A creator gives a fixed amount of the paired stock token or of their moji to the holders who stick around:
-"distribute X to the top N holders over D days". Everything is configurable per campaign and nothing can
-change once it is funded. While in testing, drops are open for the mojis in `src/config/drops.ts` (🍎, plus
-`NEXT_PUBLIC_DROPS_ALLOWLIST`) and behind the `ADMIN_PASSWORD` cookie for every other moji
-(`src/lib/drops/gate.ts` is the one switch).
+A creator gives a set amount of the paired stock token or of their moji to the holders who stick around, by hand:
+"give X to the top N holders who held for D days". No contract, no escrow, no schedule. Every drop is a one-off of
+plain ERC-20 transfers from the creator's own wallet, one per holder, confirmed on-chain before the next. While in
+testing, drops are open for the mojis in `src/config/drops.ts` (🍎, plus `NEXT_PUBLIC_DROPS_ALLOWLIST`) and behind the
+`ADMIN_PASSWORD` cookie for every other moji (`src/lib/drops/gate.ts` is the one switch).
 
-- **Contract.** `contracts/MojiDrops.sol` is a small escrow: `fund(token, amount, reclaimAfter, key)` pulls the
-  whole amount from the creator and locks it; only the operator can `payRound(id, recipients, amounts)` and it can
-  never pay more than the campaign holds; `end(id)` returns the remainder to the creator; `reclaim(id)` lets the
-  creator take the remainder themselves after `reclaimAfter` (campaign end + 7 days) if the operator goes quiet.
-  Per-recipient transfers are try/catch so a blocklisted stock-token recipient is skipped, not the whole round.
-  **Processing fee:** `feeBps` (0.5% at deploy, owner-settable up to 5%, snapshotted per campaign at funding) of what
-  each round actually pays out goes to `feeRecipient` (the treasury) in the dropped token. Skipped rounds and the
-  returned remainder are never charged. The server sizes each round so payouts + fee never exceed the balance.
-  `npm run drops:compile` (solc) writes `src/lib/drops/MojiDrops.json`; `npm run drops:deploy` deploys it.
-- **Rules a creator sets** (`drop_campaigns`): what to give (moji or stock) and how much; top N; days; **hold days**
-  (a wallet is ranked on the smallest balance it held across the whole window before each round, so buying on
-  the morning of a round does not count); minimum holding **in moji tokens**, not USD; minimum payout in USD
-  (default $2, wallets under it are skipped and their share goes to the rest); pro-rata with a per-wallet cap or
-  equal shares; payout hour (UTC); extra excluded addresses. The pool, router, Doppler contracts, the creator,
-  the treasury and burn addresses are always excluded. The creator signs the rules (`personal_sign`), the server
-  verifies the signature against `creator_address`, then approve + `fund` lock the money. The form refuses an
-  amount above the wallet balance.
+- **Rules a creator sets** (`drops`): what to give (moji or stock) and how much; top N; **hold days** (a wallet is
+  ranked on the smallest balance it held across the whole window, so buying this morning does not count); minimum
+  holding **in moji tokens**, not USD; minimum payout in USD (default $2, wallets under it are skipped and their share
+  goes to the rest); pro-rata with a per-wallet cap or equal shares; extra excluded addresses. The pool, router,
+  Doppler contracts, the creator, the treasury and burn addresses are always excluded. The form previews who gets
+  paid and refuses an amount (plus fee) above the wallet balance.
+- **Flow.** The creator signs the rules (`personal_sign`), the server verifies the signature against
+  `creator_address`, ranks holders *now* and stores one `drop_payouts` row per recipient. The page then sends one
+  `transfer` per recipient from the creator's wallet and, after every few, posts the tx hashes to
+  `POST /api/mojis/[combo]/drops/[id]/sent`, which reads each receipt and marks the matching payout sent (amounts
+  come from the chain, never the client). The **0.5% processing fee** (`NEXT_PUBLIC_DROPS_FEE_BPS`) is one more
+  transfer to the treasury at the end. Closing the page mid-way is fine: the drop reopens with "N to go"; "cancel
+  rest" (signed) closes it and what was sent stays recorded. Nothing is ever held by moji.
 - **Holders.** `/api/cron/drops` (every 10 min) replays every `Transfer` of each moji token into `token_transfers`
-  and `holder_balances` (with cached `block_times`), mojis with a running campaign first. `GET /api/mojis/[combo]/holders`
-  serves the stats tab (count, top-10 share, share in the pool, buckets in moji units, top 20 with held-since).
-- **Rounds.** The same cron pays every campaign whose `next_cut_at` has passed: pot = remaining / rounds left,
-  rank by held-minimum, top N, split, floor, `payRound` from `DROPS_OPERATOR_PRIVATE_KEY`, then `drop_rounds` +
-  `drop_payouts` are written and `mojis.drops_active` / `drops_paid_usd` updated. A round nobody qualifies for is
-  skipped and its pot rolls into the remaining rounds; after the last round `end()` returns any remainder.
-- **Surfaces.** `/drops/🍎/AAPL/4663`: stats tab (market, fees, holders) and drops tab (form with live preview of
-  who would be paid, campaign list with rounds and tx links). Moji page: a "Drops 🪂" card with the running
-  campaign, the last round, and the connected wallet's total. `/me`: a drops link per moji. Home and explore:
-  a 🪂 pill on mojis that are paying holders right now.
-- **Schema.** `supabase/drops.sql`, apply after `schema.sql`.
+  and `holder_balances` (with cached `block_times`), recently dropping mojis first. `GET /api/mojis/[combo]/holders`
+  serves the stats tab (count, top-10 share, share in the pool, buckets in moji units, top 20 with held-since) and
+  runs an incremental scan when the cursor is stale. Open the stats tab once before the first drop on a moji.
+- **Surfaces.** `/drops/🍎/AAPL/4663`: stats tab (market, fees, holders) and drops tab (form with live preview,
+  send progress with per-holder tx links, past drops). Moji page: a "Drops 🪂" card with the last drop and the
+  connected wallet's total. `/me`: a drops link per moji. Home and explore: a 🪂 pill on mojis that dropped in the
+  last 14 days (`mojis.drops_active`, cleared by the cron).
+- **Schema.** `supabase/drops.sql`, apply after `schema.sql`. Already applied to the production project.
 
 ## Social cards: `/design` and `/api/card`
 

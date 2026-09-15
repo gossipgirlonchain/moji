@@ -10,8 +10,8 @@ import { chainById } from "@/config/chains";
 import { explorerTx, explorerAddress } from "@/lib/links";
 import { usd, short, dateShort } from "@/lib/format";
 import { Label, Pill } from "@/components/ui";
-import { ERC20_MIN_ABI, MOJI_DROPS_ABI, campaignKey } from "@/lib/drops/contract";
-import { canonicalRulesMessage, type CampaignRow, type CampaignRules, type RoundRow, type Split, type TokenKind } from "@/lib/drops/types";
+import { ERC20_MIN_ABI } from "@/lib/drops/contract";
+import { canonicalRulesMessage, type DropRow, type DropRules, type PayoutRow, type Split, type TokenKind } from "@/lib/drops/types";
 
 export type ManageProps = {
   combo: string;
@@ -22,7 +22,6 @@ export type ManageProps = {
   tokenAddress: string | null;
   creatorAddress: string | null;
   mojiId: string;
-  escrow: string | null;
   stats: { marketCapUsd: number; priceUsd: number; volume24Usd: number; volumeAllUsd: number; feesClaimedUsd: number; feesUnclaimedUsd: number; feeCurrent: number | null; holders: number; launchedAt: string; dropsPaidUsd: number };
 };
 
@@ -37,9 +36,10 @@ type Summary = {
 };
 
 type Preview = {
-  perRound: string;
+  toHolders: string;
   feeBps: number;
-  feePerRound: string;
+  fee: string;
+  total: string;
   tokenPriceUsd: number;
   eligible: number;
   paid: number;
@@ -53,7 +53,7 @@ type Preview = {
   error?: string;
 };
 
-type DropsView = { campaigns: CampaignRow[]; rounds: RoundRow[]; operator: boolean };
+type DropsView = { drops: DropRow[]; latestPayouts: PayoutRow[]; feeBps: number; feeRecipient: string | null };
 
 function fmtTok(n: number | string, max = 4): string {
   const v = Number(n);
@@ -135,7 +135,7 @@ function StatsTab(p: ManageProps) {
               <Stat label="top 10 hold" value={`${(sum.top10Bps / 100).toFixed(1)}%`} />
               <Stat label="in pool" value={`${(sum.poolBps / 100).toFixed(1)}%`} />
             </div>
-            <p className="mt-2 text-[12px] text-ink-soft">median holder {fmtTok(formatUnits(BigInt(sum.median), 18), 0)} {p.combo} · drops paid so far {usd(s.dropsPaidUsd)}</p>
+            <p className="mt-2 text-[12px] text-ink-soft">median holder {fmtTok(formatUnits(BigInt(sum.median), 18), 0)} {p.combo} · dropped to holders so far {usd(s.dropsPaidUsd)}</p>
             <div className="mt-3 flex flex-col gap-1.5">
               {sum.buckets.map((b) => (
                 <div key={b.label} className="flex items-center gap-2 text-[12px]">
@@ -176,7 +176,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "mi
 
 /* ───────────────────────── drops ───────────────────────── */
 
-const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "100", days: "7", holdDays: "3", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, capBps: "500", cutHourUtc: "9", excluded: "" };
+const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "100", holdDays: "3", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, capBps: "500", excluded: "" };
 
 function DropsTab(p: ManageProps) {
   const { address } = useAccount();
@@ -193,7 +193,10 @@ function DropsTab(p: ManageProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ack, setAck] = useState(false);
+  /** the drop being sent right now (or resumed) */
+  const [active, setActive] = useState<{ drop: DropRow; payouts: PayoutRow[] } | null>(null);
   const running = useRef(false);
+  const stop = useRef(false);
 
   const tokenAddr = (f.token === "moji" ? p.tokenAddress : p.stockAddress) as Address | null;
   const decimals = f.token === "moji" ? 18 : p.stockDecimals;
@@ -205,12 +208,28 @@ function DropsTab(p: ManageProps) {
       return null;
     }
   }, [f.amount, decimals]);
-  const overBalance = balance != null && amountWei != null && amountWei > balance;
+  const totalWei = useMemo(() => {
+    if (amountWei == null) return null;
+    const bps = BigInt(preview?.feeBps ?? view?.feeBps ?? 50);
+    return amountWei + (amountWei * bps) / 10_000n;
+  }, [amountWei, preview?.feeBps, view?.feeBps]);
+  const overBalance = balance != null && totalWei != null && totalWei > balance;
+
+  const base = `/api/mojis/${encodeURIComponent(p.combo)}/drops`;
+  const qs = `chain=${p.chainId}&pair=${p.stockAddress}`;
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/drops?chain=${p.chainId}&pair=${p.stockAddress}`, { cache: "no-store" });
-    if (r.ok) setView((await r.json()) as DropsView);
-  }, [p.combo, p.chainId, p.stockAddress]);
+    const r = await fetch(`${base}?${qs}`, { cache: "no-store" });
+    if (!r.ok) return;
+    const j = (await r.json()) as DropsView;
+    setView(j);
+    // resume a drop that is still being sent
+    const open = j.drops.find((d) => d.status === "draft" || d.status === "sending");
+    if (open) {
+      const rr = await fetch(`${base}/${open.id}?${qs}`, { cache: "no-store" });
+      if (rr.ok) setActive((await rr.json()) as { drop: DropRow; payouts: PayoutRow[] });
+    } else setActive(null);
+  }, [base, qs]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -229,9 +248,9 @@ function DropsTab(p: ManageProps) {
     if (!f.amount || Number(f.amount) <= 0) return setPreview(null);
     const t = setTimeout(async () => {
       setPreviewing(true);
-      const q = new URLSearchParams({ chain: String(p.chainId), pair: p.stockAddress, token: f.token, amount: f.amount, topN: f.topN, days: f.days, holdDays: f.holdDays, minHold: f.minHold || "0", minPayoutUsd: f.minPayoutUsd, split: f.split, capBps: f.capBps, cutHourUtc: f.cutHourUtc, excluded: f.excluded.split(/[\s,]+/).filter(Boolean).join(",") });
+      const q = new URLSearchParams({ chain: String(p.chainId), pair: p.stockAddress, token: f.token, amount: f.amount, topN: f.topN, holdDays: f.holdDays, minHold: f.minHold || "0", minPayoutUsd: f.minPayoutUsd, split: f.split, capBps: f.capBps, excluded: f.excluded.split(/[\s,]+/).filter(Boolean).join(",") });
       try {
-        const r = await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/drops/preview?${q}`, { cache: "no-store" });
+        const r = await fetch(`${base}/preview?${q}`, { cache: "no-store" });
         setPreview((await r.json()) as Preview);
       } catch (e) {
         setPreview({ error: String(e) } as Preview);
@@ -240,17 +259,59 @@ function DropsTab(p: ManageProps) {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [f, p.combo, p.chainId, p.stockAddress]);
+  }, [f, base, p.chainId, p.stockAddress]);
 
   const set = (k: keyof typeof DEFAULTS) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
 
+  /** Send every pending payout of `d` as a plain transfer, then the fee. Records hashes as it goes; resumable. */
+  async function sendPending(d: { drop: DropRow; payouts: PayoutRow[] }) {
+    if (!wallet || !address || !chain?.viem) return;
+    const provider = await ensureChain(wallet, chain.viem);
+    const pc = createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) });
+    const wc = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
+    const token = d.drop.token_address as Address;
+    const pending = d.payouts.filter((x) => !x.tx_hash);
+    const total = d.payouts.length;
+    let hashes: Hex[] = [];
+    const flush = async () => {
+      if (!hashes.length) return;
+      const r = await fetch(`${base}/${d.drop.id}/sent?${qs}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHashes: hashes }) });
+      hashes = [];
+      if (r.ok) {
+        const j = (await r.json()) as { drop: DropRow; payouts: PayoutRow[] };
+        setActive({ drop: j.drop, payouts: j.payouts });
+      }
+    };
+    let done = total - pending.length;
+    for (const x of pending) {
+      if (stop.current) break;
+      setBusy(`sending ${done + 1} of ${total} · ${fmtTok(formatUnits(BigInt(x.amount_wei), d.drop.token_decimals), 6)} ${d.drop.token_symbol} → ${short(x.address)}`);
+      const h = await wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [x.address as Address, BigInt(x.amount_wei)] });
+      await pc.waitForTransactionReceipt({ hash: h });
+      hashes.push(h);
+      done++;
+      if (hashes.length >= 5) await flush();
+    }
+    await flush();
+    if (stop.current) return;
+    const fee = BigInt(d.drop.fee_wei);
+    if (fee > 0n && !d.drop.fee_tx && view?.feeRecipient) {
+      setBusy(`processing fee · ${fmtTok(formatUnits(fee, d.drop.token_decimals), 6)} ${d.drop.token_symbol} → moji`);
+      const h = await wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [view.feeRecipient as Address, fee] });
+      await pc.waitForTransactionReceipt({ hash: h });
+      hashes.push(h);
+      await flush();
+    }
+  }
+
   async function start() {
-    if (running.current || !wallet || !address || !chain?.viem || !tokenAddr || !p.escrow || amountWei == null) return;
+    if (running.current || !wallet || !address || !chain?.viem || !tokenAddr || amountWei == null) return;
     running.current = true;
+    stop.current = false;
     setErr(null);
     try {
-      const rules: CampaignRules = {
-        v: 1,
+      const rules: DropRules = {
+        v: 2,
         moji: p.combo,
         mojiId: p.mojiId,
         chainId: p.chainId,
@@ -258,120 +319,161 @@ function DropsTab(p: ManageProps) {
         tokenAddress: tokenAddr.toLowerCase(),
         amount: f.amount.trim(),
         topN: Number(f.topN),
-        days: Number(f.days),
         holdDays: Number(f.holdDays),
         minHold: (f.minHold || "0").trim(),
         minPayoutUsd: Number(f.minPayoutUsd),
         split: f.split,
         capBps: Number(f.capBps),
-        cutHourUtc: Number(f.cutHourUtc),
         excluded: [...new Set(f.excluded.split(/[\s,]+/).filter(Boolean).map((a) => a.toLowerCase()))],
       };
       const provider = await ensureChain(wallet, chain.viem);
-      const pc = createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) });
       const wc = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
-
       setBusy("sign the rules");
       const signature = await wc.signMessage({ message: canonicalRulesMessage(rules) });
-      const created = await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/drops?chain=${p.chainId}&pair=${p.stockAddress}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules, signature, signer: address }) });
-      const cj = (await created.json()) as { campaign?: CampaignRow; error?: string };
-      if (!created.ok || !cj.campaign) throw new Error(cj.error ?? "could not save the campaign");
-      const c = cj.campaign;
-
-      const escrow = p.escrow as Address;
-      const allowance = (await pc.readContract({ address: tokenAddr, abi: ERC20_MIN_ABI, functionName: "allowance", args: [address as Address, escrow] })) as bigint;
-      if (allowance < amountWei) {
-        setBusy(`approve ${fmtTok(f.amount)} ${symbol}`);
-        const h = await wc.writeContract({ address: tokenAddr, abi: ERC20_MIN_ABI, functionName: "approve", args: [escrow, amountWei] });
-        await pc.waitForTransactionReceipt({ hash: h });
-      }
-      setBusy(`lock ${fmtTok(f.amount)} ${symbol} in escrow`);
-      const reclaimAfter = BigInt(Math.floor(Date.now() / 1000) + (Number(f.days) + 8) * 86_400);
-      const { request } = await pc.simulateContract({ address: escrow, abi: MOJI_DROPS_ABI, functionName: "fund", args: [tokenAddr, amountWei, reclaimAfter, campaignKey(c.id)], account: address as Address });
-      const fundHash: Hex = await wc.writeContract(request);
-      setBusy("confirming…");
-      await pc.waitForTransactionReceipt({ hash: fundHash });
-      const fr = await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/drops/${c.id}/funded?chain=${p.chainId}&pair=${p.stockAddress}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ txHash: fundHash }) });
-      const fj = (await fr.json()) as { error?: string };
-      if (!fr.ok) throw new Error(fj.error ?? "funded on-chain but not recorded; the cron will not pick it up until it is");
+      setBusy("ranking holders…");
+      const created = await fetch(`${base}?${qs}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules, signature, signer: address }) });
+      const cj = (await created.json()) as { drop?: DropRow; payouts?: PayoutRow[]; error?: string };
+      if (!created.ok || !cj.drop || !cj.payouts) throw new Error(cj.error ?? "could not cut the drop");
+      setActive({ drop: cj.drop, payouts: cj.payouts });
       setF(DEFAULTS);
       setAck(false);
+      await sendPending({ drop: cj.drop, payouts: cj.payouts });
       await load();
     } catch (e) {
-      const raw = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
-      setErr(/rejected|denied|cancel/i.test(raw) ? "cancelled in your wallet." : raw.split("\n")[0].slice(0, 160));
+      setErr(friendly(e));
+      await load();
     } finally {
       setBusy(null);
       running.current = false;
     }
   }
 
-  const perDay = amountWei != null && Number(f.days) > 0 ? formatUnits(amountWei / BigInt(Math.max(1, Number(f.days))), decimals) : "0";
-  const canStart = isCreator && Boolean(p.escrow) && Boolean(p.tokenAddress) && amountWei != null && amountWei > 0n && !overBalance && ack && !busy && Number(f.topN) > 0 && Number(f.days) > 0;
+  async function resume() {
+    if (running.current || !active) return;
+    running.current = true;
+    stop.current = false;
+    setErr(null);
+    try {
+      await sendPending(active);
+      await load();
+    } catch (e) {
+      setErr(friendly(e));
+      await load();
+    } finally {
+      setBusy(null);
+      running.current = false;
+    }
+  }
+
+  async function cancel() {
+    if (!active || !wallet || !address || !chain?.viem) return;
+    try {
+      const provider = await ensureChain(wallet, chain.viem);
+      const wc = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
+      const signature = await wc.signMessage({ message: `cancel drop ${active.drop.id}` });
+      const r = await fetch(`${base}/${active.drop.id}/cancel?${qs}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signature, signer: address }) });
+      if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? "could not cancel");
+      setActive(null);
+      await load();
+    } catch (e) {
+      setErr(friendly(e));
+    }
+  }
+
+  const canStart = isCreator && Boolean(p.tokenAddress) && amountWei != null && amountWei > 0n && !overBalance && ack && !busy && !active && Number(f.topN) > 0 && Boolean(preview && !preview.error && preview.paid > 0);
+  const pendingCount = active ? active.payouts.filter((x) => !x.tx_hash).length : 0;
 
   return (
     <div className="flex flex-col gap-3">
-      {!p.escrow && <p className="clay-sm bg-white px-3 py-2 text-center text-[12px] text-coral">NEXT_PUBLIC_DROPS_CONTRACT is not set for this chain. Deploy the escrow first (npm run drops:deploy).</p>}
-      {view && !view.operator && <p className="clay-sm bg-white px-3 py-2 text-center text-[12px] text-coral">DROPS_OPERATOR_PRIVATE_KEY is not set: campaigns can be funded but rounds will not be paid.</p>}
-      {!isCreator && <p className="clay-sm bg-white px-3 py-2 text-center text-[12px] text-ink-soft">connect the wallet that launched {p.combo} to start a drop.</p>}
+      {!isCreator && <p className="clay-sm bg-white px-3 py-2 text-center text-[12px] text-ink-soft">connect the wallet that launched {p.combo} to drop to its holders.</p>}
 
-      <section className="clay pop pop-1 bg-white p-4">
+      {active && (
+        <section className="clay pop pop-1 bg-sky-50 p-4">
+          <Label className="mb-1">{active.drop.status === "draft" ? "Ready to send" : "Sending"}</Label>
+          <p className="text-[14px] text-ink">
+            {fmtTok(active.drop.amount)} {active.drop.token_symbol} to {active.drop.recipients} holders · {active.drop.recipients - pendingCount} sent, {pendingCount} to go
+            {BigInt(active.drop.fee_wei) > 0n && <span className="text-ink-soft"> · fee {active.drop.fee_tx ? "paid" : "pending"}</span>}
+          </p>
+          <p className="mt-1 text-[12px] text-ink-soft">one plain transfer per holder from your wallet, confirmed on-chain before the next one. you can close this page and come back; sent ones stay sent.</p>
+          {busy && <p className="mt-2 text-[12px] text-ink">{busy}</p>}
+          <div className="mt-3 flex gap-2">
+            <button onClick={resume} disabled={Boolean(busy) || !isCreator || pendingCount === 0} className="press clay heading flex-1 bg-sky-500 px-4 py-3 text-[15px] text-white disabled:opacity-60">
+              {busy ? "sending…" : pendingCount > 0 ? `Send ${pendingCount} transfer${pendingCount === 1 ? "" : "s"}` : "all sent"}
+            </button>
+            {busy ? (
+              <button onClick={() => (stop.current = true)} className="press clay-pill heading bg-white px-4 py-3 text-[13px] text-ink">
+                pause
+              </button>
+            ) : (
+              <button onClick={cancel} disabled={!isCreator} className="press clay-pill heading bg-white px-4 py-3 text-[13px] text-coral">
+                cancel rest
+              </button>
+            )}
+          </div>
+          <div className="mt-3 max-h-[220px] overflow-y-auto">
+            {active.payouts.map((x) => (
+              <div key={x.address} className="flex items-center gap-2 py-0.5 text-[12px]">
+                <span className="w-6 text-ink-soft">{x.rank}</span>
+                <span className="mono flex-1 text-ink">{short(x.address, 6, 4)}</span>
+                <span className="num text-ink">
+                  {fmtTok(formatUnits(BigInt(x.amount_wei), active.drop.token_decimals), 5)} {active.drop.token_symbol}
+                </span>
+                {x.tx_hash ? (
+                  <a href={explorerTx(p.chainId, x.tx_hash)} target="_blank" rel="noopener noreferrer" className="w-10 text-right text-mint">
+                    sent
+                  </a>
+                ) : (
+                  <span className="w-10 text-right text-ink-soft">…</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className={`clay pop pop-2 bg-white p-4 ${active ? "opacity-60" : ""}`}>
         <Label className="mb-3">New drop</Label>
         <div className="flex flex-col gap-3 text-[14px]">
           <div className="flex items-center gap-2">
             <span className="w-[64px] shrink-0 text-ink-soft">give</span>
-            <input className="clay-input num flex-1" inputMode="decimal" placeholder="0.0" value={f.amount} onChange={set("amount")} />
-            <select className="clay-input w-[130px]" value={f.token} onChange={set("token")}>
+            <input className="clay-input num flex-1" inputMode="decimal" placeholder="0.0" value={f.amount} onChange={set("amount")} disabled={Boolean(active)} />
+            <select className="clay-input w-[130px]" value={f.token} onChange={set("token")} disabled={Boolean(active)}>
               <option value="stock">{p.ticker}</option>
               <option value="moji">{p.combo}</option>
             </select>
           </div>
           <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">
             {balance != null ? `you have ${fmtTok(formatUnits(balance, decimals))} ${symbol}` : "connect to see your balance"}
-            {overBalance && <span className="text-coral"> · you can&apos;t promise more than you have</span>}
+            {overBalance && <span className="text-coral"> · not enough for the amount plus the fee</span>}
           </p>
           <div className="flex items-center gap-2">
             <span className="w-[64px] shrink-0 text-ink-soft">to the top</span>
-            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.topN} onChange={set("topN")} />
+            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.topN} onChange={set("topN")} disabled={Boolean(active)} />
             <span className="text-ink-soft">holders</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">over</span>
-            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.days} onChange={set("days")} />
-            <span className="text-ink-soft">days · one round a day at</span>
-            <input className="clay-input num w-[56px]" inputMode="numeric" value={f.cutHourUtc} onChange={set("cutHourUtc")} />
-            <span className="text-ink-soft">:00 UTC</span>
-          </div>
-          <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">
-            {amountWei != null && amountWei > 0n
-              ? preview && !preview.error
-                ? `${fmtTok(preview.perRound, 6)} ${symbol} to holders per round + ${fmtTok(preview.feePerRound, 6)} ${symbol} processing fee (${preview.feeBps / 100}%)`
-                : `≈ ${fmtTok(perDay, 6)} ${symbol} per round before the processing fee`
-              : ""}
-          </p>
 
           <Label className="mt-1">Who counts as a holder</Label>
           <div className="flex items-center gap-2">
             <span className="w-[64px] shrink-0 text-ink-soft">held for</span>
-            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.holdDays} onChange={set("holdDays")} />
-            <span className="text-ink-soft">days before each round (0 = balance at the cut)</span>
+            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.holdDays} onChange={set("holdDays")} disabled={Boolean(active)} />
+            <span className="text-ink-soft">days (0 = balance right now)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-[64px] shrink-0 text-ink-soft">at least</span>
-            <input className="clay-input num flex-1" inputMode="decimal" value={f.minHold} onChange={set("minHold")} />
+            <input className="clay-input num flex-1" inputMode="decimal" value={f.minHold} onChange={set("minHold")} disabled={Boolean(active)} />
             <span className="text-ink-soft">{p.combo}</span>
           </div>
-          <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">in {p.combo} tokens, not dollars. a wallet is ranked on the smallest amount it held across the whole window, so buying in the morning of a round does not count.</p>
+          <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">in {p.combo} tokens, not dollars. a wallet is ranked on the smallest amount it held across the whole window, so buying this morning does not count.</p>
           <div className="flex items-center gap-2">
             <span className="w-[64px] shrink-0 text-ink-soft">split</span>
-            <select className="clay-input flex-1" value={f.split} onChange={set("split")}>
+            <select className="clay-input flex-1" value={f.split} onChange={set("split")} disabled={Boolean(active)}>
               <option value="prorata">pro-rata by holding</option>
               <option value="equal">equal shares</option>
             </select>
             {f.split === "prorata" && (
               <>
                 <span className="text-ink-soft">cap</span>
-                <input className="clay-input num w-[64px]" inputMode="numeric" value={f.capBps} onChange={set("capBps")} />
+                <input className="clay-input num w-[64px]" inputMode="numeric" value={f.capBps} onChange={set("capBps")} disabled={Boolean(active)} />
                 <span className="text-ink-soft">bps</span>
               </>
             )}
@@ -379,10 +481,10 @@ function DropsTab(p: ManageProps) {
           <div className="flex items-center gap-2">
             <span className="w-[64px] shrink-0 text-ink-soft">min payout</span>
             <span className="text-ink-soft">$</span>
-            <input className="clay-input num w-[80px]" inputMode="decimal" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} />
+            <input className="clay-input num w-[80px]" inputMode="decimal" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
             <span className="text-[12px] text-ink-soft">wallets under this are skipped and their share goes to the rest</span>
           </div>
-          <textarea className="clay-input min-h-[56px] text-[12px]" placeholder="exclude addresses (optional, one per line). the pool, you and moji are always excluded." value={f.excluded} onChange={set("excluded")} />
+          <textarea className="clay-input min-h-[56px] text-[12px]" placeholder="exclude addresses (optional, one per line). the pool, you and moji are always excluded." value={f.excluded} onChange={set("excluded")} disabled={Boolean(active)} />
         </div>
 
         <div className="clay-sm mt-4 bg-sky-50 px-4 py-3 text-[13px]">
@@ -399,8 +501,11 @@ function DropsTab(p: ManageProps) {
               <p className="mt-1 text-[12px] text-ink-soft">
                 rank {f.topN} needs at least {preview.thresholdMoji ? `${fmtTok(preview.thresholdMoji, 0)} ${p.combo}` : "—"} held for {f.holdDays} days · {preview.token.symbol} at {usd(preview.tokenPriceUsd)}
               </p>
+              <p className="mt-1 text-[12px] text-ink">
+                {fmtTok(preview.toHolders, 6)} {preview.token.symbol} to holders + {fmtTok(preview.fee, 6)} {preview.token.symbol} processing fee ({preview.feeBps / 100}%) = <b>{fmtTok(preview.total, 6)} {preview.token.symbol}</b> in {preview.paid + (Number(preview.fee) > 0 ? 1 : 0)} transfers
+              </p>
               {preview.paid === 0 && preview.eligible > 0 && <p className="mt-1 text-[12px] text-coral">every payout is under the floor. raise the amount, lower the floor, or pay fewer holders.</p>}
-              {preview.eligible === 0 && <p className="mt-1 text-[12px] text-coral">nobody meets the hold rules yet{preview.error ? "" : " (or holders have not been scanned; open the stats tab once)"}.</p>}
+              {preview.eligible === 0 && <p className="mt-1 text-[12px] text-coral">nobody meets the hold rules yet. open the stats tab once so holders get scanned, or lower the hold days.</p>}
               {preview.top.length > 0 && (
                 <div className="mt-2 flex flex-col gap-0.5">
                   {preview.top.slice(0, 5).map((t) => (
@@ -420,15 +525,13 @@ function DropsTab(p: ManageProps) {
         </div>
 
         <label className="mt-4 flex items-start gap-2 text-[12px] text-ink-soft">
-          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5" />
-          <span>
-            the full amount is locked in the moji escrow until every round has paid. rules cannot change once funded. moji takes a {preview ? preview.feeBps / 100 : 0.5}% processing fee on what each round pays out, in {symbol}; nothing is charged on skipped rounds. anything left over comes back to your wallet at the end.
-          </span>
+          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5" disabled={Boolean(active)} />
+          <span>the ranking is cut when you sign. each holder gets a plain transfer from your wallet, one signature each, and the {preview ? preview.feeBps / 100 : 0.5}% processing fee goes to moji as one more transfer at the end. nothing is locked; you can stop at any point and the rest is simply not sent.</span>
         </label>
         <button onClick={start} disabled={!canStart} className="press clay heading mt-3 w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white disabled:opacity-60">
-          {busy ?? (amountWei && amountWei > 0n ? `Lock ${fmtTok(f.amount)} ${symbol} and start` : "Fund and start")}
+          {busy ?? (preview && !preview.error && preview.paid > 0 ? `Sign and send ${preview.paid + (Number(preview.fee) > 0 ? 1 : 0)} transfers` : "Sign and send")}
         </button>
-        <p className="mt-1 text-center text-[11px] text-ink-soft">three signatures: the rules, an approval, the deposit. you pay gas on {chain?.name ?? "the chain"}.</p>
+        <p className="mt-1 text-center text-[11px] text-ink-soft">you pay gas on {chain?.name ?? "the chain"} for every transfer.</p>
         {err && (
           <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">
             {err}
@@ -436,72 +539,47 @@ function DropsTab(p: ManageProps) {
         )}
       </section>
 
-      <CampaignList p={p} view={view} />
+      <DropList p={p} view={view} />
     </div>
   );
 }
 
-function CampaignList({ p, view }: { p: ManageProps; view: DropsView | null }) {
+function DropList({ p, view }: { p: ManageProps; view: DropsView | null }) {
   if (!view) return <p className="text-center text-[13px] text-ink-soft">loading…</p>;
-  if (view.campaigns.length === 0) return <p className="text-center text-[13px] text-ink-soft">no drops yet.</p>;
+  const past = view.drops.filter((d) => d.status === "sent" || d.status === "cancelled");
+  if (past.length === 0) return <p className="text-center text-[13px] text-ink-soft">no drops sent yet.</p>;
   return (
     <div className="flex flex-col gap-3">
-      <Label>Your drops</Label>
-      {view.campaigns.map((c) => {
-        const rounds = view.rounds.filter((r) => r.campaign_id === c.id);
-        const paid = Number(formatUnits(BigInt(c.paid_wei) - BigInt(c.fees_wei ?? "0"), c.token_decimals));
-        return (
-          <section key={c.id} className="clay pop bg-white p-4">
-            <div className="flex items-center justify-between">
-              <span className="heading text-[15px] text-ink">
-                {fmtTok(c.amount)} {c.token_symbol} → top {c.top_n} · {c.days}d
-              </span>
-              <span className={`heading rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.1em] ${c.status === "running" ? "bg-mint text-white" : c.status === "draft" ? "bg-coral text-white" : "bg-sky-100 text-ink-soft"}`}>{c.status === "draft" ? "unfunded" : c.status}</span>
-            </div>
-            <p className="mt-1 text-[12px] text-ink-soft">
-              hold {c.hold_days}d · min {fmtTok(c.min_hold, 0)} {p.combo} · {c.split === "equal" ? "equal shares" : `pro-rata, cap ${c.cap_bps / 100}%`} · floor ${c.min_payout_usd} · {c.cut_hour_utc}:00 UTC
-            </p>
-            <p className="mt-1 text-[12px] text-ink">
-              round {c.rounds_paid} of {c.days} · paid {fmtTok(paid, 5)} {c.token_symbol} ({usd(c.paid_usd)}) · fee {c.fee_bps / 100}%
-              {c.next_cut_at && c.status === "running" && <span className="text-ink-soft"> · next {new Date(c.next_cut_at).toLocaleString()}</span>}
-            </p>
-            <p className="mt-1 text-[11px] text-ink-soft">
-              {c.fund_tx && (
-                <a href={explorerTx(p.chainId, c.fund_tx)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-                  funded
+      <Label>Past drops</Label>
+      {past.map((d) => (
+        <section key={d.id} className="clay pop bg-white p-4">
+          <div className="flex items-center justify-between">
+            <span className="heading text-[15px] text-ink">
+              {fmtTok(formatUnits(BigInt(d.sent_wei), d.token_decimals), 5)} {d.token_symbol} → {d.sent_count} holders
+            </span>
+            <span className={`heading rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.1em] ${d.status === "sent" ? "bg-mint text-white" : "bg-sky-100 text-ink-soft"}`}>{d.status === "sent" ? "sent" : `stopped · ${d.sent_count} of ${d.recipients}`}</span>
+          </div>
+          <p className="mt-1 text-[12px] text-ink-soft">
+            {dateShort(d.completed_at ?? d.cut_at)} · top {d.top_n} · hold {d.hold_days}d{Number(d.min_hold) > 0 ? ` · min ${fmtTok(d.min_hold, 0)} ${p.combo}` : ""} · {d.split === "equal" ? "equal shares" : `pro-rata, cap ${d.cap_bps / 100}%`} · floor ${d.min_payout_usd} · {usd(d.sent_usd)}
+            {d.fee_tx && (
+              <>
+                {" · "}
+                <a href={explorerTx(p.chainId, d.fee_tx)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
+                  fee
                 </a>
-              )}
-              {c.end_tx && (
-                <>
-                  {" · "}
-                  <a href={explorerTx(p.chainId, c.end_tx)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-                    remainder returned
-                  </a>
-                </>
-              )}
-              {c.status === "draft" && " · signed but never funded; start a new one"}
-            </p>
-            {rounds.length > 0 && (
-              <div className="mt-2 flex flex-col gap-0.5">
-                {rounds.slice(0, 7).map((r) => (
-                  <div key={r.id} className="flex items-center gap-2 text-[12px]">
-                    <span className="w-8 text-ink-soft">#{r.round_no}</span>
-                    <span className="text-ink-soft">{dateShort(r.cut_at)}</span>
-                    <span className="flex-1 text-right text-ink">
-                      {r.status === "paid" ? `${fmtTok(formatUnits(BigInt(r.paid_wei), c.token_decimals), 5)} ${c.token_symbol} to ${r.recipients}` : r.status === "skipped" ? `skipped · ${r.error ?? ""}` : r.status === "failed" ? `failed · ${r.error ?? ""}` : "pending"}
-                    </span>
-                    {r.tx_hash && (
-                      <a href={explorerTx(p.chainId, r.tx_hash)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-                        tx
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
+              </>
             )}
-          </section>
-        );
-      })}
+          </p>
+        </section>
+      ))}
     </div>
   );
+}
+
+function friendly(e: unknown): string {
+  const raw = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
+  const m = raw.toLowerCase();
+  if (m.includes("rejected") || m.includes("denied") || m.includes("cancel")) return "cancelled in your wallet. what was sent stays sent; press Send to continue.";
+  if (m.includes("insufficient funds") || m.includes("gas")) return "not enough ETH for gas.";
+  return raw.split("\n")[0].slice(0, 160);
 }
