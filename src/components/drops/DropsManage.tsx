@@ -145,7 +145,6 @@ function StatsTab(p: ManageProps) {
                 </div>
               ))}
             </div>
-            <p className="mt-1 text-[11px] text-ink-soft">buckets are in {p.combo} tokens, not dollars, so they do not move with price.</p>
             <div className="mt-3 flex flex-col gap-1">
               {sum.top.slice(0, 10).map((h, i) => (
                 <div key={h.address} className="flex items-center gap-2 text-[12px]">
@@ -176,7 +175,32 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "mi
 
 /* ───────────────────────── drops ───────────────────────── */
 
-const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "100", holdDays: "3", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, capBps: "500", excluded: "" };
+const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "20", holdDays: "0", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, maxPct: "5", excluded: "" };
+
+/** Big labelled input. Own styling (not .clay-input) so widths come from the grid, never from the class. */
+function Field({ label, unit, value, onChange, disabled, mode = "decimal", children }: { label: string; unit?: string; value?: string; onChange?: (v: string) => void; disabled?: boolean; mode?: "decimal" | "numeric"; children?: React.ReactNode }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="heading pl-1 text-[11px] uppercase tracking-[0.12em] text-ink-soft">{label}</span>
+      <span className="flex min-w-0 items-center gap-2 rounded-[20px] bg-sky-50 px-4 py-3" style={{ boxShadow: "var(--clay-press)" }}>
+        {children ?? (
+          <input className="num min-w-0 flex-1 bg-transparent text-[22px] font-extrabold leading-none text-ink outline-none placeholder:text-sky-300" inputMode={mode} placeholder="0" value={value} onChange={(e) => onChange?.(e.target.value)} disabled={disabled} />
+        )}
+        {unit && <span className="heading shrink-0 text-[13px] text-ink-soft">{unit}</span>}
+      </span>
+    </label>
+  );
+}
+
+function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "mint" }) {
+  return (
+    <div className="clay-sm flex flex-col gap-0.5 bg-white px-4 py-3">
+      <span className="heading text-[10px] uppercase tracking-[0.12em] text-ink-soft">{label}</span>
+      <span className={`num text-[20px] leading-tight ${tone === "mint" ? "text-mint" : "text-ink"}`}>{value}</span>
+      {sub && <span className="text-[11px] text-ink-soft">{sub}</span>}
+    </div>
+  );
+}
 
 function DropsTab(p: ManageProps) {
   const { address } = useAccount();
@@ -186,13 +210,13 @@ function DropsTab(p: ManageProps) {
   const chain = chainById(p.chainId);
 
   const [f, setF] = useState(DEFAULTS);
+  const [more, setMore] = useState(false);
   const [view, setView] = useState<DropsView | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const [balance, setBalance] = useState<bigint | null>(null);
+  const [balances, setBalances] = useState<{ stock: bigint; moji: bigint } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [ack, setAck] = useState(false);
   /** the drop being sent right now (or resumed) */
   const [active, setActive] = useState<{ drop: DropRow; payouts: PayoutRow[] } | null>(null);
   const running = useRef(false);
@@ -201,6 +225,7 @@ function DropsTab(p: ManageProps) {
   const tokenAddr = (f.token === "moji" ? p.tokenAddress : p.stockAddress) as Address | null;
   const decimals = f.token === "moji" ? 18 : p.stockDecimals;
   const symbol = f.token === "moji" ? p.combo : p.ticker;
+  const balance = balances ? (f.token === "moji" ? balances.moji : balances.stock) : null;
   const amountWei = useMemo(() => {
     try {
       return parseUnits(f.amount || "0", decimals);
@@ -208,12 +233,10 @@ function DropsTab(p: ManageProps) {
       return null;
     }
   }, [f.amount, decimals]);
-  const totalWei = useMemo(() => {
-    if (amountWei == null) return null;
-    const bps = BigInt(preview?.feeBps ?? view?.feeBps ?? 50);
-    return amountWei + (amountWei * bps) / 10_000n;
-  }, [amountWei, preview?.feeBps, view?.feeBps]);
+  const feeBps = preview?.feeBps ?? view?.feeBps ?? 50;
+  const totalWei = amountWei != null ? amountWei + (amountWei * BigInt(feeBps)) / 10_000n : null;
   const overBalance = balance != null && totalWei != null && totalWei > balance;
+  const capBps = Math.round(Math.min(100, Math.max(0, Number(f.maxPct) || 0)) * 100);
 
   const base = `/api/mojis/${encodeURIComponent(p.combo)}/drops`;
   const qs = `chain=${p.chainId}&pair=${p.stockAddress}`;
@@ -223,7 +246,6 @@ function DropsTab(p: ManageProps) {
     if (!r.ok) return;
     const j = (await r.json()) as DropsView;
     setView(j);
-    // resume a drop that is still being sent
     const open = j.drops.find((d) => d.status === "draft" || d.status === "sending");
     if (open) {
       const rr = await fetch(`${base}/${open.id}?${qs}`, { cache: "no-store" });
@@ -234,21 +256,24 @@ function DropsTab(p: ManageProps) {
     void load();
   }, [load]);
 
-  // wallet balance of the chosen token
+  // wallet balances of both tokens
   useEffect(() => {
-    if (!address || !tokenAddr || !chain?.viem) return setBalance(null);
+    if (!address || !chain?.viem || !p.tokenAddress) return setBalances(null);
     const pc = createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) });
-    pc.readContract({ address: tokenAddr, abi: ERC20_MIN_ABI, functionName: "balanceOf", args: [address as Address] })
-      .then((b) => setBalance(b as bigint))
-      .catch(() => setBalance(null));
-  }, [address, tokenAddr, chain?.viem, view]);
+    Promise.all([
+      pc.readContract({ address: p.stockAddress as Address, abi: ERC20_MIN_ABI, functionName: "balanceOf", args: [address as Address] }),
+      pc.readContract({ address: p.tokenAddress as Address, abi: ERC20_MIN_ABI, functionName: "balanceOf", args: [address as Address] }),
+    ])
+      .then(([stock, moji]) => setBalances({ stock: stock as bigint, moji: moji as bigint }))
+      .catch(() => setBalances(null));
+  }, [address, chain?.viem, p.stockAddress, p.tokenAddress, view]);
 
   // live preview, debounced
   useEffect(() => {
     if (!f.amount || Number(f.amount) <= 0) return setPreview(null);
     const t = setTimeout(async () => {
       setPreviewing(true);
-      const q = new URLSearchParams({ chain: String(p.chainId), pair: p.stockAddress, token: f.token, amount: f.amount, topN: f.topN, holdDays: f.holdDays, minHold: f.minHold || "0", minPayoutUsd: f.minPayoutUsd, split: f.split, capBps: f.capBps, excluded: f.excluded.split(/[\s,]+/).filter(Boolean).join(",") });
+      const q = new URLSearchParams({ chain: String(p.chainId), pair: p.stockAddress, token: f.token, amount: f.amount, topN: f.topN, holdDays: f.holdDays, minHold: f.minHold || "0", minPayoutUsd: f.minPayoutUsd, split: f.split, capBps: String(capBps), excluded: f.excluded.split(/[\s,]+/).filter(Boolean).join(",") });
       try {
         const r = await fetch(`${base}/preview?${q}`, { cache: "no-store" });
         setPreview((await r.json()) as Preview);
@@ -259,9 +284,9 @@ function DropsTab(p: ManageProps) {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [f, base, p.chainId, p.stockAddress]);
+  }, [f, capBps, base, p.chainId, p.stockAddress]);
 
-  const set = (k: keyof typeof DEFAULTS) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
+  const set = (k: keyof typeof DEFAULTS) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
   /** Send every pending payout of `d` as a plain transfer, then the fee. Records hashes as it goes; resumable. */
   async function sendPending(d: { drop: DropRow; payouts: PayoutRow[] }) {
@@ -285,7 +310,7 @@ function DropsTab(p: ManageProps) {
     let done = total - pending.length;
     for (const x of pending) {
       if (stop.current) break;
-      setBusy(`sending ${done + 1} of ${total} · ${fmtTok(formatUnits(BigInt(x.amount_wei), d.drop.token_decimals), 6)} ${d.drop.token_symbol} → ${short(x.address)}`);
+      setBusy(`${done + 1} of ${total} · ${short(x.address)}`);
       const h = await wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [x.address as Address, BigInt(x.amount_wei)] });
       await pc.waitForTransactionReceipt({ hash: h });
       hashes.push(h);
@@ -296,7 +321,7 @@ function DropsTab(p: ManageProps) {
     if (stop.current) return;
     const fee = BigInt(d.drop.fee_wei);
     if (fee > 0n && !d.drop.fee_tx && view?.feeRecipient) {
-      setBusy(`processing fee · ${fmtTok(formatUnits(fee, d.drop.token_decimals), 6)} ${d.drop.token_symbol} → moji`);
+      setBusy("fee → moji");
       const h = await wc.writeContract({ address: token, abi: ERC20_MIN_ABI, functionName: "transfer", args: [view.feeRecipient as Address, fee] });
       await pc.waitForTransactionReceipt({ hash: h });
       hashes.push(h);
@@ -323,20 +348,19 @@ function DropsTab(p: ManageProps) {
         minHold: (f.minHold || "0").trim(),
         minPayoutUsd: Number(f.minPayoutUsd),
         split: f.split,
-        capBps: Number(f.capBps),
+        capBps,
         excluded: [...new Set(f.excluded.split(/[\s,]+/).filter(Boolean).map((a) => a.toLowerCase()))],
       };
       const provider = await ensureChain(wallet, chain.viem);
       const wc = createWalletClient({ chain: chain.viem, account: address as Address, transport: custom(provider) });
-      setBusy("sign the rules");
+      setBusy("sign");
       const signature = await wc.signMessage({ message: canonicalRulesMessage(rules) });
-      setBusy("ranking holders…");
+      setBusy("ranking…");
       const created = await fetch(`${base}?${qs}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules, signature, signer: address }) });
       const cj = (await created.json()) as { drop?: DropRow; payouts?: PayoutRow[]; error?: string };
-      if (!created.ok || !cj.drop || !cj.payouts) throw new Error(cj.error ?? "could not cut the drop");
+      if (!created.ok || !cj.drop || !cj.payouts) throw new Error(cj.error ?? "could not start the drop");
       setActive({ drop: cj.drop, payouts: cj.payouts });
       setF(DEFAULTS);
-      setAck(false);
       await sendPending({ drop: cj.drop, payouts: cj.payouts });
       await load();
     } catch (e) {
@@ -380,25 +404,48 @@ function DropsTab(p: ManageProps) {
     }
   }
 
-  const canStart = isCreator && Boolean(p.tokenAddress) && amountWei != null && amountWei > 0n && !overBalance && ack && !busy && !active && Number(f.topN) > 0 && Boolean(preview && !preview.error && preview.paid > 0);
+  const ready = Boolean(preview && !preview.error && preview.paid > 0) && !previewing;
+  const transfers = preview ? preview.paid + (Number(preview.fee) > 0 ? 1 : 0) : 0;
+  const canStart = isCreator && Boolean(p.tokenAddress) && amountWei != null && amountWei > 0n && !overBalance && !busy && !active && ready;
   const pendingCount = active ? active.payouts.filter((x) => !x.tx_hash).length : 0;
+  const lastSent = view?.drops.find((d) => d.status === "sent");
+  const problem = !isCreator
+    ? `connect the wallet that launched ${p.combo}`
+    : overBalance
+      ? `not enough ${symbol} for the amount plus the ${feeBps / 100}% fee`
+      : preview?.error
+        ? preview.error
+        : preview && !previewing && preview.eligible === 0
+          ? "no wallet meets these rules yet"
+          : preview && !previewing && preview.paid === 0
+            ? `every share is under $${f.minPayoutUsd}. raise the amount or pay fewer holders`
+            : null;
 
   return (
     <div className="flex flex-col gap-3">
-      {!isCreator && <p className="clay-sm bg-white px-3 py-2 text-center text-[12px] text-ink-soft">connect the wallet that launched {p.combo} to drop to its holders.</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <Tile label="holders" value={String(p.stats.holders)} />
+        <Tile label="dropped so far" value={usd(p.stats.dropsPaidUsd)} sub={lastSent ? `last ${dateShort(lastSent.completed_at ?? lastSent.cut_at)}` : undefined} tone="mint" />
+        <Tile label={`your ${p.ticker}`} value={balances ? fmtTok(formatUnits(balances.stock, p.stockDecimals)) : "—"} />
+        <Tile label={`your ${p.combo}`} value={balances ? fmtTok(formatUnits(balances.moji, 18), 0) : "—"} />
+      </div>
 
       {active && (
         <section className="clay pop pop-1 bg-sky-50 p-4">
-          <Label className="mb-1">{active.drop.status === "draft" ? "Ready to send" : "Sending"}</Label>
-          <p className="text-[14px] text-ink">
-            {fmtTok(active.drop.amount)} {active.drop.token_symbol} to {active.drop.recipients} holders · {active.drop.recipients - pendingCount} sent, {pendingCount} to go
-            {BigInt(active.drop.fee_wei) > 0n && <span className="text-ink-soft"> · fee {active.drop.fee_tx ? "paid" : "pending"}</span>}
-          </p>
-          <p className="mt-1 text-[12px] text-ink-soft">one plain transfer per holder from your wallet, confirmed on-chain before the next one. you can close this page and come back; sent ones stay sent.</p>
-          {busy && <p className="mt-2 text-[12px] text-ink">{busy}</p>}
+          <div className="flex items-baseline justify-between">
+            <span className="heading text-[17px] text-ink">
+              {fmtTok(active.drop.amount)} {active.drop.token_symbol} → {active.drop.recipients} holders
+            </span>
+            <span className="num text-[15px] text-ink-soft">
+              {active.drop.recipients - pendingCount}/{active.drop.recipients}
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-mint transition-[width]" style={{ width: `${((active.drop.recipients - pendingCount) / Math.max(1, active.drop.recipients)) * 100}%` }} />
+          </div>
           <div className="mt-3 flex gap-2">
             <button onClick={resume} disabled={Boolean(busy) || !isCreator || pendingCount === 0} className="press clay heading flex-1 bg-sky-500 px-4 py-3 text-[15px] text-white disabled:opacity-60">
-              {busy ? "sending…" : pendingCount > 0 ? `Send ${pendingCount} transfer${pendingCount === 1 ? "" : "s"}` : "all sent"}
+              {busy ? `sending ${busy}` : pendingCount > 0 ? `Send ${pendingCount} left` : "done"}
             </button>
             {busy ? (
               <button onClick={() => (stop.current = true)} className="press clay-pill heading bg-white px-4 py-3 text-[13px] text-ink">
@@ -406,24 +453,22 @@ function DropsTab(p: ManageProps) {
               </button>
             ) : (
               <button onClick={cancel} disabled={!isCreator} className="press clay-pill heading bg-white px-4 py-3 text-[13px] text-coral">
-                cancel rest
+                stop
               </button>
             )}
           </div>
-          <div className="mt-3 max-h-[220px] overflow-y-auto">
+          <div className="mt-3 max-h-[200px] overflow-y-auto">
             {active.payouts.map((x) => (
               <div key={x.address} className="flex items-center gap-2 py-0.5 text-[12px]">
                 <span className="w-6 text-ink-soft">{x.rank}</span>
                 <span className="mono flex-1 text-ink">{short(x.address, 6, 4)}</span>
-                <span className="num text-ink">
-                  {fmtTok(formatUnits(BigInt(x.amount_wei), active.drop.token_decimals), 5)} {active.drop.token_symbol}
-                </span>
+                <span className="num text-ink">{fmtTok(formatUnits(BigInt(x.amount_wei), active.drop.token_decimals), 5)}</span>
                 {x.tx_hash ? (
-                  <a href={explorerTx(p.chainId, x.tx_hash)} target="_blank" rel="noopener noreferrer" className="w-10 text-right text-mint">
-                    sent
+                  <a href={explorerTx(p.chainId, x.tx_hash)} target="_blank" rel="noopener noreferrer" className="w-8 text-right text-mint">
+                    ✓
                   </a>
                 ) : (
-                  <span className="w-10 text-right text-ink-soft">…</span>
+                  <span className="w-8 text-right text-ink-soft">·</span>
                 )}
               </div>
             ))}
@@ -431,107 +476,77 @@ function DropsTab(p: ManageProps) {
         </section>
       )}
 
-      <section className={`clay pop pop-2 bg-white p-4 ${active ? "opacity-60" : ""}`}>
+      <section className={`clay pop pop-2 bg-white p-4 ${active ? "pointer-events-none opacity-50" : ""}`}>
         <Label className="mb-3">New drop</Label>
-        <div className="flex flex-col gap-3 text-[14px]">
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">give</span>
-            <input className="clay-input num flex-1" inputMode="decimal" placeholder="0.0" value={f.amount} onChange={set("amount")} disabled={Boolean(active)} />
-            <select className="clay-input w-[130px]" value={f.token} onChange={set("token")} disabled={Boolean(active)}>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <Field label="give" value={f.amount} onChange={set("amount")} disabled={Boolean(active)} />
+          <Field label="in">
+            <select className="heading bg-transparent text-[18px] text-ink outline-none" value={f.token} onChange={(e) => set("token")(e.target.value)} disabled={Boolean(active)}>
               <option value="stock">{p.ticker}</option>
               <option value="moji">{p.combo}</option>
             </select>
-          </div>
-          <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">
-            {balance != null ? `you have ${fmtTok(formatUnits(balance, decimals))} ${symbol}` : "connect to see your balance"}
-            {overBalance && <span className="text-coral"> · not enough for the amount plus the fee</span>}
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">to the top</span>
-            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.topN} onChange={set("topN")} disabled={Boolean(active)} />
-            <span className="text-ink-soft">holders</span>
-          </div>
-
-          <Label className="mt-1">Who counts as a holder</Label>
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">held for</span>
-            <input className="clay-input num w-[90px]" inputMode="numeric" value={f.holdDays} onChange={set("holdDays")} disabled={Boolean(active)} />
-            <span className="text-ink-soft">days (0 = balance right now)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">at least</span>
-            <input className="clay-input num flex-1" inputMode="decimal" value={f.minHold} onChange={set("minHold")} disabled={Boolean(active)} />
-            <span className="text-ink-soft">{p.combo}</span>
-          </div>
-          <p className="-mt-1 pl-[72px] text-[12px] text-ink-soft">in {p.combo} tokens, not dollars. a wallet is ranked on the smallest amount it held across the whole window, so buying this morning does not count.</p>
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">split</span>
-            <select className="clay-input flex-1" value={f.split} onChange={set("split")} disabled={Boolean(active)}>
-              <option value="prorata">pro-rata by holding</option>
-              <option value="equal">equal shares</option>
-            </select>
-            {f.split === "prorata" && (
-              <>
-                <span className="text-ink-soft">cap</span>
-                <input className="clay-input num w-[64px]" inputMode="numeric" value={f.capBps} onChange={set("capBps")} disabled={Boolean(active)} />
-                <span className="text-ink-soft">bps</span>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-[64px] shrink-0 text-ink-soft">min payout</span>
-            <span className="text-ink-soft">$</span>
-            <input className="clay-input num w-[80px]" inputMode="decimal" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
-            <span className="text-[12px] text-ink-soft">wallets under this are skipped and their share goes to the rest</span>
-          </div>
-          <textarea className="clay-input min-h-[56px] text-[12px]" placeholder="exclude addresses (optional, one per line). the pool, you and moji are always excluded." value={f.excluded} onChange={set("excluded")} disabled={Boolean(active)} />
+          </Field>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <Field label="top" unit="holders" mode="numeric" value={f.topN} onChange={set("topN")} disabled={Boolean(active)} />
+          <Field label="held for" unit="days" mode="numeric" value={f.holdDays} onChange={set("holdDays")} disabled={Boolean(active)} />
+          <Field label="min" unit={p.combo} value={f.minHold} onChange={set("minHold")} disabled={Boolean(active)} />
         </div>
 
-        <div className="clay-sm mt-4 bg-sky-50 px-4 py-3 text-[13px]">
-          <Label className="mb-1">Preview · today&apos;s holders</Label>
-          {!f.amount && <p className="text-ink-soft">type an amount to see who would be paid.</p>}
-          {previewing && <p className="text-ink-soft">computing…</p>}
-          {preview?.error && <p className="text-coral">{preview.error}</p>}
-          {preview && !preview.error && !previewing && (
+        <button type="button" onClick={() => setMore((v) => !v)} className="heading mt-3 text-[12px] text-sky-600">
+          {more ? "fewer options" : "more options"}
+        </button>
+        {more && (
+          <div className="mt-2 flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="split">
+                <select className="heading w-full bg-transparent text-[15px] text-ink outline-none" value={f.split} onChange={(e) => set("split")(e.target.value)} disabled={Boolean(active)}>
+                  <option value="prorata">by holding</option>
+                  <option value="equal">equal</option>
+                </select>
+              </Field>
+              <Field label="max per wallet" unit="%" value={f.maxPct} onChange={set("maxPct")} disabled={Boolean(active) || f.split === "equal"} />
+              <Field label="min payout" unit="$" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
+            </div>
+            <textarea className="clay-input min-h-[48px] text-[12px]" placeholder="skip these wallets (one per line)" value={f.excluded} onChange={(e) => set("excluded")(e.target.value)} disabled={Boolean(active)} />
+          </div>
+        )}
+
+        <div className="clay-sm mt-4 bg-sky-50 px-4 py-3">
+          {!f.amount ? (
+            <p className="text-[13px] text-ink-soft">type an amount</p>
+          ) : previewing || !preview ? (
+            <p className="text-[13px] text-ink-soft">…</p>
+          ) : problem ? (
+            <p className="text-[13px] text-coral">{problem}</p>
+          ) : (
             <>
-              <p className="text-ink">
-                {preview.paid} of {preview.eligible} qualifying wallets get paid · median <b>{usd(preview.medianUsd)}</b> · largest <b>{usd(preview.maxUsd)}</b>
-                {preview.belowFloor > 0 && <span className="text-ink-soft"> · {preview.belowFloor} under the ${f.minPayoutUsd} floor</span>}
-              </p>
-              <p className="mt-1 text-[12px] text-ink-soft">
-                rank {f.topN} needs at least {preview.thresholdMoji ? `${fmtTok(preview.thresholdMoji, 0)} ${p.combo}` : "—"} held for {f.holdDays} days · {preview.token.symbol} at {usd(preview.tokenPriceUsd)}
-              </p>
-              <p className="mt-1 text-[12px] text-ink">
-                {fmtTok(preview.toHolders, 6)} {preview.token.symbol} to holders + {fmtTok(preview.fee, 6)} {preview.token.symbol} processing fee ({preview.feeBps / 100}%) = <b>{fmtTok(preview.total, 6)} {preview.token.symbol}</b> in {preview.paid + (Number(preview.fee) > 0 ? 1 : 0)} transfers
-              </p>
-              {preview.paid === 0 && preview.eligible > 0 && <p className="mt-1 text-[12px] text-coral">every payout is under the floor. raise the amount, lower the floor, or pay fewer holders.</p>}
-              {preview.eligible === 0 && <p className="mt-1 text-[12px] text-coral">nobody meets the hold rules yet. open the stats tab once so holders get scanned, or lower the hold days.</p>}
-              {preview.top.length > 0 && (
-                <div className="mt-2 flex flex-col gap-0.5">
-                  {preview.top.slice(0, 5).map((t) => (
-                    <div key={t.address} className="flex items-center gap-2 text-[12px]">
-                      <span className="w-5 text-ink-soft">{t.rank}</span>
-                      <span className="mono text-ink">{short(t.address, 6, 4)}</span>
-                      <span className="flex-1 text-right text-ink-soft">{fmtTok(t.held, 0)} held</span>
-                      <span className="w-[110px] text-right num text-ink">
-                        {fmtTok(t.amount, 5)} {preview.token.symbol}
-                      </span>
-                    </div>
-                  ))}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="num text-[22px] leading-none text-ink">{preview.paid}</div>
+                  <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">wallets</div>
                 </div>
-              )}
+                <div>
+                  <div className="num text-[22px] leading-none text-ink">{usd(preview.medianUsd)}</div>
+                  <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">typical</div>
+                </div>
+                <div>
+                  <div className="num text-[22px] leading-none text-ink">{usd(preview.maxUsd)}</div>
+                  <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">biggest</div>
+                </div>
+              </div>
+              <p className="mt-3 text-center text-[12px] text-ink-soft">
+                {fmtTok(preview.toHolders, 5)} + {fmtTok(preview.fee, 5)} fee = <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
+                {preview.thresholdMoji && <> · cutoff {fmtTok(preview.thresholdMoji, 0)} {p.combo}</>}
+              </p>
             </>
           )}
         </div>
 
-        <label className="mt-4 flex items-start gap-2 text-[12px] text-ink-soft">
-          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5" disabled={Boolean(active)} />
-          <span>the ranking is cut when you sign. each holder gets a plain transfer from your wallet, one signature each, and the {preview ? preview.feeBps / 100 : 0.5}% processing fee goes to moji as one more transfer at the end. nothing is locked; you can stop at any point and the rest is simply not sent.</span>
-        </label>
         <button onClick={start} disabled={!canStart} className="press clay heading mt-3 w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white disabled:opacity-60">
-          {busy ?? (preview && !preview.error && preview.paid > 0 ? `Sign and send ${preview.paid + (Number(preview.fee) > 0 ? 1 : 0)} transfers` : "Sign and send")}
+          {busy ?? (ready ? `Send ${transfers} transfers` : "Send")}
         </button>
-        <p className="mt-1 text-center text-[11px] text-ink-soft">you pay gas on {chain?.name ?? "the chain"} for every transfer.</p>
+        <p className="mt-2 text-center text-[11px] text-ink-soft">one wallet signature per transfer · {feeBps / 100}% fee to moji · stop any time</p>
         {err && (
           <p className="clay-sm mt-2 bg-white px-3 py-2 text-center text-[12px] text-coral" role="alert">
             {err}
@@ -545,41 +560,37 @@ function DropsTab(p: ManageProps) {
 }
 
 function DropList({ p, view }: { p: ManageProps; view: DropsView | null }) {
-  if (!view) return <p className="text-center text-[13px] text-ink-soft">loading…</p>;
+  if (!view) return null;
   const past = view.drops.filter((d) => d.status === "sent" || d.status === "cancelled");
-  if (past.length === 0) return <p className="text-center text-[13px] text-ink-soft">no drops sent yet.</p>;
+  if (past.length === 0) return null;
   return (
-    <div className="flex flex-col gap-3">
-      <Label>Past drops</Label>
-      {past.map((d) => (
-        <section key={d.id} className="clay pop bg-white p-4">
-          <div className="flex items-center justify-between">
-            <span className="heading text-[15px] text-ink">
-              {fmtTok(formatUnits(BigInt(d.sent_wei), d.token_decimals), 5)} {d.token_symbol} → {d.sent_count} holders
+    <section className="clay pop pop-3 bg-white p-4">
+      <Label className="mb-2">Past drops</Label>
+      <div className="flex flex-col gap-1.5">
+        {past.map((d) => (
+          <div key={d.id} className="flex items-center gap-3 text-[13px]">
+            <span className="w-[64px] shrink-0 text-ink-soft">{dateShort(d.completed_at ?? d.cut_at)}</span>
+            <span className="heading flex-1 text-ink">
+              {fmtTok(formatUnits(BigInt(d.sent_wei), d.token_decimals), 5)} {d.token_symbol} → {d.sent_count}
+              {d.status === "cancelled" && <span className="text-ink-soft"> of {d.recipients}</span>}
             </span>
-            <span className={`heading rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.1em] ${d.status === "sent" ? "bg-mint text-white" : "bg-sky-100 text-ink-soft"}`}>{d.status === "sent" ? "sent" : `stopped · ${d.sent_count} of ${d.recipients}`}</span>
-          </div>
-          <p className="mt-1 text-[12px] text-ink-soft">
-            {dateShort(d.completed_at ?? d.cut_at)} · top {d.top_n} · hold {d.hold_days}d{Number(d.min_hold) > 0 ? ` · min ${fmtTok(d.min_hold, 0)} ${p.combo}` : ""} · {d.split === "equal" ? "equal shares" : `pro-rata, cap ${d.cap_bps / 100}%`} · floor ${d.min_payout_usd} · {usd(d.sent_usd)}
+            <span className="num text-mint">{usd(d.sent_usd)}</span>
             {d.fee_tx && (
-              <>
-                {" · "}
-                <a href={explorerTx(p.chainId, d.fee_tx)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-                  fee
-                </a>
-              </>
+              <a href={explorerTx(p.chainId, d.fee_tx)} target="_blank" rel="noopener noreferrer" className="text-[11px] text-sky-600">
+                tx
+              </a>
             )}
-          </p>
-        </section>
-      ))}
-    </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
 function friendly(e: unknown): string {
   const raw = e instanceof Error ? ((e as Error & { shortMessage?: string }).shortMessage ?? e.message) : String(e);
   const m = raw.toLowerCase();
-  if (m.includes("rejected") || m.includes("denied") || m.includes("cancel")) return "cancelled in your wallet. what was sent stays sent; press Send to continue.";
+  if (m.includes("rejected") || m.includes("denied") || m.includes("cancel")) return "cancelled in your wallet.";
   if (m.includes("insufficient funds") || m.includes("gas")) return "not enough ETH for gas.";
-  return raw.split("\n")[0].slice(0, 160);
+  return raw.split("\n")[0].slice(0, 120);
 }
