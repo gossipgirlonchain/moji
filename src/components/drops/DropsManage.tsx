@@ -592,6 +592,21 @@ function DropsTab(p: ManageProps) {
                 <p className="mt-3 text-center text-[12px] text-ink-soft">
                   total <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
                 </p>
+                <div className="mt-3 max-h-[260px] overflow-y-auto border-t border-sky-100 pt-2">
+                  {preview.top.map((t) => (
+                    <div key={t.address} className="flex items-center gap-2 py-1 text-[12px]">
+                      <span className="w-6 shrink-0 text-ink-soft">{t.rank}</span>
+                      <a href={explorerAddress(p.chainId, t.address)} target="_blank" rel="noopener noreferrer" className="mono text-sky-600">
+                        {short(t.address, 6, 4)}
+                      </a>
+                      <span className="flex-1 text-right text-ink-soft">{fmtTok(t.held, 0)} {p.combo}</span>
+                      <span className="num w-[96px] shrink-0 text-right text-ink">
+                        {fmtTok(t.amount, 5)} {preview.token.symbol}
+                      </span>
+                      <span className="num w-[56px] shrink-0 text-right text-ink-soft">{usd(t.usd)}</span>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </div>

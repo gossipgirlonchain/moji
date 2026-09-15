@@ -57,7 +57,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
       medianUsd: amounts.length ? amounts[Math.floor(amounts.length / 2)] : 0,
       minUsd: amounts[0] ?? 0,
       maxUsd: amounts[amounts.length - 1] ?? 0,
-      top: res.payouts.slice(0, 10).map((p) => ({ address: p.address, rank: p.rank, held: formatUnits(p.heldWei, 18), amount: formatUnits(p.amountWei, t.decimals), usd: p.amountUsd })),
+      top: res.payouts.map((p) => ({ address: p.address, rank: p.rank, held: formatUnits(p.heldWei, 18), amount: formatUnits(p.amountWei, t.decimals), usd: p.amountUsd })),
       holdersScannedAt: m.holders_scanned_at ?? null,
     },
     { headers: { "cache-control": "no-store" } },
