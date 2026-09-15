@@ -26,12 +26,12 @@ export function DropsPill({ m, className = "" }: { m: RewardsKey; className?: st
   );
 }
 
-/** 🪂 in a mint circle, pinned to a tile corner. */
+/** 🪂 pinned to a tile corner, no background. */
 export function DropsDot({ m, className = "" }: { m: RewardsKey; className?: string }) {
   if (!hasHolderRewards(m)) return null;
   return (
-    <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mint ${className}`} title="holder rewards" aria-label="holder rewards">
-      <span className="block text-[22px] leading-[1]" style={{ transform: "translateY(1px)" }}>🪂</span>
+    <span className={`block text-[22px] leading-[1] ${className}`} title="holder rewards" aria-label="holder rewards">
+      🪂
     </span>
   );
 }
