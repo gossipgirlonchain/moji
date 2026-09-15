@@ -590,8 +590,7 @@ function DropsTab(p: ManageProps) {
                   </div>
                 </div>
                 <p className="mt-3 text-center text-[12px] text-ink-soft">
-                  {fmtTok(preview.toHolders, 5)} + {fmtTok(preview.fee, 5)} fee = <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
-                  {preview.thresholdMoji && <> · cutoff {fmtTok(preview.thresholdMoji, 0)} {p.combo}</>}
+                  total <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
                 </p>
               </>
             )}
