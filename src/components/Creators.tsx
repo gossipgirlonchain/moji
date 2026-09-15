@@ -185,6 +185,23 @@ export function CreatorsBoard() {
     [merge, toast, touch],
   );
 
+  const remove = useCallback(
+    async (ids: string[], label: string) => {
+      if (!confirm(`Remove ${label} from the pipeline? This deletes their timeline too.`)) return;
+      const r = ids.length === 1 ? await fetch(`/api/creators/${ids[0]}`, { method: "DELETE" }) : await fetch("/api/creators/bulk", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids, delete: true }) });
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        return toast(j.error ?? "remove failed");
+      }
+      const gone = new Set(ids);
+      setData((d) => (d ? { ...d, creators: d.creators.filter((c) => !gone.has(c.id)) } : d));
+      setSelected((s) => new Set(Array.from(s).filter((id) => !gone.has(id))));
+      setOpenId((o) => (o && gone.has(o) ? null : o));
+      toast(ids.length === 1 ? `removed ${label}` : `removed ${ids.length}`);
+    },
+    [toast],
+  );
+
   const creators = useMemo(() => data?.creators ?? [], [data]);
   const owners = useMemo(() => Array.from(new Set(creators.map((c) => c.owner).filter((o): o is string => Boolean(o)))).sort(), [creators]);
   const audiences = useMemo(() => {
@@ -322,12 +339,12 @@ export function CreatorsBoard() {
       {!data ? (
         <p className="text-center text-[14px] text-ink-soft">loading creators…</p>
       ) : view === "pipeline" ? (
-        <Pipeline rows={filtered} lastEvent={data.lastEvent} onOpen={setOpenId} onMove={(id, stage) => void patch(id, { stage })} onCopy={(c) => copyDm(c, dm, toast)} />
+        <Pipeline rows={filtered} lastEvent={data.lastEvent} onOpen={setOpenId} onMove={(id, stage) => void patch(id, { stage })} onCopy={(c) => copyDm(c, dm, toast)} onRemove={(c) => void remove([c.id], `@${c.x_handle}`)} />
       ) : (
         <Table rows={filtered} lastEvent={data.lastEvent} sort={sort} setSort={setSort} selected={selected} setSelected={setSelected} onOpen={setOpenId} onPatch={patch} />
       )}
 
-      {selected.size > 0 && <BulkBar count={selected.size} owners={owners} onApply={(p, ev) => void bulk(Array.from(selected), p, ev)} onClear={() => setSelected(new Set())} />}
+      {selected.size > 0 && <BulkBar count={selected.size} owners={owners} onApply={(p, ev) => void bulk(Array.from(selected), p, ev)} onRemove={() => void remove(Array.from(selected), `${selected.size} creators`)} onClear={() => setSelected(new Set())} />}
 
       {open && (
         <Drawer
@@ -337,10 +354,7 @@ export function CreatorsBoard() {
           onPatch={(p) => patch(open.id, p)}
           onEvent={(k, b) => logEvent(open.id, k, b)}
           onCopy={() => copyDm(open, dm, toast)}
-          onDeleted={() => {
-            setData((d) => (d ? { ...d, creators: d.creators.filter((c) => c.id !== open.id) } : d));
-            setOpenId(null);
-          }}
+          onRemove={() => void remove([open.id], `@${open.x_handle}`)}
           toast={toast}
         />
       )}
@@ -439,7 +453,7 @@ function Band({ b }: { b: string | null }) {
 
 /* ---------- pipeline ---------- */
 
-function Pipeline({ rows, lastEvent, onOpen, onMove, onCopy }: { rows: CreatorRow[]; lastEvent: LastEvent; onOpen: (id: string) => void; onMove: (id: string, s: Stage) => void; onCopy: (c: CreatorRow) => void }) {
+function Pipeline({ rows, lastEvent, onOpen, onMove, onCopy, onRemove }: { rows: CreatorRow[]; lastEvent: LastEvent; onOpen: (id: string) => void; onMove: (id: string, s: Stage) => void; onCopy: (c: CreatorRow) => void; onRemove: (c: CreatorRow) => void }) {
   const [showClosed, setShowClosed] = useState(false);
   const byStage = useMemo(() => {
     const m = Object.fromEntries(STAGES.map((s) => [s, [] as CreatorRow[]])) as Record<Stage, CreatorRow[]>;
@@ -451,7 +465,7 @@ function Pipeline({ rows, lastEvent, onOpen, onMove, onCopy }: { rows: CreatorRo
     <div className="flex flex-col gap-3">
       <div className="scroll-x -mx-5 flex gap-3 px-5 pb-2">
         {ACTIVE_STAGES.map((s, i) => (
-          <Column key={s} stage={s} rows={byStage[s]} lastEvent={lastEvent} next={ACTIVE_STAGES[i + 1]} onOpen={onOpen} onMove={onMove} onCopy={onCopy} />
+          <Column key={s} stage={s} rows={byStage[s]} lastEvent={lastEvent} next={ACTIVE_STAGES[i + 1]} onOpen={onOpen} onMove={onMove} onCopy={onCopy} onRemove={onRemove} />
         ))}
       </div>
       <button type="button" onClick={() => setShowClosed((s) => !s)} className="heading mx-auto text-[12px] text-ink-soft">
@@ -460,7 +474,7 @@ function Pipeline({ rows, lastEvent, onOpen, onMove, onCopy }: { rows: CreatorRo
       {showClosed && (
         <div className="scroll-x -mx-5 flex gap-3 px-5 pb-2">
           {CLOSED_STAGES.map((s) => (
-            <Column key={s} stage={s} rows={byStage[s]} lastEvent={lastEvent} next="new" onOpen={onOpen} onMove={onMove} onCopy={onCopy} />
+            <Column key={s} stage={s} rows={byStage[s]} lastEvent={lastEvent} next="new" onOpen={onOpen} onMove={onMove} onCopy={onCopy} onRemove={onRemove} />
           ))}
         </div>
       )}
@@ -468,7 +482,7 @@ function Pipeline({ rows, lastEvent, onOpen, onMove, onCopy }: { rows: CreatorRo
   );
 }
 
-function Column({ stage, rows, lastEvent, next, onOpen, onMove, onCopy }: { stage: Stage; rows: CreatorRow[]; lastEvent: LastEvent; next?: Stage; onOpen: (id: string) => void; onMove: (id: string, s: Stage) => void; onCopy: (c: CreatorRow) => void }) {
+function Column({ stage, rows, lastEvent, next, onOpen, onMove, onCopy, onRemove }: { stage: Stage; rows: CreatorRow[]; lastEvent: LastEvent; next?: Stage; onOpen: (id: string) => void; onMove: (id: string, s: Stage) => void; onCopy: (c: CreatorRow) => void; onRemove: (c: CreatorRow) => void }) {
   return (
     <div className="flex w-[264px] shrink-0 flex-col gap-2">
       <div className="flex items-center justify-between px-1">
@@ -487,7 +501,21 @@ function Column({ stage, rows, lastEvent, next, onOpen, onMove, onCopy }: { stag
                 </div>
                 <div className="truncate text-[12px] text-ink-soft">@{c.x_handle}</div>
               </div>
-              <Stars p={c.priority} />
+              <div className="flex items-center gap-1.5">
+                <Stars p={c.priority} />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(c);
+                  }}
+                  className="text-[15px] leading-none text-sky-200 hover:text-coral"
+                  title="remove from pipeline"
+                  aria-label="remove"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-1">
               <Band b={c.followers} />
@@ -639,7 +667,7 @@ function Table({ rows, lastEvent, sort, setSort, selected, setSelected, onOpen, 
   );
 }
 
-function BulkBar({ count, owners, onApply, onClear }: { count: number; owners: string[]; onApply: (p: Patch, ev?: { kind: EventKind; body?: string }) => void; onClear: () => void }) {
+function BulkBar({ count, owners, onApply, onRemove, onClear }: { count: number; owners: string[]; onApply: (p: Patch, ev?: { kind: EventKind; body?: string }) => void; onRemove: () => void; onClear: () => void }) {
   const [owner, setOwner] = useState("");
   return (
     <div className="clay sticky bottom-4 z-30 flex flex-wrap items-center gap-2 bg-ink p-3 text-white">
@@ -679,6 +707,9 @@ function BulkBar({ count, owners, onApply, onClear }: { count: number; owners: s
       </span>
       <button type="button" onClick={() => onApply({ starred: true })} className="press clay-pill heading bg-white px-3 py-1.5 text-[12px] text-ink">
         ★ star
+      </button>
+      <button type="button" onClick={onRemove} className="press clay-pill heading bg-coral px-3 py-1.5 text-[12px] text-white">
+        × remove
       </button>
       <button type="button" onClick={onClear} className="heading ml-auto text-[12px] text-sky-200">
         clear selection
@@ -741,7 +772,7 @@ function AddCreator({ onAdded, onError }: { onAdded: (c: CreatorRow) => void; on
 
 /* ---------- drawer ---------- */
 
-function Drawer({ creator: c, owners, onClose, onPatch, onEvent, onCopy, onDeleted, toast }: { creator: CreatorRow; owners: string[]; onClose: () => void; onPatch: (p: Patch) => Promise<CreatorRow | null>; onEvent: (k: EventKind, b?: string) => Promise<{ creator: CreatorRow; event: CreatorEvent } | null>; onCopy: () => void; onDeleted: () => void; toast: (t: string) => void }) {
+function Drawer({ creator: c, owners, onClose, onPatch, onEvent, onCopy, onRemove, toast }: { creator: CreatorRow; owners: string[]; onClose: () => void; onPatch: (p: Patch) => Promise<CreatorRow | null>; onEvent: (k: EventKind, b?: string) => Promise<{ creator: CreatorRow; event: CreatorEvent } | null>; onCopy: () => void; onRemove: () => void; toast: (t: string) => void }) {
   const [events, setEvents] = useState<CreatorEvent[] | null>(null);
   const [notes, setNotes] = useState(c.notes ?? "");
   const [owner, setOwner] = useState(c.owner ?? "");
@@ -1010,20 +1041,9 @@ function Drawer({ creator: c, owners, onClose, onPatch, onEvent, onCopy, onDelet
 
         <div className="mt-auto flex items-center justify-between pt-2 text-[11px] text-ink-soft">
           <span>updated {timeAgo(c.updated_at)}</span>
-          {c.source === "manual" && (
-            <button
-              type="button"
-              className="text-coral underline"
-              onClick={async () => {
-                if (!confirm(`Remove @${c.x_handle} from the pipeline?`)) return;
-                const r = await fetch(`/api/creators/${c.id}`, { method: "DELETE" });
-                if (r.ok) onDeleted();
-                else toast("delete failed");
-              }}
-            >
-              remove
-            </button>
-          )}
+          <button type="button" className="text-coral underline" onClick={onRemove}>
+            × remove from pipeline
+          </button>
         </div>
       </aside>
     </>
