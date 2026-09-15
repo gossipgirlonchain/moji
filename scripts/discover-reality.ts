@@ -69,7 +69,7 @@ async function main() {
   console.log(`${seeds.length} candidate rTokens on Arbitrum`);
   const pc = createPublicClient({ chain: arbitrum, transport: http(process.env.ARBITRUM_RPC_URL ?? "https://arb1.arbitrum.io/rpc") });
 
-  const rows: string[] = [];
+  const rows: [string, string, string, string, number, string][] = [];
   let bad = 0;
   for (const s of seeds) {
     try {
@@ -90,27 +90,17 @@ async function main() {
           }
         } catch {}
       }
-      rows.push(`  { ticker: ${JSON.stringify(ticker)}, name: ${JSON.stringify(s.name || name)}, address: ${JSON.stringify(s.address)}, logo: ${JSON.stringify(logo)}, decimals: ${Number(decimals)}, issuer: "reality", symbolOnChain: ${JSON.stringify(symbol)} },`);
+      rows.push([ticker, s.name || name, s.address, logo, Number(decimals), symbol]);
       console.log("ok", ticker.padEnd(6), symbol.padEnd(8), Number(decimals), s.address, name);
     } catch (e) {
       bad++;
       console.log("SKIP", s.address, s.ticker, String((e as Error).message).slice(0, 80));
     }
   }
-  rows.sort();
-  const file = `// Reality rTokens on Arbitrum One (chainId 42161): ERC-20s issued by Reality (Bitget), 1:1 backed by
-// shares held with a US broker-dealer. Doppler announced rToken-paired markets on 2026-09-14.
-//
-// Generated ${new Date().toISOString().slice(0, 10)} by \`npx tsx scripts/discover-reality.ts\` (${fileArg > -1 ? "address file" : "Bitget RWA API stockList"}),
-// every address verified on-chain (symbol/name/decimals via Arbitrum RPC). Do not hand-edit: rerun the script.
-import type { Stock } from "./stocks-types"
-
-export const STOCKS_42161: Stock[] = [
-${rows.join("\n")}
-]
-`;
-  writeFileSync("src/config/stocks-arbitrum.ts", file);
-  console.log(`wrote src/config/stocks-arbitrum.ts: ${rows.length} rTokens, ${bad} skipped`);
+  rows.sort((x, y) => x[0].localeCompare(y[0]));
+  // Data goes to JSON; src/config/stocks-arbitrum.ts maps it into Stock objects (a 1,700-entry TS literal breaks tsc).
+  writeFileSync("src/config/stocks-arbitrum.json", JSON.stringify(rows));
+  console.log(`wrote src/config/stocks-arbitrum.json: ${rows.length} rTokens, ${bad} skipped`);
 }
 
 main().catch((e) => {

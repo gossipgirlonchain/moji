@@ -111,12 +111,18 @@ export const STOCKS: ChainStocks[] = [
   { chainId: 4663, key: 'robinhood', name: 'Robinhood Chain', stocks: ROBINHOOD_STOCKS },
   { chainId: 0, key: 'solana', name: 'Solana', comingSoon: true, stocks: [] },
   { chainId: 1, key: 'ethereum', name: 'Ethereum', stocks: [] }, // pairs against WETH, see src/lib/numeraire.ts
-  { chainId: 42161, key: 'arbitrum', name: 'Arbitrum', stocks: STOCKS_42161 }, // Reality rTokens (Bitget), see scripts/discover-reality.ts
+  { chainId: 42161, key: 'arbitrum', name: 'Arbitrum', stocks: featuredFirst(STOCKS_42161) }, // Reality rTokens (Bitget), see scripts/discover-reality.ts
   { chainId: 8453, key: 'base', name: 'Base', stocks: STOCKS_8453 }, // Coinbase Tokenized Stocks
   { chainId: 143, key: 'monad', name: 'Monad', stocks: [] },
 ]
 
 export default STOCKS
+
+/** 1,700+ rTokens is a lot to scroll: names people know (the Robinhood list) come first, the rest alphabetical. */
+function featuredFirst(list: Stock[]): Stock[] {
+  const rank = new Map<string, number>(ROBINHOOD_STOCKS.map((s, i) => [s.ticker, i]))
+  return [...list].sort((a, b) => (rank.get(a.ticker) ?? 1e9) - (rank.get(b.ticker) ?? 1e9) || a.ticker.localeCompare(b.ticker))
+}
 
 /** Stocks launchable on a chain (LONG-hidden `available:false` entries excluded). */
 export function stocksFor(chainId: number): Stock[] {
