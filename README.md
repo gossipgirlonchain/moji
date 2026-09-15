@@ -115,7 +115,7 @@ Brand imagery for X is rendered by one API route and nothing else, so the studio
 queue always produce the same pixels.
 
 - **`GET /api/card`** returns a PNG. Query: `template`, `w`, `h` (`1200x1200` default, or `1600x900`), `seed`
-  (drives the emoji scatter), plus the template's fields. Responses are cached immutably per query string.
+  (scatter layout), `mix` (which emoji fill it, defaults to `seed`), plus the template's fields. Responses are cached immutably per query string.
 
   | template | fields |
   |---|---|
@@ -130,7 +130,8 @@ queue always produce the same pixels.
 
   Example: `/api/card?template=pair&w=1600&h=900&seed=3&combo=🍎&ticker=AAPL&label=JUST%20CLAIMED`
 - **`/design`** (same `ADMIN_PASSWORD` cookie as `/admin`) is a form that builds that URL: template picker,
-  fields, size toggle (1600x900 first, since X shows it uncropped), reshuffle (bumps the seed), a live preview
+  fields, size toggle (1600x900 first, since X shows it uncropped), reshuffle (new positions) and swap emoji (new
+  emoji, same positions), a live preview
   on a 300ms debounce, and Download PNG (`moji-{template}-{date}.png`), Copy image URL, Copy to clipboard
   (paste straight into the X composer). "Fill from data" loads the fields from Supabase with the queries in
   `src/lib/social.ts`: the leaderboard by a chosen metric (fees earned, 7 day or 24 hour volume, market cap),

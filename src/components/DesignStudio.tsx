@@ -49,13 +49,15 @@ export function DesignStudio() {
   const router = useRouter();
   const [template, setTemplate] = useState<Template>("announcement");
   const [size, setSize] = useState(0); // index into SIZES, 1600x900 first
-  const [seed, setSeed] = useState(1);
+  // Fresh seeds on every visit so two sessions never start from the same scatter. `mix` picks the emoji, `seed` the layout.
+  const [seed, setSeed] = useState(() => 1 + Math.floor(Math.random() * 9000));
+  const [mix, setMix] = useState(() => 1 + Math.floor(Math.random() * 9000));
   const [fields, setFields] = useState<AllFields>(() => Object.fromEntries(TEMPLATES.map((t) => [t, defaultFields(t)])) as AllFields);
   const [metric, setMetric] = useState<(typeof METRICS)[number][0]>("fees");
   const [stat, setStat] = useState<(typeof STATS)[number][0]>("mover");
   const [status, setStatus] = useState<{ kind: "ok" | "err" | "busy"; text: string } | null>(null);
 
-  const spec = useMemo<CardSpec>(() => ({ template, w: SIZES[size].w, h: SIZES[size].h, seed: String(seed), fields: fields[template] }), [template, size, seed, fields]);
+  const spec = useMemo<CardSpec>(() => ({ template, w: SIZES[size].w, h: SIZES[size].h, seed: String(seed), mix: String(mix), fields: fields[template] }), [template, size, seed, mix, fields]);
   const url = useMemo(() => cardUrl(spec), [spec]);
 
   // Live preview on a 300ms debounce. The previous image stays up until the new one has loaded.
@@ -177,9 +179,16 @@ export function DesignStudio() {
             </div>
             <div>
               <Label>scatter</Label>
-              <div className="mt-2 flex items-center gap-2">
-                <Chip onClick={() => setSeed((s) => s + 1)}>reshuffle</Chip>
-                <span className="mono text-[13px] text-ink-soft">seed {seed}</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Chip onClick={() => setSeed((s) => s + 1)} title="new positions, same emoji">
+                  reshuffle
+                </Chip>
+                <Chip onClick={() => setMix((m) => m + 1)} title="new emoji, same positions">
+                  swap emoji
+                </Chip>
+                <span className="mono text-[13px] text-ink-soft">
+                  seed {seed} · mix {mix}
+                </span>
               </div>
             </div>
           </div>

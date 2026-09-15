@@ -16,7 +16,7 @@ export function hasHolderRewards(m: RewardsKey): boolean {
   return Boolean(m.rewards_badge) || Boolean(m.drops_active) || dropsAllowlisted(m);
 }
 
-/** 🪂 marker shown everywhere a moji with holder rewards appears. */
+/** 🪂 rewards pill, shown on list rows for a moji with holder rewards. */
 export function DropsPill({ m, className = "" }: { m: RewardsKey; className?: string }) {
   if (!hasHolderRewards(m)) return null;
   return (
@@ -26,18 +26,28 @@ export function DropsPill({ m, className = "" }: { m: RewardsKey; className?: st
   );
 }
 
+/** 🪂 pinned to a tile corner, no background. */
+export function DropsDot({ m, className = "" }: { m: RewardsKey; className?: string }) {
+  if (!hasHolderRewards(m)) return null;
+  return (
+    <span className={`block text-[22px] leading-[1] ${className}`} title="holder rewards" aria-label="holder rewards">
+      🪂
+    </span>
+  );
+}
+
 export function MojiTile({ m, pop }: { m: MojiRow; pop?: number }) {
   return (
     <Link
       href={mojiHref(m)}
-      className={`press clay flex flex-col items-center gap-1 bg-white px-3 py-5 text-center ${pop !== undefined ? `pop pop-${pop}` : ""}`}
+      className={`press clay relative flex flex-col items-center gap-1 bg-white px-3 py-5 text-center ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
+      <DropsDot m={m} className="absolute right-3 top-3" />
       <span className="text-[44px] leading-none">{m.display}</span>
       <span className="heading mt-2 text-[15px] text-ink">
         {m.display} / {m.stock_ticker}
       </span>
       <span className="heading text-[13px] text-ink-soft">{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
-      <DropsPill m={m} className="mt-1" />
     </Link>
   );
 }

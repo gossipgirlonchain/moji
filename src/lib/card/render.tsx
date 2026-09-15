@@ -14,7 +14,7 @@ import type { CardSpec } from "./params";
  * plus self hosted fonts and Noto emoji as images so a card is pixel identical wherever it is rendered.
  */
 export async function renderCard(spec: CardSpec): Promise<ImageResponse> {
-  const placements = scatter(spec.seed, spec.w, spec.h);
+  const placements = scatter(spec.seed, spec.w, spec.h, spec.mix ?? spec.seed);
   const needed = emojiNeeded(spec);
   const [sprites, fonts, clay, wordmark] = await Promise.all([
     resolveSprites(needed.plain.filter(isEmoji), [...placements.map((p) => p.emoji), ...needed.shadowed.filter(isEmoji)]),
