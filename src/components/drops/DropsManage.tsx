@@ -566,39 +566,40 @@ function DropsTab(p: ManageProps) {
           </div>
         )}
 
-        <div className="clay-sm mt-4 bg-sky-50 px-4 py-3">
-          {!f.amount ? (
-            <p className="text-[13px] text-ink-soft">type an amount</p>
-          ) : previewing || !preview ? (
-            <p className="text-[13px] text-ink-soft">…</p>
-          ) : problem ? (
-            <p className="text-[13px] text-coral">{problem}</p>
-          ) : (
-            <>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="num text-[22px] leading-none text-ink">{preview.paid}</div>
-                  <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">wallets</div>
+        {f.amount && (
+          <div className="mt-4 rounded-[20px] border-2 border-dashed border-sky-200 px-4 py-3">
+            <Label className="mb-2 text-center">who gets it</Label>
+            {previewing || !preview ? (
+              <p className="text-center text-[13px] text-ink-soft">…</p>
+            ) : problem ? (
+              <p className="text-center text-[13px] text-coral">{problem}</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="num text-[22px] leading-none text-ink">{preview.paid}</div>
+                    <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">wallets</div>
+                  </div>
+                  <div>
+                    <div className="num text-[22px] leading-none text-ink">{usd(preview.medianUsd)}</div>
+                    <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">typical</div>
+                  </div>
+                  <div>
+                    <div className="num text-[22px] leading-none text-ink">{usd(preview.maxUsd)}</div>
+                    <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">biggest</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="num text-[22px] leading-none text-ink">{usd(preview.medianUsd)}</div>
-                  <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">typical</div>
-                </div>
-                <div>
-                  <div className="num text-[22px] leading-none text-ink">{usd(preview.maxUsd)}</div>
-                  <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">biggest</div>
-                </div>
-              </div>
-              <p className="mt-3 text-center text-[12px] text-ink-soft">
-                {fmtTok(preview.toHolders, 5)} + {fmtTok(preview.fee, 5)} fee = <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
-                {preview.thresholdMoji && <> · cutoff {fmtTok(preview.thresholdMoji, 0)} {p.combo}</>}
-              </p>
-            </>
-          )}
-        </div>
+                <p className="mt-3 text-center text-[12px] text-ink-soft">
+                  {fmtTok(preview.toHolders, 5)} + {fmtTok(preview.fee, 5)} fee = <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
+                  {preview.thresholdMoji && <> · cutoff {fmtTok(preview.thresholdMoji, 0)} {p.combo}</>}
+                </p>
+              </>
+            )}
+          </div>
+        )}
 
         <button onClick={start} disabled={!canStart} className="press clay heading mt-3 w-full bg-sky-500 px-5 py-3.5 text-[17px] text-white disabled:opacity-60">
-          {busy ?? (ready ? `Send ${transfers} transfers` : "Send")}
+          {busy ?? (ready ? `Send ${transfers} transfers` : f.amount ? "Send" : "Enter an amount")}
         </button>
         <p className="mt-2 text-center text-[11px] text-ink-soft">one wallet signature per transfer · {feeBps / 100}% fee to moji · stop any time</p>
         {err && (
