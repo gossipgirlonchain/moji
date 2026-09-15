@@ -2,7 +2,7 @@
  * The card spec: one URL <-> one image. Shared by /design (builds the URL) and /api/card (renders it),
  * so the preview, the download and the post queue all go through the same renderer.
  */
-export const TEMPLATES = ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token"] as const;
+export const TEMPLATES = ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop"] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const TEMPLATE_LABEL: Record<Template, string> = {
@@ -13,6 +13,7 @@ export const TEMPLATE_LABEL: Record<Template, string> = {
   claimed: "claimed this week",
   bignumber: "big number",
   token: "token stats",
+  airdrop: "airdrop",
 };
 
 /** The two supported canvases. 1600x900 is what X shows uncropped in the timeline. */
@@ -37,6 +38,7 @@ export type Fields = {
   claimed: { title: string; tiles: EmojiItem[]; count: string };
   bignumber: { pair: string; figure: string; label: string };
   token: { combo: string; ticker: string; creator: string; stats: Stat[] };
+  airdrop: { combo: string; ticker: string; label: string; figure: string; sub: string; stats: Stat[] };
 };
 
 export type CardSpec<T extends Template = Template> = {
@@ -108,6 +110,19 @@ export const SAMPLE: { [T in Template]: Fields[T] } = {
       { label: "volume 24h", value: "$12,400" },
       { label: "volume 7d", value: "$61,200" },
       { label: "fees earned", value: "$2,884" },
+    ],
+  },
+  airdrop: {
+    combo: "🪟",
+    ticker: "MSFT",
+    label: "🪂 AIRDROP",
+    figure: "$1,240",
+    sub: "0.5 $MSFT airdropped to 100 holders · Sep 14",
+    stats: [
+      { label: "holders paid", value: "100" },
+      { label: "median payout", value: "$9.80" },
+      { label: "biggest payout", value: "$62" },
+      { label: "rule", value: "held 3d+" },
     ],
   },
 };
@@ -183,6 +198,16 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
       for (const st of f.stats) sp.append("stat", joinItem([st.label, st.value]));
       break;
     }
+    case "airdrop": {
+      const f = spec.fields as Fields["airdrop"];
+      sp.set("combo", f.combo);
+      sp.set("ticker", f.ticker);
+      if (f.label) sp.set("label", f.label);
+      sp.set("figure", f.figure);
+      if (f.sub) sp.set("sub", f.sub);
+      for (const st of f.stats) sp.append("stat", joinItem([st.label, st.value]));
+      break;
+    }
   }
   return sp;
 }
@@ -248,6 +273,18 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
         ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.token.ticker,
         creator: has("creator") ? clean(sp.get("creator"), 80) : "",
         stats: (stats.length ? stats : sample.token.stats).slice(0, LIMITS.statsMax),
+      };
+      break;
+    }
+    case "airdrop": {
+      const stats = sp.getAll("stat").map((r) => splitItem(r, 2)).map(([label, value]) => ({ label: clean(label, 24), value: clean(value, 24) }));
+      fields = {
+        combo: has("combo") ? clean(sp.get("combo"), 24) : sample.airdrop.combo,
+        ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.airdrop.ticker,
+        label: has("label") ? clean(sp.get("label"), 32) : "",
+        figure: has("figure") ? clean(sp.get("figure"), 24) : sample.airdrop.figure,
+        sub: has("sub") ? clean(sp.get("sub"), 100) : "",
+        stats: (stats.length ? stats : sample.airdrop.stats).slice(0, LIMITS.statsMax),
       };
       break;
     }

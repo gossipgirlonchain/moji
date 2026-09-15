@@ -25,7 +25,7 @@ import {
  * see here is byte for byte what the download, the clipboard and the post queue get.
  */
 type AllFields = { [T in Template]: Fields[T] };
-const FILLABLE: Template[] = ["pair", "leaderboard", "open", "claimed", "bignumber", "token"];
+const FILLABLE: Template[] = ["pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop"];
 /** Options for "fill from data", mirrored from src/lib/social.ts. */
 const METRICS = [
   ["fees", "fees earned"],
@@ -41,6 +41,7 @@ const STATS = [
   ["fees", "creator fees"],
   ["mcap", "combined mcap"],
   ["launches7d", "new pairs 7d"],
+  ["drops", "paid in airdrops"],
 ] as const;
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -132,6 +133,10 @@ export function DesignStudio() {
         q.set("combo", pair?.combo ?? fields.token.combo);
         q.set("ticker", pair?.ticker ?? fields.token.ticker);
       }
+      if (template === "airdrop" && pair) {
+        q.set("combo", pair.combo);
+        q.set("ticker", pair.ticker);
+      }
       const r = await fetch(`/api/design/fill?${q}`, { cache: "no-store" });
       if (r.status === 401) return router.refresh();
       const j = (await r.json()) as { fields?: Partial<Fields[Template]>; error?: string };
@@ -222,6 +227,15 @@ export function DesignStudio() {
               }}
             />
           )}
+          {template === "airdrop" && (
+            <DropPicker
+              busy={status?.kind === "busy"}
+              onPick={(d) => {
+                update("airdrop", d.fields);
+                flash("ok", `filled from the ${d.fields.combo} $${d.fields.ticker} airdrop, still editable`);
+              }}
+            />
+          )}
         </Card>
       </div>
 
@@ -266,6 +280,73 @@ export function DesignStudio() {
           </div>
           <p className="mono break-all text-[11px] leading-snug text-ink-soft">{url}</p>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+/** 2 to 4 label / value rows for the stat tiles. */
+function StatsEditor({ stats, onChange }: { stats: Stat[]; onChange: (stats: Stat[]) => void }) {
+  const set = (i: number, patch: Partial<Stat>) => onChange(stats.map((st, j) => (j === i ? { ...st, ...patch } : st)));
+  return (
+    <>
+      <span className="flex items-center justify-between">
+        <Label>stats</Label>
+        <span className={`text-[11px] ${stats.length < LIMITS.statsMin || stats.length > LIMITS.statsMax ? "text-coral" : "text-ink-soft"}`}>
+          {stats.length} of {LIMITS.statsMin} to {LIMITS.statsMax}
+        </span>
+      </span>
+      {stats.map((st, i) => (
+        <div key={i} className="grid grid-cols-[1fr_1fr_36px] gap-2">
+          <input className="clay-input" style={inputStyle} value={st.label} onChange={(e) => set(i, { label: e.target.value })} placeholder="label" aria-label={`stat ${i + 1} label`} />
+          <input className="clay-input" style={inputStyle} value={st.value} onChange={(e) => set(i, { value: e.target.value })} placeholder="value" aria-label={`stat ${i + 1} value`} />
+          <button type="button" className="press clay-pill heading bg-sky-50 text-ink-soft disabled:opacity-40" onClick={() => onChange(stats.filter((_, j) => j !== i))} disabled={stats.length <= 1} aria-label={`remove stat ${i + 1}`}>
+            ×
+          </button>
+        </div>
+      ))}
+      {stats.length < LIMITS.statsMax && <Chip onClick={() => onChange([...stats, { label: "", value: "" }])}>+ add</Chip>}
+    </>
+  );
+}
+
+type RecentDrop = { id: string; when: string; fields: Fields["airdrop"] };
+let dropsCache: RecentDrop[] | null = null;
+
+/** Recent airdrops that paid holders, newest first. One click fills the whole airdrop card. */
+function DropPicker({ onPick, busy }: { onPick: (d: RecentDrop) => void; busy?: boolean }) {
+  const router = useRouter();
+  const [drops, setDrops] = useState<RecentDrop[] | null>(dropsCache);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (dropsCache) return;
+    let alive = true;
+    fetch("/api/design/airdrops", { cache: "no-store" })
+      .then(async (r) => {
+        if (r.status === 401) return router.refresh();
+        const j = (await r.json()) as { airdrops?: RecentDrop[]; error?: string };
+        if (!r.ok || !j.airdrops) throw new Error(j.error ?? "could not load airdrops");
+        dropsCache = j.airdrops;
+        if (alive) setDrops(j.airdrops);
+      })
+      .catch((e) => alive && setErr(e instanceof Error ? e.message : "could not load airdrops"));
+    return () => {
+      alive = false;
+    };
+  }, [router]);
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <span className="flex items-center justify-between gap-2">
+        <Label>recent airdrops</Label>
+        <span className="text-[11px] text-ink-soft">{drops ? `${drops.length} paid out, newest first` : err ?? "loading…"}</span>
+      </span>
+      <div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto scroll-y pb-1">
+        {(drops ?? []).map((d) => (
+          <Chip key={d.id} onClick={() => onPick(d)} disabled={busy} title={new Date(d.when).toLocaleString()}>
+            {d.fields.combo} ${d.fields.ticker} · {d.fields.figure} · {d.fields.stats[0]?.value ?? "?"} holders
+          </Chip>
+        ))}
+        {drops && !drops.length && <span className="text-[12px] text-ink-soft">no airdrops have paid holders yet</span>}
       </div>
     </div>
   );
@@ -410,6 +491,18 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
           <Input label="pair" value={f.pair} onChange={(e) => update("bignumber", { pair: e.target.value })} placeholder="🧇 / $TSM" />
           <Input label="figure" value={f.figure} onChange={(e) => update("bignumber", { figure: e.target.value })} placeholder="+340%" />
           <Input label="label" value={f.label} onChange={(e) => update("bignumber", { label: e.target.value })} placeholder="this week" />
+        </>
+      );
+    }
+    case "airdrop": {
+      const f = fields.airdrop;
+      return (
+        <>
+          <Input label="pair" hint="pick an airdrop below, or type 🪟 / MSFT and fill from data" value={`${f.combo}${f.ticker ? ` / ${f.ticker}` : ""}`} onChange={(e) => update("airdrop", parsePair(e.target.value))} placeholder="🪟 / MSFT" />
+          <Input label="pill label (optional)" value={f.label} onChange={(e) => update("airdrop", { label: e.target.value })} placeholder="🪂 AIRDROP" />
+          <Input label="figure" value={f.figure} onChange={(e) => update("airdrop", { figure: e.target.value })} placeholder="$1,240" />
+          <Input label="summary line (optional)" value={f.sub} onChange={(e) => update("airdrop", { sub: e.target.value })} placeholder="0.5 $MSFT airdropped to 100 holders · Sep 14" />
+          <StatsEditor stats={f.stats} onChange={(stats) => update("airdrop", { stats })} />
         </>
       );
     }

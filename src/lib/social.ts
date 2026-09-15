@@ -4,7 +4,8 @@ import { NETWORK } from "./network";
 import { claimsCount, getMoji, topEarnersFast } from "./data";
 import { EXTENSION_POOL, normalizeCombo } from "./emoji";
 import { getPriceSeries } from "./market";
-import { timeAgo } from "./format";
+import { dateShort, timeAgo } from "./format";
+import type { DropRow } from "./drops/types";
 import { dollar, type Fields, type Template } from "./card/params";
 
 /**
@@ -41,6 +42,7 @@ export const STATS = {
   fees: "creator fees",
   mcap: "combined market cap",
   launches7d: "new pairs this week",
+  drops: "paid in airdrops",
 } as const;
 export type Stat = keyof typeof STATS;
 export const isStat = (s: string | null | undefined): s is Stat => Boolean(s) && s! in STATS;
@@ -129,6 +131,12 @@ export async function bignumberFill(stat: Stat = "mover"): Promise<Partial<Field
     const { count } = await supabaseServer().from("mojis").select("id", { count: "exact", head: true }).eq("network", NETWORK).gte("launched_at", since);
     return { pair: "this week", figure: (count ?? 0).toLocaleString("en-US"), label: "new pairs" };
   }
+  if (stat === "drops") {
+    const { data } = await supabaseServer().from("drops").select("sent_usd, sent_count").eq("network", NETWORK).gt("sent_count", 0).limit(5000);
+    const rows = (data ?? []) as Pick<DropRow, "sent_usd" | "sent_count">[];
+    const total = rows.reduce((acc, d) => acc + n(d.sent_usd), 0);
+    return { pair: `${rows.length.toLocaleString("en-US")} airdrops`, figure: money(total), label: "paid to holders" };
+  }
   const pools = await livePools();
   const sum = (f: (m: MojiRow) => number) => pools.reduce((acc, m) => acc + f(m), 0);
   switch (stat) {
@@ -162,6 +170,77 @@ export async function tokenFill(combo: string, ticker: string): Promise<Partial<
   };
 }
 
+/** Amount of a drop token in plain words: "0.5 $MSFT" or "12,000 🪟". */
+function dropAmount(d: DropRow): string {
+  const v = n(d.amount);
+  const num = v >= 1000 ? Math.round(v).toLocaleString("en-US") : v.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  return d.token_kind === "stock" ? `${num} ${dollar(d.token_symbol)}` : `${num} ${d.token_symbol}`;
+}
+
+export type RecentDrop = { id: string; when: string; fields: Fields["airdrop"] };
+
+/**
+ * Recent airdrops (rows of the `drops` table) that actually paid holders, newest first, shaped as airdrop card fields:
+ * figure is the USD paid, the summary line says what went to how many holders, and the tiles carry
+ * holders paid, median and biggest payout, and the rule the creator set.
+ */
+export async function recentDrops(limit = 30): Promise<RecentDrop[]> {
+  if (!hasSupabase()) return [];
+  const sb = supabaseServer();
+  const { data } = await sb.from("drops").select("*").eq("network", NETWORK).gt("sent_count", 0).order("created_at", { ascending: false }).limit(limit);
+  const drops = (data ?? []) as DropRow[];
+  if (!drops.length) return [];
+  const [{ data: mojis }, { data: payouts }] = await Promise.all([
+    sb.from("mojis").select("id, display, stock_ticker").in("id", [...new Set(drops.map((d) => d.moji_id))]),
+    sb.from("drop_payouts").select("drop_id, amount_usd").in("drop_id", drops.map((d) => d.id)).not("tx_hash", "is", null).limit(5000),
+  ]);
+  const byMoji = new Map(((mojis ?? []) as Pick<MojiRow, "id" | "display" | "stock_ticker">[]).map((m) => [m.id, m]));
+  const paid = new Map<string, number[]>();
+  for (const p of (payouts ?? []) as { drop_id: string; amount_usd: number }[]) paid.set(p.drop_id, [...(paid.get(p.drop_id) ?? []), n(p.amount_usd)]);
+  return drops.flatMap((d) => {
+    const m = byMoji.get(d.moji_id);
+    if (!m) return [];
+    const amounts = (paid.get(d.id) ?? []).sort((a, b) => a - b);
+    const median = amounts.length ? amounts[Math.floor(amounts.length / 2)] : 0;
+    const max = amounts.length ? amounts[amounts.length - 1] : 0;
+    const when = d.completed_at ?? d.created_at;
+    const rule = d.hold_days > 0 ? `held ${d.hold_days}d+` : `top ${d.top_n}`;
+    const stats = [
+      { label: "holders paid", value: d.sent_count.toLocaleString("en-US") },
+      { label: "median payout", value: money(median) },
+      { label: "biggest payout", value: money(max) },
+      { label: "rule", value: rule },
+    ];
+    return [
+      {
+        id: d.id,
+        when,
+        fields: {
+          combo: m.display,
+          ticker: m.stock_ticker,
+          label: "🪂 AIRDROP",
+          figure: n(d.sent_usd) > 0 ? money(n(d.sent_usd)) : dropAmount(d),
+          sub: `${dropAmount(d)} airdropped to ${d.sent_count.toLocaleString("en-US")} holders · ${dateShort(when)}`,
+          stats,
+        },
+      },
+    ];
+  });
+}
+
+/** airdrop: the latest airdrop that paid holders, or a given pair's latest drop when combo + ticker are passed. */
+export async function airdropFill(combo = "", ticker = ""): Promise<Partial<Fields["airdrop"]> | null> {
+  const all = await recentDrops(60);
+  if (!all.length) return null;
+  if (combo.trim()) {
+    const want = normalizeCombo(combo);
+    const t = ticker.trim().replace(/^\$/, "").toUpperCase();
+    const hit = all.find((d) => normalizeCombo(d.fields.combo) === want && (!t || d.fields.ticker.toUpperCase() === t));
+    return hit ? hit.fields : null;
+  }
+  return all[0].fields;
+}
+
 export type FillOptions = { metric?: Metric; stat?: Stat; combo?: string; ticker?: string };
 
 export async function fillFor(template: Template, opts: FillOptions = {}): Promise<Partial<Fields[Template]> | null> {
@@ -178,6 +257,8 @@ export async function fillFor(template: Template, opts: FillOptions = {}): Promi
       return bignumberFill(opts.stat);
     case "token":
       return tokenFill(opts.combo ?? "", opts.ticker ?? "");
+    case "airdrop":
+      return airdropFill(opts.combo, opts.ticker);
     default:
       return null;
   }
