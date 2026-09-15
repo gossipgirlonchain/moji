@@ -18,20 +18,20 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
         disabled={soon && !tease}
         onClick={() => onChange(c)}
         data-pressed={active ? "true" : undefined}
-        className={`press clay-pill heading flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[14px] ${
+        className={`press clay-pill heading flex min-w-0 items-center justify-center gap-1 px-2 py-2.5 text-[13px] ${
           active ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"
         } ${soon ? "opacity-55" : ""}`}
       >
         <span>{c.emoji}</span>
-        <span>{c.short}</span>
-        {soon && <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-ink-soft">soon</span>}
+        <span className="truncate">{c.short}</span>
+        {soon && <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.08em] text-ink-soft">soon</span>}
       </button>
     );
   };
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex gap-2.5">{top.map(pill)}</div>
-      <div className="flex gap-2.5">{rest.map(pill)}</div>
+      <div className="grid grid-cols-3 gap-2">{top.map(pill)}</div>
+      <div className="grid grid-cols-3 gap-2">{rest.map(pill)}</div>
     </div>
   );
 }
