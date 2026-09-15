@@ -25,7 +25,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
   let scanError: string | undefined;
   if (stale || u.searchParams.get("scan") === "1") {
     try {
-      scan = await scanHolders(m, { maxChunks: 8 });
+      scan = await scanHolders(m, { maxChunks: 40, budgetMs: 40_000 });
       const { data } = await supabaseServer().from("mojis").select("*").eq("id", m.id).single();
       if (data) m = data as typeof m;
     } catch (e) {

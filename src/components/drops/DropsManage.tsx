@@ -224,24 +224,33 @@ function DropsTab(p: ManageProps) {
   const [err, setErr] = useState<string | null>(null);
   /** the drop being sent right now (or resumed) */
   const [active, setActive] = useState<{ drop: DropRow; payouts: PayoutRow[] } | null>(null);
-  const [scan, setScan] = useState<{ holders: number; at: string | null } | null>(null);
+  const [scan, setScan] = useState<{ holders: number; at: string | null; complete: boolean; error?: string } | null>(null);
   const [scanTick, setScanTick] = useState(0);
   const running = useRef(false);
   const stop = useRef(false);
 
-  // make sure this moji's holders have been scanned (the route scans when the cursor is stale)
+  // make sure this moji's holders are scanned to the head: the route scans in 40s slices and saves its
+  // cursor after every chunk, so keep calling it until it reports complete
   useEffect(() => {
     let alive = true;
-    fetch(`/api/mojis/${encodeURIComponent(p.combo)}/holders?chain=${p.chainId}&pair=${p.stockAddress}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { summary?: { holders: number; scannedAt: string | null } } | null) => {
-        if (!alive || !j?.summary) return;
-        setScan({ holders: j.summary.holders, at: j.summary.scannedAt });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/mojis/${encodeURIComponent(p.combo)}/holders?chain=${p.chainId}&pair=${p.stockAddress}&scan=1`, { cache: "no-store" });
+        const j = (await r.json()) as { summary?: { holders: number; scannedAt: string | null }; scan?: { complete: boolean } | null; scanError?: string };
+        if (!alive) return;
+        const complete = j.scan ? j.scan.complete : Boolean(j.summary?.scannedAt);
+        setScan({ holders: j.summary?.holders ?? 0, at: j.summary?.scannedAt ?? null, complete, error: j.scanError });
         setScanTick((t) => t + 1);
-      })
-      .catch(() => {});
+        if (!complete) timer = setTimeout(tick, j.scanError ? 15_000 : 1_500);
+      } catch {
+        if (alive) timer = setTimeout(tick, 15_000);
+      }
+    };
+    void tick();
     return () => {
       alive = false;
+      if (timer) clearTimeout(timer);
     };
   }, [p.combo, p.chainId, p.stockAddress]);
 
@@ -459,7 +468,7 @@ function DropsTab(p: ManageProps) {
   }
 
   const lastSent = view?.drops.find((d) => d.status === "sent");
-  const scanning = scan ? !scan.at : preview?.scanning === true;
+  const scanning = scan ? !scan.complete : preview?.scanning === true;
   const ready = Boolean(preview && !preview.error && !preview.scanning && preview.paid > 0) && !previewing;
   const transfers = preview ? preview.paid + (Number(preview.fee) > 0 ? 1 : 0) : 0;
   const canStart = isCreator && Boolean(p.tokenAddress) && amountWei != null && amountWei > 0n && !overBalance && !busy && !active && ready;
@@ -467,7 +476,9 @@ function DropsTab(p: ManageProps) {
   const problem = !isCreator
     ? `connect the wallet that launched ${p.combo}`
     : scanning || preview?.scanning
-      ? "scanning holders, about a minute…"
+      ? scan?.error
+        ? `scanning holders… retrying (${scan.error.slice(0, 80)})`
+        : `scanning holders…${scan && scan.holders > 0 ? ` ${scan.holders} so far` : ""}`
       : overBalance
       ? `not enough ${symbol} for the amount plus the ${feeBps / 100}% fee`
       : preview?.error
@@ -481,7 +492,7 @@ function DropsTab(p: ManageProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-2">
-        <Tile label="holders" value={scan ? String(scan.holders) : scanning || !p.stats.holders ? "…" : String(p.stats.holders)} sub={scan && !scan.at ? "scanning" : undefined} />
+        <Tile label="holders" value={scan ? String(scan.holders) : scanning || !p.stats.holders ? "…" : String(p.stats.holders)} sub={scan && !scan.complete ? "scanning" : undefined} />
         <Tile label="dropped so far" value={usd(p.stats.dropsPaidUsd)} sub={lastSent ? `last ${dateShort(lastSent.completed_at ?? lastSent.cut_at)}` : undefined} tone="mint" />
         <Tile label={`your ${p.ticker}`} value={balances ? fmtTok(formatUnits(balances.stock, p.stockDecimals)) : "—"} />
         <Tile label={`your ${p.combo}`} value={balances ? fmtTok(formatUnits(balances.moji, 18), 0) : "—"} />

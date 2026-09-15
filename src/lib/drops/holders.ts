@@ -20,13 +20,13 @@ function scanClient(chain: Chain): PublicClient {
   if (pc) return pc;
   if (chain.id === 4663) {
     const urls = [process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL, "https://rpc.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com"].filter((u): u is string => Boolean(u));
-    const opts = { fetchOptions: { headers: { "user-agent": "moji.wtf" } }, retryCount: 2, retryDelay: 400, timeout: 20_000 } as const;
+    const opts = { fetchOptions: { headers: { "user-agent": "moji.wtf" } }, retryCount: 2, retryDelay: 400, timeout: 20_000, batch: { batchSize: 50, wait: 10 } } as const;
     pc = createPublicClient({ chain, transport: fallback(urls.map((u) => http(u, opts)), { retryCount: 1 }) }) as PublicClient;
   } else pc = publicClientFor(chain);
   scanClients.set(chain.id, pc);
   return pc;
 }
-const CHUNK: Record<number, bigint> = { 4663: 200_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n };
+const CHUNK: Record<number, bigint> = { 4663: 60_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n };
 const ZERO = "0x0000000000000000000000000000000000000000";
 const DEAD = "0x000000000000000000000000000000000000dead";
 
@@ -86,8 +86,8 @@ async function blockTimes(chainId: number, blocks: bigint[]): Promise<Map<bigint
   if (still.length) {
     const pc = scanClient(chain.viem);
     const rows: { chain_id: number; block: string; ts: string }[] = [];
-    for (let i = 0; i < still.length; i += 8) {
-      const batch = still.slice(i, i + 8);
+    for (let i = 0; i < still.length; i += 200) {
+      const batch = still.slice(i, i + 200);
       const got = await Promise.all(batch.map((b) => pc.getBlock({ blockNumber: b }).then((blk) => Number(blk.timestamp))));
       batch.forEach((b, j) => {
         out.set(b, got[j]);
@@ -105,7 +105,9 @@ async function blockTimes(chainId: number, blocks: bigint[]): Promise<Map<bigint
  * store every transfer, and fold them into holder_balances. Idempotent: rows are keyed on (block, log_index)
  * and the cursor only moves forward once a chunk is stored.
  */
-export async function scanHolders(m: MojiRow, opts: { maxChunks?: number } = {}): Promise<HolderScan | null> {
+export async function scanHolders(m: MojiRow, opts: { maxChunks?: number; budgetMs?: number } = {}): Promise<HolderScan | null> {
+  const started = Date.now();
+  const budget = opts.budgetMs ?? 240_000;
   const chain = chainById(m.chain_id);
   if (!chain?.viem || !m.token_address) return null;
   const pc = scanClient(chain.viem);
@@ -127,7 +129,7 @@ export async function scanHolders(m: MojiRow, opts: { maxChunks?: number } = {})
   let total = 0;
   const token = m.token_address as Address;
 
-  while (cursor <= head && chunks < maxChunks) {
+  while (cursor <= head && chunks < maxChunks && Date.now() - started < budget) {
     const to = cursor + chunk - 1n > head ? head : cursor + chunk - 1n;
     let logs;
     try {
