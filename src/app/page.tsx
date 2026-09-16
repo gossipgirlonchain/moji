@@ -18,7 +18,7 @@ export default async function Home() {
   return (
     <>
       {/* desktop: wide layout, more mojis on screen */}
-      <main className="hidden flex-col gap-5 lg:flex">
+      <main className="home-desktop flex-col gap-5">
         <div className="pop flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <Wordmark />
@@ -44,7 +44,7 @@ export default async function Home() {
       </main>
 
       {/* phone column, unchanged */}
-    <main className="flex flex-col gap-4 lg:hidden">
+    <main className="home-phone flex-col gap-4">
       <div className="pop text-center">
         <Wordmark />
         <p className="heading text-[20px] text-ink">pick an emoji. pick a stock or token. launch.</p>
