@@ -182,13 +182,3 @@ em-emoji-picker {
 }
 
 .mono { font-family: var(--font-heading); letter-spacing: 0.02em; }
-
-/* Home page layout. Plain CSS on purpose: these rules must survive any cached build. */
-.shell-home { max-width: 460px; }
-.home-desktop { display: none; }
-.home-phone { display: flex; }
-@media (min-width: 1024px) {
-  .shell-home { max-width: 1360px; }
-  .home-desktop { display: flex; }
-  .home-phone { display: none; }
-}
