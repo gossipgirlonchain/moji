@@ -4,38 +4,14 @@ import { Wordmark } from "@/components/Wordmark";
 import { McapRow } from "@/components/MojiBits";
 import { HomeTiles } from "@/components/HomeTiles";
 import { claimsCount, listMojis } from "@/lib/data";
-import { StockTicker } from "@/components/home/StockTicker";
-import { TopMojis } from "@/components/home/TopMojis";
-import { HomeExplore } from "@/components/home/HomeExplore";
 
 export const revalidate = 30;
 
 export default async function Home() {
-  const [count, top, recent, all] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 16 }), listMojis({ sort: "newest", limit: 16 }), listMojis({ sort: "mcap", limit: 120 })]);
+  const [count, top, recent] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 16 }), listMojis({ sort: "newest", limit: 16 })]);
 
   return (
-    <>
-      {/* desktop: wide layout, more mojis on screen */}
-      <main className="hidden flex-col gap-5 lg:flex">
-        <div className="pop flex items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <Wordmark />
-            <p className="heading text-[18px] text-ink">pick an emoji. pick a stock or token. launch.</p>
-          </div>
-          <Link href="/launch" className="press clay heading shrink-0 bg-sky-500 px-7 py-3.5 text-[17px] text-white">
-            LAUNCH A MOJI 🚀
-          </Link>
-        </div>
-        <StockTicker mojis={all} />
-        <TopMojis mojis={top} />
-        <HomeExplore mojis={all} count={count} />
-        <p className="text-center text-[13px] text-ink-soft">
-          pick a stock or token · claim your emoji · launch · 🪂 drop rewards to your holders · built on <Link href="/about" className="text-sky-600">Doppler</Link>.
-        </p>
-      </main>
-
-      {/* phone column, unchanged */}
-    <main className="flex flex-col gap-4 lg:hidden">
+    <main className="flex flex-col gap-4">
       <div className="pop text-center">
         <Wordmark />
         <p className="heading text-[20px] text-ink">pick an emoji. pick a stock or token. launch.</p>
@@ -80,6 +56,5 @@ export default async function Home() {
         built on <Link href="/about" className="text-sky-600">Doppler</Link>.
       </p>
     </main>
-    </>
   );
 }

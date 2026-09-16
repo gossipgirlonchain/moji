@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { MojiRow } from "@/lib/supabase";
 import { MojiListRow, volumeFor, type VolWindow } from "./MojiBits";
 import { Pill } from "./ui";
-import { CHAINS } from "@/config/chains";
 
 const SORTS = [
   ["mcap", "market cap"],
@@ -19,11 +18,6 @@ export function ExploreList({ initial }: { initial: MojiRow[] }) {
   const [sort, setSort] = useState<Sort>("mcap");
   const [window, setWindow] = useState<VolWindow>("24h");
   const [q, setQ] = useState("");
-  const [chain, setChain] = useState<number | null>(null);
-  const chains = useMemo(() => {
-    const present = new Set(rows.map((m) => m.chain_id));
-    return CHAINS.filter((c) => present.has(c.chainId));
-  }, [rows]);
 
   useEffect(() => {
     let alive = true;
@@ -38,10 +32,9 @@ export function ExploreList({ initial }: { initial: MojiRow[] }) {
 
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
-    const byChain = chain ? rows.filter((m) => m.chain_id === chain) : rows;
-    const base = t ? byChain.filter((m) => m.display.includes(t) || m.stock_ticker.toLowerCase().includes(t)) : byChain;
+    const base = t ? rows.filter((m) => m.display.includes(t) || m.stock_ticker.toLowerCase().includes(t)) : rows;
     return sort === "volume" ? [...base].sort((a, b) => volumeFor(b, window) - volumeFor(a, window)) : base;
-  }, [rows, q, sort, window, chain]);
+  }, [rows, q, sort, window]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -66,18 +59,6 @@ export function ExploreList({ initial }: { initial: MojiRow[] }) {
           </button>
         ))}
       </div>
-      {chains.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setChain(null)} data-pressed={chain === null ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${chain === null ? "bg-sky-500 text-white" : "bg-white text-ink"}`}>
-            all chains
-          </button>
-          {chains.map((c) => (
-            <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${chain === c.chainId ? "bg-sky-500 text-white" : "bg-white text-ink"}`} title={c.name}>
-              {c.emoji} {c.short}
-            </button>
-          ))}
-        </div>
-      )}
       <div className="flex flex-col gap-2.5">
         {list.length === 0 && <p className="py-6 text-center text-[14px] text-ink-soft">No mojis match.</p>}
         {list.map((m) => (
