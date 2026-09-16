@@ -7,7 +7,7 @@ import type { MojiRow } from "@/lib/supabase";
 import { CHAINS } from "@/config/chains";
 import { usd } from "@/lib/format";
 import { Pill } from "@/components/ui";
-import { DropsDot, mojiHref } from "@/components/MojiBits";
+import { ChainDot, DropsDot, mojiHref } from "@/components/MojiBits";
 
 export type StockGroup = {
   key: string;
@@ -91,7 +91,7 @@ export function StockCards({ groups }: { groups: StockGroup[] }) {
               </button>
               {chains.map((c) => (
                 <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={pill(chain === c.chainId)} title={c.name}>
-                  {c.short}
+                  {c.emoji} {c.short}
                 </button>
               ))}
             </>
@@ -165,6 +165,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
       </header>
       <div className="grid grid-cols-[1.35fr_1fr] gap-3">
         <Link href={mojiHref(lead)} className="press clay-sm relative flex flex-col items-center justify-center gap-1 bg-sky-50 px-3 py-5 text-center">
+          <ChainDot chainId={lead.chain_id} className="absolute left-3 top-3 opacity-80" />
           <DropsDot m={lead} className="absolute right-3 top-3" />
           <span className="text-[18px] leading-none">👑</span>
           <span className="text-[60px] leading-none">{lead.display}</span>
@@ -174,6 +175,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
         <div className="flex flex-col gap-3">
           {runners.map((m) => (
             <Link key={m.id} href={mojiHref(m)} className="press clay-sm relative flex flex-1 flex-col items-center justify-center gap-0.5 bg-sky-50 px-2 py-3 text-center">
+              <ChainDot chainId={m.chain_id} className="absolute left-2.5 top-2.5 opacity-80" />
               <DropsDot m={m} className="absolute right-2.5 top-2.5 !text-[16px]" />
               <span className="text-[30px] leading-none">{m.display}</span>
               <span className="num text-[18px] leading-none text-ink">{pct(share(m))}</span>

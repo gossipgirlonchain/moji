@@ -73,7 +73,7 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
           </button>
           {chains.map((c) => (
             <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${chain === c.chainId ? "bg-sky-500 text-white" : "bg-white text-ink"}`} title={c.name}>
-              {c.short}
+              {c.emoji} {c.short}
             </button>
           ))}
         </div>

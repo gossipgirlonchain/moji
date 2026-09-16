@@ -77,7 +77,7 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
               </button>
               {chains.map((c) => (
                 <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={`press clay-pill heading px-3 py-1.5 text-[12px] ${chain === c.chainId ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`} title={c.name}>
-                  {c.short}
+                  {c.emoji} {c.short}
                 </button>
               ))}
             </>

@@ -54,6 +54,7 @@ export function MojiTile({ m, pop, compact }: { m: MojiRow; pop?: number; compac
       href={mojiHref(m)}
       className={`press relative flex flex-col items-center gap-1 text-center ${compact ? "clay-sm bg-sky-50 px-2 pb-4 pt-5" : "clay bg-white px-3 py-5"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
+      <ChainDot chainId={m.chain_id} className="absolute left-3 top-3 opacity-80" />
       <DropsDot m={m} className="absolute right-3 top-3" />
       <span className="text-[44px] leading-none">{m.display}</span>
       <span className="heading mt-2 max-w-full truncate text-[15px] text-ink">
@@ -105,7 +106,7 @@ export function MojiListRow({ m, window = "24h" }: { m: MojiRow; window?: VolWin
       <span className="text-[30px] leading-none">{m.display}</span>
       <span className="flex-1">
         <span className="heading block text-[15px] text-ink">
-          {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
+          {m.display} / {m.stock_ticker} <ChainDot chainId={m.chain_id} className="ml-1 inline-block align-middle" /> <DropsPill m={m} className="ml-1 align-middle" />
         </span>
         <span className="heading block text-[12px] text-ink-soft">
           {vol > 0 ? `vol ${window} ${usd(vol)} · ` : ""}fees <span className="text-mint">{usd(total)}</span>
