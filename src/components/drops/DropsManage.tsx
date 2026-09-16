@@ -176,7 +176,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "mi
 
 /* ───────────────────────── drops ───────────────────────── */
 
-const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "20", holdDays: "0", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, excluded: "" };
+const DEFAULTS = { token: "stock" as TokenKind, amount: "", topN: "20", holdDays: "0", minHold: "0", minPayoutUsd: "2", split: "prorata" as Split, maxPct: "15", excluded: "" };
 
 /** Big labelled input. Own styling (not .clay-input) so widths come from the grid, never from the class. */
 function Field({ label, unit, hint, value, onChange, disabled, mode = "decimal", children }: { label: string; unit?: string; hint?: string; value?: string; onChange?: (v: string) => void; disabled?: boolean; mode?: "decimal" | "numeric"; children?: React.ReactNode }) {
@@ -268,7 +268,8 @@ function DropsTab(p: ManageProps) {
   const feeBps = preview?.feeBps ?? view?.feeBps ?? 50;
   const totalWei = amountWei != null ? amountWei + (amountWei * BigInt(feeBps)) / 10_000n : null;
   const overBalance = balance != null && totalWei != null && totalWei > balance;
-  const capBps = 0; // no per-wallet cap: "by holding" is plain pro-rata, "equal" is equal
+  // per-wallet cap as a share of the pot; 0 or blank means no cap. The excess spreads down to the other wallets.
+  const capBps = f.split === "prorata" ? Math.min(10_000, Math.max(0, Math.round((Number(f.maxPct) || 0) * 100))) : 0;
   const [stockPrice, setStockPrice] = useState<number>(0);
   useEffect(() => {
     fetch(`/api/price?ticker=${encodeURIComponent(p.ticker)}`, { cache: "no-store" })
@@ -583,7 +584,10 @@ function DropsTab(p: ManageProps) {
                 everyone gets the same
               </button>
             </div>
-            <Field label="skip anyone getting under" unit="$" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="skip anyone under" unit="$" value={f.minPayoutUsd} onChange={set("minPayoutUsd")} disabled={Boolean(active)} />
+              {f.split === "prorata" && <Field label="max per wallet" unit="%" hint="0 = no cap" value={f.maxPct} onChange={set("maxPct")} disabled={Boolean(active)} />}
+            </div>
             <textarea className="clay-input min-h-[44px] text-[12px]" placeholder="wallets to leave out, one per line" value={f.excluded} onChange={(e) => set("excluded")(e.target.value)} disabled={Boolean(active)} />
           </div>
         )}
@@ -613,6 +617,7 @@ function DropsTab(p: ManageProps) {
                 </div>
                 <p className="mt-3 text-center text-[12px] text-ink-soft">
                   total <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
+                  {capBps > 0 && capBps < 10_000 && <span className="text-ink-soft"> · max {capBps / 100}% each</span>}
                 </p>
                 <div className="mt-3 max-h-[260px] overflow-y-auto border-t border-sky-100 pt-2">
                   {preview.top.map((t) => (
