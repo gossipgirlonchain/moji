@@ -18,7 +18,7 @@ export default async function Home() {
   return (
     <>
       {/* desktop: wide layout, more mojis on screen */}
-      <main className="home-desktop flex-col gap-5">
+      <main className="home-desktop home-breakout flex-col gap-5">
         <div className="pop flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <Wordmark />

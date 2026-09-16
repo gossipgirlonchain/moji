@@ -191,4 +191,7 @@ em-emoji-picker {
   .shell-home { max-width: 1360px; }
   .home-desktop { display: flex; }
   .home-phone { display: none; }
+  /* Escape the 460px shell regardless of how the wrapper was rendered: full viewport width, centred 1360px column. */
+  .home-breakout { width: calc(100vw - 40px); max-width: 1360px; margin-left: calc(50% - 50vw + 20px); margin-right: calc(50% - 50vw + 20px); }
+  @media (min-width: 1400px) { .home-breakout { margin-left: calc(50% - 680px); margin-right: calc(50% - 680px); } }
 }
