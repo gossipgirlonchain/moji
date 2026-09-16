@@ -7,13 +7,11 @@ import { claimsCount, listMojis } from "@/lib/data";
 import { StockTicker } from "@/components/home/StockTicker";
 import { TopMojis } from "@/components/home/TopMojis";
 import { HomeExplore } from "@/components/home/HomeExplore";
-import { StockEcosystem } from "@/components/home/StockEcosystem";
-import { HomeViews } from "@/components/home/HomeViews";
 
 export const revalidate = 30;
 
 export default async function Home() {
-  const [count, top, recent, all] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 16 }), listMojis({ sort: "newest", limit: 16 }), listMojis({ sort: "mcap", limit: 500 })]);
+  const [count, top, recent, all] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 16 }), listMojis({ sort: "newest", limit: 16 }), listMojis({ sort: "mcap", limit: 120 })]);
 
   return (
     <>
@@ -29,15 +27,8 @@ export default async function Home() {
           </Link>
         </div>
         <StockTicker mojis={all} />
-        <HomeViews
-          stocks={<StockEcosystem mojis={all} />}
-          mojis={
-            <>
-              <TopMojis mojis={top} />
-              <HomeExplore mojis={all} count={count} />
-            </>
-          }
-        />
+        <TopMojis mojis={top} />
+        <HomeExplore mojis={all} count={count} />
         <p className="text-center text-[13px] text-ink-soft">
           pick a stock or token · claim your emoji · launch · 🪂 drop rewards to your holders · built on <Link href="/about" className="text-sky-600">Doppler</Link>.
         </p>
