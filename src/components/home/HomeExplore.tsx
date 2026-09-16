@@ -6,7 +6,6 @@ import type { MojiRow } from "@/lib/supabase";
 import { CHAINS } from "@/config/chains";
 import { MojiTile, hasHolderRewards, volumeFor, type VolWindow } from "@/components/MojiBits";
 import { Pill } from "@/components/ui";
-import { ChainSelect } from "@/components/ChainSelect";
 import { ClaimsCounter } from "@/components/ClaimsCounter";
 
 type Sort = "trending" | "new" | "rewards" | "mcap" | "fees";
@@ -70,7 +69,19 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
                 {w === "all" ? "all time" : w}
               </button>
             ))}
-          <ChainSelect chains={chains} value={chain} onChange={setChain} className="ml-2" />
+          {chains.length > 1 && (
+            <>
+              <span className="mx-1 text-ink-soft">·</span>
+              <button type="button" onClick={() => setChain(null)} data-pressed={chain === null ? "true" : undefined} className={`press clay-pill heading px-3 py-1.5 text-[12px] ${chain === null ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`}>
+                all chains
+              </button>
+              {chains.map((c) => (
+                <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={`press clay-pill heading px-3 py-1.5 text-[12px] ${chain === c.chainId ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`} title={c.name}>
+                  {c.short}
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
       {list.length === 0 ? (

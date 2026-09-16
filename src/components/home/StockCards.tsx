@@ -7,7 +7,6 @@ import type { MojiRow } from "@/lib/supabase";
 import { CHAINS } from "@/config/chains";
 import { usd } from "@/lib/format";
 import { Pill } from "@/components/ui";
-import { ChainSelect } from "@/components/ChainSelect";
 import { DropsDot, mojiHref } from "@/components/MojiBits";
 
 export type StockGroup = {
@@ -25,8 +24,9 @@ export type StockGroup = {
 type Sort = "stockMcap" | "stockVol" | "mojiMcap" | "mojiVol" | "name";
 const SORTS: [Sort, string][] = [
   ["mojiMcap", "moji mcap"],
-  ["mojiVol", "volume"],
+  ["mojiVol", "moji volume"],
   ["stockMcap", "stock mcap"],
+  ["stockVol", "stock volume"],
   ["name", "name"],
 ];
 const PAGE = 12;
@@ -69,17 +69,34 @@ export function StockCards({ groups }: { groups: StockGroup[] }) {
     return rows;
   }, [groups, sort, q, chain]);
 
+  const pill = (on: boolean) => `press clay-pill heading px-3 py-1.5 text-[12px] ${on ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`;
+
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        {SORTS.map(([k, label]) => (
-          <Pill key={k} active={sort === k} onClick={() => setSort(k)} className="px-3.5 py-1.5 text-[13px]">
-            {label}
-          </Pill>
-        ))}
-        <span className="flex-1" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="search" className="clay-pill heading w-[180px] bg-white px-4 py-1.5 text-[13px] text-ink outline-none placeholder:text-ink-soft" />
-        <ChainSelect chains={chains} value={chain} onChange={setChain} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {SORTS.map(([k, label]) => (
+            <Pill key={k} active={sort === k} onClick={() => setSort(k)} className="px-3.5 py-1.5 text-[13px]">
+              {label}
+            </Pill>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="search company or moji" className="clay-pill heading w-[220px] bg-white px-4 py-1.5 text-[13px] text-ink outline-none placeholder:text-ink-soft" />
+          {chains.length > 1 && (
+            <>
+              <span className="mx-1 text-ink-soft">·</span>
+              <button type="button" onClick={() => setChain(null)} data-pressed={chain === null ? "true" : undefined} className={pill(chain === null)}>
+                all chains
+              </button>
+              {chains.map((c) => (
+                <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={pill(chain === c.chainId)} title={c.name}>
+                  {c.short}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
       </div>
       {list.length === 0 ? (
         <p className="py-6 text-center text-[14px] text-ink-soft">Nothing matches.</p>

@@ -5,7 +5,6 @@ import type { MojiRow } from "@/lib/supabase";
 import { MojiListRow, volumeFor, type VolWindow } from "./MojiBits";
 import { Pill } from "./ui";
 import { CHAINS } from "@/config/chains";
-import { ChainSelect } from "./ChainSelect";
 
 const SORTS = [
   ["mcap", "market cap"],
@@ -67,7 +66,18 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
           </button>
         ))}
       </div>
-      <ChainSelect chains={chains} value={chain} onChange={setChain} className="self-start" />
+      {chains.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setChain(null)} data-pressed={chain === null ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${chain === null ? "bg-sky-500 text-white" : "bg-white text-ink"}`}>
+            all chains
+          </button>
+          {chains.map((c) => (
+            <button key={c.chainId} type="button" onClick={() => setChain(c.chainId)} data-pressed={chain === c.chainId ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${chain === c.chainId ? "bg-sky-500 text-white" : "bg-white text-ink"}`} title={c.name}>
+              {c.short}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-col gap-2.5">
         {list.length === 0 && <p className="py-6 text-center text-[14px] text-ink-soft">No mojis match.</p>}
         {list.map((m) => (
