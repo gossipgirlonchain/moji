@@ -10,5 +10,5 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const dashboard = pathname?.startsWith("/admin") || pathname?.startsWith("/design") || pathname?.startsWith("/creators");
   const home = pathname === "/";
-  return <div className={`mx-auto w-full px-5 pb-28 pt-4 min-h-screen ${dashboard ? "max-w-[1240px]" : home ? "max-w-[460px] lg:max-w-[1360px]" : "max-w-[460px]"}`}>{children}</div>;
+  return <div className={`mx-auto w-full px-5 pb-28 pt-4 min-h-screen ${dashboard ? "max-w-[1240px]" : home ? "shell-home" : "max-w-[460px]"}`}>{children}</div>;
 }
