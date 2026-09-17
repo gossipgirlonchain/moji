@@ -603,12 +603,12 @@ function DropsTab(p: ManageProps) {
               <>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <div className="num text-[22px] leading-none text-ink">{preview.paid}</div>
+                    <div className="num text-[22px] leading-none text-ink">{preview.eligible}</div>
                     <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">wallets</div>
                   </div>
                   <div>
-                    <div className="num text-[22px] leading-none text-ink">{usd(preview.medianUsd)}</div>
-                    <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">typical</div>
+                    <div className="num text-[22px] leading-none text-ink">{preview.paid}</div>
+                    <div className="heading mt-1 text-[10px] uppercase tracking-[0.1em] text-ink-soft">get paid</div>
                   </div>
                   <div>
                     <div className="num text-[22px] leading-none text-ink">{usd(preview.maxUsd)}</div>
@@ -620,9 +620,9 @@ function DropsTab(p: ManageProps) {
                   {capBps > 0 && capBps < 10_000 && <span className="text-ink-soft"> · max {capBps / 100}% each</span>}
                 </p>
                 <p className="mt-1 text-center text-[12px] text-ink-soft">
-                  <b className="text-ink">{preview.eligible}</b> wallets held {Number(f.holdDays) > 0 ? `at least ${f.holdDays} day${Number(f.holdDays) === 1 ? "" : "s"}` : "at the cut"}
-                  {preview.belowFloor > 0 && <span> · {preview.belowFloor} under the {usd(Number(f.minPayoutUsd) || 0)} floor</span>}
-                  {preview.eligible > Number(f.topN) && <span> · top {f.topN} paid</span>}
+                  typical payout <b className="text-ink">{usd(preview.medianUsd)}</b>
+                  {preview.belowFloor > 0 && <span> · {preview.belowFloor} wallets under the {usd(Number(f.minPayoutUsd) || 0)} minimum</span>}
+                  {preview.eligible > Number(f.topN) && <span> · top {f.topN} only</span>}
                 </p>
                 <div className="mt-3 max-h-[260px] overflow-y-auto border-t border-sky-100 pt-2">
                   {preview.top.map((t) => (
