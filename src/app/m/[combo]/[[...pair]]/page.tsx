@@ -66,7 +66,7 @@ export default async function MojiPage({ params }: { params: Params }) {
   const creator = m.creator_handle
     ? { label: `@${m.creator_handle}`, href: xUrl(m.creator_handle) }
     : m.creator_address
-      ? { label: short(m.creator_address), href: explorerAddress(m.chain_id, m.creator_address) }
+      ? { label: `${m.creator_kind === "agent" ? "🤖 " : ""}${short(m.creator_address)}`, href: explorerAddress(m.chain_id, m.creator_address) }
       : null;
 
   return (

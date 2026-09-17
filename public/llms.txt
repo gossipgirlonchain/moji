@@ -1,0 +1,17 @@
+# moji
+
+> moji.wtf is a launcher for emoji tokens: pick a 1 to 3 emoji combo, pair it to a tokenized stock or a token, launch it as a Doppler multicurve pool with one transaction. Once a combo is claimed on a pair it is gone forever. Trading happens on Matcha and Dexscreener, never on moji. Creators earn 70% of every swap fee.
+
+Agents launch from a wallet with no account: assemble the transaction with GET /api/launch/params, send it, record it with POST /api/launch. Everything is JSON. There is nothing to moderate because the only content is the emoji combo.
+
+## Start here
+
+- [Agent skill (the full API, flow, caps and error codes)](https://moji.wtf/skill.md): read this first
+- [Pairs](https://moji.wtf/api/pairs): live chains and what a moji can pair against
+- [Mojis](https://moji.wtf/api/mojis?sort=volume&window=24h): every moji with price, market cap, volume, fees, creator
+- [About](https://moji.wtf/about): what moji is, in three paragraphs
+
+## Source
+
+- [GitHub: gossipgirlonchain/moji](https://github.com/gossipgirlonchain/moji): the app, the API routes, SKILL.md at the root
+- [Doppler](https://docs.doppler.lol): the protocol every moji is launched on

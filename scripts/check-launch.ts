@@ -35,7 +35,6 @@ async function main() {
     stock,
     combo: "🧪🍏",
     creator: account.address,
-    provider: { request: async () => { throw new Error("no provider in dry run"); } } as never,
     stockPriceUsd: Number(process.env.NUMERAIRE_PRICE ?? 230),
   });
   console.log("initializer", JSON.stringify(params.initializer, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2));

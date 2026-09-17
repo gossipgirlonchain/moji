@@ -55,6 +55,32 @@ npm run dev                  # http://localhost:3000
 4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
 5. Add `http://localhost:3000` and your production domain to allowed origins.
 
+## Agents: `SKILL.md`, `/skill.md`, `/llms.txt`
+
+A moji creator is a wallet. X is the app's path for people, not a gate: any wallet can launch through the Airlock and
+record it with the tx hash, which is all the server ever trusted (`verifyLaunchTx` checks sender, token, pair, fee
+beneficiaries and integrator on-chain). There is nothing to moderate, the only content is the combo.
+
+- **`SKILL.md`** at the repo root is the one document an agent reads to onboard itself (flow, endpoints, caps, error
+  codes, drops). It is served byte-for-byte at `GET /skill.md` (`src/app/skill.md/route.ts`) so an agent, Claude Code,
+  AgentOS or any skill installer can pull it from the site or from GitHub. `public/llms.txt` points at it.
+- **`GET /api/pairs`** lists live chains and their listed stocks and tokens.
+- **`GET /api/launch/params?combo&pair&creator[&chainId][&mcap]`** runs the same `buildParams` as the launch page
+  server-side and returns the Airlock `create` calldata (`tx.to/data/value/gas`), the predicted token and pool, the gas
+  cost, and the body to record with. It refuses early, with a code, when the combo is taken, invalid, the pair is not
+  listed or the wallet is over its cap, so no gas is wasted.
+- **`POST /api/launch` without a bearer token** is the wallet path: identity is the tx sender, `agent: true` marks the
+  row `creator_kind = 'agent'` (🤖 on tiles, the moji page and a "🤖 agents" filter on the home explore block).
+  Caps live in `src/config/limits.ts`: `WALLET_CLAIM_WINDOW_MS` (60 min between launches per wallet) and
+  `WALLET_DEAD_MAX` (2 dead mojis block the next, vs 3 for X accounts). `WALLET_CLAIMS_OPEN = false` closes the
+  path again (params returns 403, record demands the Privy token). `GET /api/claims/quota?creator=0x…` reports the
+  wallet's standing without auth.
+- Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
+- **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
+  record route retries the insert without the column if it is not applied yet, so deploy order does not matter.
+- Drops already run on wallet signatures (`personal_sign` over the canonical rules), so an agent can reward its holders
+  with no browser; `SKILL.md` documents the message format.
+
 ## Creator pipeline: `/creators`
 
 Outreach CRM for the creators who applied through the Ratio form, gated by the same `ADMIN_PASSWORD` cookie as
