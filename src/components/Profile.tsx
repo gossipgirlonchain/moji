@@ -32,9 +32,10 @@ function ProfileInner() {
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
   const wallet = useMemo(() => pickWallet(wallets), [wallets]);
-  // Only pick a default once; never override a wallet the user switched to.
+  // The account's wallet is always the active one here: a browser wallet (Phantom, MetaMask) left active
+  // from another page must not be shown or used as this login's wallet.
   useEffect(() => {
-    if (wallet && authenticated && !address) void setActiveWallet(wallet);
+    if (wallet && authenticated && address?.toLowerCase() !== wallet.address.toLowerCase()) void setActiveWallet(wallet);
   }, [wallet, authenticated, address, setActiveWallet]);
 
   const { data: eth, refetch: refetchEth } = useBalance({ address, chainId, query: { enabled: Boolean(address), refetchInterval: 12_000 } });
