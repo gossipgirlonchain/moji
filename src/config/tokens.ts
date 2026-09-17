@@ -29,6 +29,7 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("robinhood", "QUOTRON", "Quotrons", "0x5a86828Efd322bfb16d93cFeD16EE9BC14940D7F"),
     t("robinhood", "ORBIO", "Orbio", "0xAa07A0e9209e16aC99708C3EC70159c6eF3128A3"),
     t("robinhood", "HOOKR", "Hookr", "0x18E674231A58c239Dc7DaeDcffE15Ec3A24cff5c"),
+    t("robinhood", "MUSEBOOK", "musebook", "0x91A2DAe9699f0B82540B5886b0d8759C22820bA3"),
   ],
   8453: [
     t("base", "AERO", "Aerodrome", "0x940181a94A35A4569E4529A3CDfB74e38FD98631"),
