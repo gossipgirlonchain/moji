@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>moji</title>
+  <style>
+    /* Shown by the iOS shell when moji.wtf cannot be reached (capacitor.config.ts server.errorPath).
+       Colors mirror :root in src/app/globals.css. */
+    html, body { margin: 0; min-height: 100%; background: #DCEEFB; color: #12405C; font-family: -apple-system, "Nunito", system-ui, sans-serif; font-weight: 700; }
+    main { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); text-align: center; }
+    .emoji { font-size: 64px; line-height: 1; }
+    h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    p { margin: 0; color: #5A8AA6; font-size: 15px; max-width: 280px; }
+    button { border: 0; border-radius: 999px; padding: 14px 28px; background: #4AA8E6; color: #fff; font: inherit; font-size: 16px; box-shadow: 4px 4px 14px rgba(18,64,92,.13), inset -4px -4px 10px rgba(18,64,92,.09), inset 4px 4px 10px rgba(255,255,255,.5); }
+    button:active { transform: scale(.96); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="emoji">📡</div>
+    <h1>moji needs a connection</h1>
+    <p>Could not reach moji.wtf. Check your network and try again.</p>
+    <button onclick="location.replace('https://moji.wtf/')">try again</button>
+  </main>
+</body>
+</html>

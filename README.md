@@ -286,6 +286,29 @@ Vercel or Railway, Node 20+.
 3. Add the production origin to Privy allowed origins and the X OAuth callback.
 4. Point `moji.wtf` at the deployment.
 
+## iOS app
+
+Two ways onto an iPhone. Both load the same deployment, so a web deploy updates the app and nothing needs resubmitting for a web-only change.
+
+- **Home screen install, today.** Safari → Share → Add to Home Screen. `src/app/manifest.ts` and the `appleWebApp` metadata in `layout.tsx` make it a standalone app with the sky icon (`public/icon-{192,512}.png`). The page runs edge to edge (`viewport-fit=cover`) and `.shell-safe` in `globals.css` pads for the notch and the home indicator.
+- **App Store / TestFlight build.** `ios/` is a Capacitor 8 Xcode project (Swift Package Manager, no CocoaPods) whose WKWebView loads `https://moji.wtf`. `capacitor.config.ts` is the source of truth (`wtf.moji.app`, portrait only on iPhone); `native/www/index.html` is the page the shell shows when the site is unreachable. The app icon and splash come from `npm run ios:icons` (`scripts/gen-app-icons.ts`: the wordmark on the sky gradient from `src/config/design.ts`, then `@capacitor/assets` fills `ios/App/App/Assets.xcassets`).
+
+On a Mac with Xcode 16+:
+
+```bash
+npm install
+npm run ios:sync    # copies native/www and capacitor.config.ts into ios/
+npm run ios:open    # opens ios/App/App.xcodeproj
+```
+
+In Xcode pick your team under Signing & Capabilities, run on a device, then Product → Archive → Distribute to TestFlight. Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in the project per release. To point the shell at a preview deployment or a dev server on the same Wi-Fi: `MOJI_NATIVE_URL=http://<mac-ip>:3000 npm run ios:sync` (`Info.plist` allows local networking; add that origin to Privy's allowed origins).
+
+What to know before shipping:
+
+- **Login stays in the web view.** The X login round trip (moji.wtf → auth.privy.io → x.com → back) is on `server.allowNavigation`; every other top-level link to another host, and every `target="_blank"` link (Matcha, Dexscreener, explorers, the X post intent), opens in Safari. The web view origin is `moji.wtf`, so the Privy dashboard needs no new origin. Test X login and an external wallet connect on a real device before submitting: WalletConnect deep links into wallet apps work from the web view, browser extensions do not exist there.
+- **Native hooks.** Capacitor injects `window.Capacitor` into the hosted page. `isNativeApp()` in `src/lib/native.ts` and `<html data-native="ios">` (set by `NativeBridge`) are the hooks for anything that should behave differently inside the app.
+- **Review.** The app is a shell around the site (App Store guideline 4.2, minimum functionality) that launches tokens (3.1.5, cryptocurrency). Universal links or push notifications for fee claims and drops would strengthen the submission; neither is built yet.
+
 ## Pages
 
 `/` home · `/launch` · `/m/[combo]` · `/explore` · `/claimed` · `/me` (your mojis + claim) · `/profile` (wallet, send ETH or claimed tokens to a 0x address or a launcher's @handle) · `/about`

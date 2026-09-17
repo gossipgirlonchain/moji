@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "check:tokens": "tsx scripts/check-design-tokens.ts",
     "cards:assets": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/gen-card-assets.ts",
-    "cards:preview": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/render-cards.ts"
+    "cards:preview": "NODE_PATH=scripts/stubs TSX_TSCONFIG_PATH=scripts/tsconfig.json tsx scripts/render-cards.ts",
+    "ios:icons": "tsx scripts/gen-app-icons.ts && capacitor-assets generate --ios --assetPath native/assets --iconBackgroundColor '#DCEEFB' --splashBackgroundColor '#DCEEFB' --splashBackgroundColorDark '#DCEEFB'",
+    "ios:sync": "cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -33,6 +36,10 @@
     "wagmi": "^3.7.7"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -40,6 +47,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"
