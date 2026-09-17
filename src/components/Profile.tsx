@@ -27,7 +27,7 @@ function ProfileInner() {
   const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
   const chainId = chain.viem!.id;
   const liveChains = CHAINS.filter((c) => chainLaunchable(c));
-  const { ready, authenticated, user, login, logout, linkTwitter } = usePrivy();
+  const { ready, authenticated, user, login, logout, linkTwitter, linkEmail, unlinkTwitter, unlinkEmail } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
@@ -98,6 +98,28 @@ function ProfileInner() {
           {!handle && (
             <button onClick={linkTwitter} className="press clay-pill heading bg-sky-500 px-3 py-2 text-[13px] text-white">
               Link X
+            </button>
+          )}
+        </div>
+        {/* Logins attached to this wallet. An email login lets the X account be unlinked without losing the wallet. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-ink-soft">
+          <span className="heading uppercase tracking-[0.1em]">logins</span>
+          {handle && <span className="clay-pill bg-sky-50 px-2.5 py-1 text-ink">X @{handle}</span>}
+          {user?.email?.address && <span className="clay-pill bg-sky-50 px-2.5 py-1 text-ink">{user.email.address}</span>}
+          {!user?.email?.address ? (
+            <button type="button" onClick={linkEmail} className="press clay-pill heading bg-white px-2.5 py-1 text-[12px] text-sky-600">
+              + link email
+            </button>
+          ) : (
+            handle && (
+              <button type="button" onClick={() => user?.twitter?.subject && unlinkTwitter(user.twitter.subject)} className="press clay-pill heading bg-white px-2.5 py-1 text-[12px] text-coral">
+                unlink X
+              </button>
+            )
+          )}
+          {user?.email?.address && !handle && (
+            <button type="button" onClick={() => user?.email?.address && unlinkEmail(user.email.address)} className="press clay-pill heading bg-white px-2.5 py-1 text-[12px] text-coral">
+              unlink email
             </button>
           )}
         </div>
