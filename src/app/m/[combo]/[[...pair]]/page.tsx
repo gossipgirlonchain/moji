@@ -108,6 +108,11 @@ export default async function MojiPage({ params }: { params: Params }) {
             <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
               Dexscreener ↗
             </LinkButton>
+            {m.telegram_url && (
+              <LinkButton href={m.telegram_url} tone="outline" size="sm" external className="pop pop-2 col-span-2 whitespace-nowrap px-3 text-[13px]">
+                Telegram ↗
+              </LinkButton>
+            )}
           </>
         ) : (
           <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>

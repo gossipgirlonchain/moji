@@ -62,6 +62,8 @@ export type MojiRow = {
   snapshot_at: string | null;
   image_url: string | null;
   metadata_url: string | null;
+  /** community link shown on the moji page, set per moji */
+  telegram_url?: string | null;
   launched_at: string;
   /** creator drops (supabase/drops.sql) */
   holders_scanned_block?: number | string | null;
