@@ -43,6 +43,7 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("base", "BASECAT", "Basecat", "0xB2000000000000000000004c27f6523082f41D01"),
     t("base", "LAPTOP", "LAPTOP", "0xB095274743941e953c746F9C228DA9c18Bb6ec29"),
     t("base", "BSTONK", "BaseStonk", "0x0F61Edbfe6Cd86024C0f210c0695B08df55fdfc9"),
+    t("base", "IPOD", "iPod", "0xA6af0cEa8FBC93E1eCcC00f1FdD9a0BBa251FeE1"),
   ],
   1: [
     t("ethereum", "UNI", "Uniswap", "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"),
