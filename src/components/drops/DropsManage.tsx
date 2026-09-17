@@ -567,7 +567,7 @@ function DropsTab(p: ManageProps) {
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2">
           <Field label="top" unit="holders" mode="numeric" value={f.topN} onChange={set("topN")} disabled={Boolean(active)} />
-          <Field label="held for" unit="days" mode="numeric" value={f.holdDays} onChange={set("holdDays")} disabled={Boolean(active)} />
+          <Field label="held at least" unit="days" mode="numeric" value={f.holdDays} onChange={set("holdDays")} disabled={Boolean(active)} />
           <Field label="min" unit={p.combo} hint={Number(f.minHold) > 0 && p.stats.priceUsd > 0 ? `≈ ${usd(Number(f.minHold) * p.stats.priceUsd)}` : undefined} value={f.minHold} onChange={set("minHold")} disabled={Boolean(active)} />
         </div>
 
@@ -618,6 +618,11 @@ function DropsTab(p: ManageProps) {
                 <p className="mt-3 text-center text-[12px] text-ink-soft">
                   total <b className="text-ink">{fmtTok(preview.total, 5)} {preview.token.symbol}</b>
                   {capBps > 0 && capBps < 10_000 && <span className="text-ink-soft"> · max {capBps / 100}% each</span>}
+                </p>
+                <p className="mt-1 text-center text-[12px] text-ink-soft">
+                  <b className="text-ink">{preview.eligible}</b> wallets held {Number(f.holdDays) > 0 ? `at least ${f.holdDays} day${Number(f.holdDays) === 1 ? "" : "s"}` : "at the cut"}
+                  {preview.belowFloor > 0 && <span> · {preview.belowFloor} under the {usd(Number(f.minPayoutUsd) || 0)} floor</span>}
+                  {preview.eligible > Number(f.topN) && <span> · top {f.topN} paid</span>}
                 </p>
                 <div className="mt-3 max-h-[260px] overflow-y-auto border-t border-sky-100 pt-2">
                   {preview.top.map((t) => (
