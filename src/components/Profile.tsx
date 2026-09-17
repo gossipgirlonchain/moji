@@ -76,8 +76,11 @@ function ProfileInner() {
 
   const handle = user?.twitter?.username ?? null;
   const avatar = user?.twitter?.profilePictureUrl?.replace("_normal", "") ?? null;
-  const addr = address ?? wallet?.address ?? "";
+  // The profile is the account's own wallet (the embedded one when it exists). A browser wallet that happens
+  // to be active in wagmi (Phantom, MetaMask) is not this login's wallet and must not be shown as if it were.
+  const addr = wallet?.address ?? address ?? "";
   const isEmbedded = wallet?.walletClientType === "privy";
+  const otherConnected = address && wallet && address.toLowerCase() !== wallet.address.toLowerCase() ? address : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,7 +96,8 @@ function ProfileInner() {
           </span>
           <div className="flex-1">
             <div className="heading text-[20px] text-ink">{handle ? `@${handle}` : short(addr)}</div>
-            <div className="text-[12px] text-ink-soft">{isEmbedded ? "embedded wallet, made by your X login" : "external wallet"}</div>
+            <div className="text-[12px] text-ink-soft">{isEmbedded ? "embedded wallet, made by your X login" : `external wallet · ${wallet?.walletClientType ?? "connected"}`}</div>
+            {otherConnected && <div className="text-[11px] text-ink-soft">browser wallet {short(otherConnected)} is connected but is not this account</div>}
           </div>
           {!handle && (
             <button onClick={linkTwitter} className="press clay-pill heading bg-sky-500 px-3 py-2 text-[13px] text-white">
