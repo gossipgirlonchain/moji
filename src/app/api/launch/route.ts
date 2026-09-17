@@ -4,6 +4,7 @@ import { hasSupabase, supabaseServer } from "@/lib/supabase";
 import { hasLinkedWallet, getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
 import { isXExempt } from "@/config/whitelist";
 import { launchQuota } from "@/lib/limits";
+import { launchTweet, postTweet, X_AUTOPOST } from "@/lib/x";
 import { verifyLaunchTx } from "@/lib/launch-verify";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
@@ -134,5 +135,7 @@ export async function POST(req: Request) {
   } catch {}
 
   const href = `/m/${encodeURIComponent(v.display)}/${encodeURIComponent(stock.ticker)}${chain.chainId !== 4663 ? `/${chain.chainId}` : ""}`;
+  // Announce from @mojidotwtf. Fire and forget: a failed tweet never fails a launch.
+  if (X_AUTOPOST) void postTweet(launchTweet({ display: v.display, stock_ticker: stock.ticker, creator_handle: twitter?.username ?? null, token_address: body.tokenAddress }, `${SITE_URL}${href}`)).catch(() => {});
   return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: twitter?.username ?? null });
 }
