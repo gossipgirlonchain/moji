@@ -34,6 +34,25 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null);
   const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string } | null>(null);
   const hasX = Boolean(user?.twitter?.username) || isXExempt(address);
+  // Dead-moji cap: ask the server whether this account may launch right now.
+  const [quota, setQuota] = useState<{ blocked: boolean; message: string | null; dead: number; max: number } | null>(null);
+  useEffect(() => {
+    if (!authenticated) {
+      setQuota(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        const r = await fetch("/api/claims/quota", { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
+        if (r.ok && alive) setQuota(await r.json());
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [authenticated, getAccessToken, done]);
 
   const wallet = useMemo(() => pickWallet(wallets), [wallets]);
   // Only pick a default once; never override a wallet the user switched to.
@@ -158,6 +177,17 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
           Link X to claim
         </Button>
         <p className="text-center text-[12px] text-ink-soft">claims need an X account. one claim per account every 15 minutes.</p>
+      </div>
+    );
+  }
+
+  if (quota?.blocked) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Button size="lg" disabled className="pop pop-4 opacity-60">
+          LAUNCH {preview}
+        </Button>
+        <p className="text-center text-[13px] text-coral">{quota.message}</p>
       </div>
     );
   }

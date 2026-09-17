@@ -3,6 +3,7 @@ import { validateCombo } from "@/lib/emoji";
 import { hasSupabase, supabaseServer } from "@/lib/supabase";
 import { hasLinkedWallet, getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
 import { isXExempt } from "@/config/whitelist";
+import { launchQuota } from "@/lib/limits";
 import { verifyLaunchTx } from "@/lib/launch-verify";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
@@ -69,6 +70,10 @@ export async function POST(req: Request) {
     const exempt = isXExempt(body.creatorAddress) && (await hasLinkedWallet(did, body.creatorAddress));
     if (!exempt) return NextResponse.json({ error: "Link X to claim" }, { status: 403 });
   }
+
+  // Dead-moji cap (the launch page checks this before anything is sent on-chain; this is the backstop).
+  const quota = await launchQuota(did);
+  if (quota.blocked) return NextResponse.json({ error: quota.message }, { status: 429 });
 
   // The chain is the source of truth for what was launched: creator, token, pair, fee beneficiaries, integrator.
   const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash: body.txHash as `0x${string}`, tokenAddress: body.tokenAddress as `0x${string}`, creatorAddress: body.creatorAddress as `0x${string}`, numeraire: stock.address });
