@@ -42,6 +42,7 @@ export const CARD_BG: Record<CardSpec["template"], ClayBg> = {
   bignumber: "sky50",
   token: "white",
   airdrop: "sky50",
+  airdrops: "white",
 };
 
 export function Frame({ ctx, placements, children }: { ctx: Ctx; placements: Placement[]; children: ReactNode }) {
@@ -317,6 +318,45 @@ export function Airdrop({ ctx, f }: { ctx: Ctx; f: Fields["airdrop"] }) {
   );
 }
 
+/* 9. airdrops: the week's airdrops as tiles (combo, ticker, USD paid, holders paid) with a total line. */
+export function Airdrops({ ctx, f }: { ctx: Ctx; f: Fields["airdrops"] }) {
+  const items = f.items.filter((i) => i.emoji.trim() || i.ticker.trim()).slice(0, 8);
+  const n = Math.max(1, items.length);
+  const cols = ctx.wide ? n : n <= 4 ? 2 : n <= 6 ? 3 : 4;
+  const gap = 24;
+  const tileW = Math.floor((ctx.contentW - (cols - 1) * gap) / cols);
+  const rowsN = Math.ceil(n / cols);
+  const tileH = 216;
+  const availH = ctx.contentH - 76;
+  const countSize = fitLine(f.count, ctx.wide ? [72, 60, 52, 44] : [84, 72, 60, 52], ctx.contentW);
+  const countGap = ctx.wide ? 36 : 48;
+  const scale = Math.min(1, (availH - 32 - countSize - countGap) / (rowsN * tileH + (rowsN - 1) * gap));
+  const emojiSize = Math.round(52 * scale);
+  const tickerSize = Math.max(16, Math.round(22 * scale));
+  const figureSize = Math.max(24, Math.round(40 * scale));
+  const holdersSize = Math.max(14, Math.round(20 * scale));
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <Header text={f.title} ctx={ctx} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: countGap }}>
+        <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap }}>
+          {items.map((it, i) => (
+            <ClayBox key={i} clay={ctx.clay} kind="drop" w={tileW} h={Math.round(tileH * scale)}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: Math.round(8 * scale) }}>
+                <ComboEmoji sprites={ctx.sprites} combo={it.emoji} width={tileW - 24} size={emojiSize} overlap={4} />
+                <Rich text={it.ticker || " "} sprites={ctx.sprites} size={Math.min(tickerSize, fitLine(it.ticker, [tickerSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
+                <Rich text={it.figure || " "} sprites={ctx.sprites} size={Math.min(figureSize, fitLine(it.figure, [figureSize], tileW - 20))} color={INK} lineHeight={1.1} />
+                <Rich text={it.holders || " "} sprites={ctx.sprites} size={Math.min(holdersSize, fitLine(it.holders, [holdersSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
+              </div>
+            </ClayBox>
+          ))}
+        </div>
+        <Rich text={f.count} sprites={ctx.sprites} size={countSize} color={INK} lineHeight={1} />
+      </div>
+    </div>
+  );
+}
+
 /** Every emoji grapheme a spec needs (plain, and those drawn with a shadow), resolved before the synchronous render. */
 export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string[] } {
   const texts: string[] = [];
@@ -377,6 +417,15 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       texts.push(f.combo, f.ticker, f.label, f.figure, f.sub, ...f.stats.flatMap((st) => [st.label, st.value]));
       break;
     }
+    case "airdrops": {
+      const f = spec.fields as Fields["airdrops"];
+      texts.push(f.title, f.count);
+      for (const it of f.items) {
+        combos.push(it.emoji);
+        texts.push(it.ticker, it.figure, it.holders);
+      }
+      break;
+    }
   }
   // Combos are drawn grapheme by grapheme; text fields are tokenised the same way in Rich.
   const g = (list: string[]) => list.flatMap((c) => graphemes(c)).filter((x) => x.trim());
@@ -401,5 +450,7 @@ export function renderTemplate(spec: CardSpec, ctx: Ctx): ReactNode {
       return <Token ctx={ctx} f={spec.fields as Fields["token"]} />;
     case "airdrop":
       return <Airdrop ctx={ctx} f={spec.fields as Fields["airdrop"]} />;
+    case "airdrops":
+      return <Airdrops ctx={ctx} f={spec.fields as Fields["airdrops"]} />;
   }
 }

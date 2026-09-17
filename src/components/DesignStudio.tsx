@@ -13,6 +13,7 @@ import {
   parsePair,
   wordCount,
   type CardSpec,
+  type AirdropItem,
   type EmojiItem,
   type Fields,
   type LeaderboardRow,
@@ -25,7 +26,7 @@ import {
  * see here is byte for byte what the download, the clipboard and the post queue get.
  */
 type AllFields = { [T in Template]: Fields[T] };
-const FILLABLE: Template[] = ["pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop"];
+const FILLABLE: Template[] = ["pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop", "airdrops"];
 /** Options for "fill from data", mirrored from src/lib/social.ts. */
 const METRICS = [
   ["fees", "fees earned"],
@@ -512,6 +513,34 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
           <Input label="figure" value={f.figure} onChange={(e) => update("airdrop", { figure: e.target.value })} placeholder="$1,240" />
           <Input label="summary line (optional)" value={f.sub} onChange={(e) => update("airdrop", { sub: e.target.value })} placeholder="0.5 $MSFT airdropped to 100 holders · Sep 14" />
           <StatsEditor stats={f.stats} onChange={(stats) => update("airdrop", { stats })} />
+        </>
+      );
+    }
+    case "airdrops": {
+      const f = fields.airdrops;
+      const set = (i: number, patch: Partial<AirdropItem>) => update("airdrops", { items: f.items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+      return (
+        <>
+          <Input label="title" value={f.title} onChange={(e) => update("airdrops", { title: e.target.value })} />
+          <span className="flex items-center justify-between">
+            <Label>airdrops</Label>
+            <span className={`text-[11px] ${f.items.length < LIMITS.airdropsMin || f.items.length > LIMITS.airdropsMax ? "text-coral" : "text-ink-soft"}`}>
+              {f.items.length} of {LIMITS.airdropsMin} to {LIMITS.airdropsMax}
+            </span>
+          </span>
+          {f.items.map((it, i) => (
+            <div key={i} className="grid grid-cols-[60px_1fr_1fr_1fr_32px] gap-1.5">
+              <input className="clay-input" style={inputStyle} value={it.emoji} onChange={(e) => set(i, { emoji: e.target.value })} placeholder="🍎" aria-label={`airdrop ${i + 1} emoji`} />
+              <input className="clay-input" style={inputStyle} value={it.ticker} onChange={(e) => set(i, { ticker: e.target.value })} placeholder="$AAPL" aria-label={`airdrop ${i + 1} ticker`} />
+              <input className="clay-input" style={inputStyle} value={it.figure} onChange={(e) => set(i, { figure: e.target.value })} placeholder="$167" aria-label={`airdrop ${i + 1} paid`} />
+              <input className="clay-input" style={inputStyle} value={it.holders} onChange={(e) => set(i, { holders: e.target.value })} placeholder="17 holders" aria-label={`airdrop ${i + 1} holders`} />
+              <button type="button" className="press clay-pill heading bg-sky-50 text-ink-soft disabled:opacity-40" onClick={() => update("airdrops", { items: f.items.filter((_, j) => j !== i) })} disabled={f.items.length <= 1} aria-label={`remove airdrop ${i + 1}`}>
+                ×
+              </button>
+            </div>
+          ))}
+          {f.items.length < LIMITS.airdropsMax && <Chip onClick={() => update("airdrops", { items: [...f.items, { emoji: "", ticker: "", figure: "", holders: "" }] })}>+ add</Chip>}
+          <Input label="total line" value={f.count} onChange={(e) => update("airdrops", { count: e.target.value })} placeholder="6 airdrops · $1,417 to holders" />
         </>
       );
     }

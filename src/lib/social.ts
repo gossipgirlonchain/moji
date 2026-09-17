@@ -177,7 +177,7 @@ function dropAmount(d: DropRow): string {
   return d.token_kind === "stock" ? `${num} ${dollar(d.token_symbol)}` : `${num} ${d.token_symbol}`;
 }
 
-export type RecentDrop = { id: string; when: string; fields: Fields["airdrop"] };
+export type RecentDrop = { id: string; when: string; paidUsd: number; fields: Fields["airdrop"] };
 
 /**
  * Recent airdrops (rows of the `drops` table) that actually paid holders, newest first, shaped as airdrop card fields:
@@ -215,6 +215,7 @@ export async function recentDrops(limit = 30): Promise<RecentDrop[]> {
       {
         id: d.id,
         when,
+        paidUsd: n(d.sent_usd),
         fields: {
           combo: m.display,
           ticker: m.stock_ticker,
@@ -241,6 +242,23 @@ export async function airdropFill(combo = "", ticker = ""): Promise<Partial<Fiel
   return all[0].fields;
 }
 
+/** airdrops: every airdrop that paid holders in the last 7 days (falls back to the last 8 overall), plus the total. */
+export async function airdropsFill(): Promise<Partial<Fields["airdrops"]> | null> {
+  const all = await recentDrops(60);
+  if (!all.length) return null;
+  const since = Date.now() - 7 * 86400_000;
+  const week = all.filter((d) => new Date(d.when).getTime() >= since);
+  const chosen = (week.length ? week : all).slice(0, 8);
+  const total = chosen.reduce((acc, d) => acc + (d.paidUsd ?? 0), 0);
+  const items = chosen.map((d) => ({ emoji: d.fields.combo, ticker: dollar(d.fields.ticker), figure: d.fields.figure, holders: `${d.fields.stats[0]?.value ?? "?"} holder${d.fields.stats[0]?.value === "1" ? "" : "s"}` }));
+  const nDrops = week.length || chosen.length;
+  return {
+    title: week.length ? "airdrops this week" : "recent airdrops",
+    items,
+    count: `${nDrops} airdrop${nDrops === 1 ? "" : "s"} · ${money(total)} to holders`,
+  };
+}
+
 export type FillOptions = { metric?: Metric; stat?: Stat; combo?: string; ticker?: string };
 
 export async function fillFor(template: Template, opts: FillOptions = {}): Promise<Partial<Fields[Template]> | null> {
@@ -259,6 +277,8 @@ export async function fillFor(template: Template, opts: FillOptions = {}): Promi
       return tokenFill(opts.combo ?? "", opts.ticker ?? "");
     case "airdrop":
       return airdropFill(opts.combo, opts.ticker);
+    case "airdrops":
+      return airdropsFill();
     default:
       return null;
   }

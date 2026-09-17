@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       combo: sp.get("combo") ?? undefined,
       ticker: sp.get("ticker") ?? undefined,
     });
-    const why = template === "token" ? "no moji found for that pair" : template === "airdrop" ? "no airdrops have paid holders yet" : `no live data for ${template}`;
+    const why = template === "token" ? "no moji found for that pair" : template === "airdrop" || template === "airdrops" ? "no airdrops have paid holders yet" : `no live data for ${template}`;
     if (!fields) return NextResponse.json({ error: why }, { status: 404 });
     return NextResponse.json({ fields });
   } catch (e) {

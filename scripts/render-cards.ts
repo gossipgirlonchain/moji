@@ -19,7 +19,8 @@ const specs: { name: string; spec: CardSpec }[] = [];
 const add = (name: string, template: Template, fields: Partial<CardSpec["fields"]>, seed = "1", size = sizes) => {
   for (const s of size) specs.push({ name: `${name}-${s.w}x${s.h}`, spec: { template, ...s, seed, fields: { ...defaultFields(template), ...fields } } as CardSpec });
 };
-for (const t of ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop"] as Template[]) add(t, t, {}, "7");
+for (const t of ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop", "airdrops"] as Template[]) add(t, t, {}, "7");
+add("airdrops-8", "airdrops", { items: [...defaultFields("airdrops").items, { emoji: "🐸", ticker: "$FROG", figure: "$88", holders: "9 holders" }, { emoji: "🦄", ticker: "$UNI", figure: "$41", holders: "5 holders" }], count: "8 airdrops · $1,546 to holders" }, "13");
 add("token-2stats", "token", { combo: "🚀🌙", ticker: "SPCE", creator: "", stats: [{ label: "volume 7d", value: "$1,207,442" }, { label: "market cap", value: "$9.4M" }] }, "12");
 add("announcement-8words", "announcement", { headline: "every single emoji pair now earns creators real money", subline: "fees paid on every trade, forever" }, "3");
 add("announcement-2words", "announcement", { headline: "still open", subline: "" }, "4");

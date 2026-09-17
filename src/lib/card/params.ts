@@ -2,7 +2,7 @@
  * The card spec: one URL <-> one image. Shared by /design (builds the URL) and /api/card (renders it),
  * so the preview, the download and the post queue all go through the same renderer.
  */
-export const TEMPLATES = ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop"] as const;
+export const TEMPLATES = ["announcement", "pair", "leaderboard", "open", "claimed", "bignumber", "token", "airdrop", "airdrops"] as const;
 export type Template = (typeof TEMPLATES)[number];
 
 export const TEMPLATE_LABEL: Record<Template, string> = {
@@ -14,6 +14,7 @@ export const TEMPLATE_LABEL: Record<Template, string> = {
   bignumber: "big number",
   token: "token stats",
   airdrop: "airdrop",
+  airdrops: "airdrops this week",
 };
 
 /** The two supported canvases. 1600x900 is what X shows uncropped in the timeline. */
@@ -29,6 +30,7 @@ export function isSupportedSize(w: number, h: number): boolean {
 export type EmojiItem = { emoji: string; ticker: string };
 export type LeaderboardRow = { emoji: string; pair: string; figure: string };
 export type Stat = { label: string; value: string };
+export type AirdropItem = { emoji: string; ticker: string; figure: string; holders: string };
 
 export type Fields = {
   announcement: { headline: string; subline: string };
@@ -39,6 +41,7 @@ export type Fields = {
   bignumber: { pair: string; figure: string; label: string };
   token: { combo: string; ticker: string; creator: string; stats: Stat[] };
   airdrop: { combo: string; ticker: string; label: string; figure: string; sub: string; stats: Stat[] };
+  airdrops: { title: string; items: AirdropItem[]; count: string };
 };
 
 export type CardSpec<T extends Template = Template> = {
@@ -61,6 +64,8 @@ export const LIMITS = {
   claimedMax: 12,
   statsMin: 2,
   statsMax: 4,
+  airdropsMin: 3,
+  airdropsMax: 8,
   text: 160,
 } as const;
 
@@ -127,6 +132,18 @@ export const SAMPLE: { [T in Template]: Fields[T] } = {
       { label: "biggest payout", value: "$62" },
       { label: "rule", value: "held 3d+" },
     ],
+  },
+  airdrops: {
+    title: "airdrops this week",
+    items: [
+      { emoji: "🍎", ticker: "$AAPL", figure: "$167", holders: "17 holders" },
+      { emoji: "🪟", ticker: "$MSFT", figure: "$24", holders: "3 holders" },
+      { emoji: "🍙", ticker: "$COIN", figure: "$17", holders: "3 holders" },
+      { emoji: "🎬", ticker: "$AMC", figure: "$2.09", holders: "1 holder" },
+      { emoji: "🍏", ticker: "$AAPL", figure: "1,000 🍏", holders: "2 holders" },
+      { emoji: "🚀🌙", ticker: "$SPCE", figure: "$1,207", holders: "40 holders" },
+    ],
+    count: "6 airdrops · $1,417 to holders",
   },
 };
 
@@ -212,6 +229,13 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
       for (const st of f.stats) sp.append("stat", joinItem([st.label, st.value]));
       break;
     }
+    case "airdrops": {
+      const f = spec.fields as Fields["airdrops"];
+      sp.set("title", f.title);
+      for (const it of f.items) sp.append("item", joinItem([it.emoji, it.ticker, it.figure, it.holders]));
+      sp.set("count", f.count);
+      break;
+    }
   }
   return sp;
 }
@@ -290,6 +314,15 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
         figure: has("figure") ? clean(sp.get("figure"), 24) : sample.airdrop.figure,
         sub: has("sub") ? clean(sp.get("sub"), 100) : "",
         stats: (stats.length ? stats : sample.airdrop.stats).slice(0, LIMITS.statsMax),
+      };
+      break;
+    }
+    case "airdrops": {
+      const items = sp.getAll("item").map((r) => splitItem(r, 4)).map(([emoji, ticker, figure, holders]) => ({ emoji: clean(emoji, 24), ticker: clean(ticker, 16), figure: clean(figure, 24), holders: clean(holders, 24) }));
+      fields = {
+        title: has("title") ? clean(sp.get("title"), 40) : sample.airdrops.title,
+        items: (items.length ? items : sample.airdrops.items).slice(0, LIMITS.airdropsMax),
+        count: has("count") ? clean(sp.get("count"), 60) : sample.airdrops.count,
       };
       break;
     }

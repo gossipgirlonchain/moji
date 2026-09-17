@@ -129,6 +129,7 @@ queue always produce the same pixels.
   | `bignumber` | `pair`, `figure`, `label?` |
   | `token` | `combo`, `ticker`, `creator?`, `stat=label\|value` x2 to 4 |
   | `airdrop` | `combo`, `ticker`, `label?` (pill), `figure`, `sub?`, `stat=label\|value` x2 to 4 |
+  | `airdrops` | `title`, `item=emoji\|ticker\|figure\|holders` x3 to 8, `count` |
 
   Example: `/api/card?template=pair&w=1600&h=900&seed=3&combo=🍎&ticker=AAPL&label=JUST%20CLAIMED`
 - **`/design`** (same `ADMIN_PASSWORD` cookie as `/admin`) is a form that builds that URL: template picker,
@@ -142,7 +143,7 @@ queue always produce the same pixels.
   combined market cap, new pairs, paid in airdrops), one pair's stats for the token card (type `🪟 / MSFT`, then
   fill), and for the airdrop card the recent airdrops that paid holders (from the `drops` and `drop_payouts`
   tables: USD paid, amount and token, holders paid, median and biggest payout, the hold rule), shown as chips
-  that fill the card in one click.
+  that fill the card in one click, and the airdrops roundup (every airdrop of the last 7 days plus the total).
 - **Rendering.** `next/og` (satori + resvg) like the token and OG images, with Fredoka 600 and Nunito 800
   self hosted in `src/assets/fonts`. Colors, radii and the clay shadows come from `src/config/design.ts`,
   a TypeScript mirror of `:root` in `globals.css` (`npm run check:tokens` keeps them in sync). Emoji are
