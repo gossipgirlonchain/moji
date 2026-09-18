@@ -23,9 +23,9 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -36,23 +36,24 @@ jobs:
       - name: Capacitor sync
         run: npx cap sync ios
 
-      - name: Xcode version
-        run: xcodebuild -version
+      - name: Xcode version and project targets
+        run: |
+          xcodebuild -version
+          xcodebuild -list -project ios/App/App.xcodeproj
+          xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj
 
       - name: Build for simulator (Debug)
         run: |
           set -o pipefail
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
+          xcodebuild -project ios/App/App.xcodeproj -target App -configuration Debug \
+            -sdk iphonesimulator -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO -quiet build
           ditto -c -k --keepParent build/sim/Build/Products/Debug-iphonesimulator/App.app build/moji-simulator.app.zip
 
       - name: Build for device, unsigned (Release)
         run: |
           set -o pipefail
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
-            -sdk iphoneos -destination 'generic/platform=iOS' \
-            -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -quiet build
+          xcodebuild -project ios/App/App.xcodeproj -target App -configuration Release \
+            -sdk iphoneos -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -quiet build
           mkdir -p build/Payload
           cp -R build/device/Build/Products/Release-iphoneos/App.app build/Payload/
           (cd build && ditto -c -k --keepParent Payload moji-unsigned.ipa)
