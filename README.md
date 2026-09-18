@@ -293,6 +293,8 @@ Two ways onto an iPhone. Both load the same deployment, so a web deploy updates 
 - **Home screen install, today.** Safari → Share → Add to Home Screen. `src/app/manifest.ts` and the `appleWebApp` metadata in `layout.tsx` make it a standalone app with the sky icon (`public/icon-{192,512}.png`). The page runs edge to edge (`viewport-fit=cover`) and `.shell-safe` in `globals.css` pads for the notch and the home indicator.
 - **App Store / TestFlight build.** `ios/` is a Capacitor 8 Xcode project (Swift Package Manager, no CocoaPods) whose WKWebView loads `https://moji.wtf`. `capacitor.config.ts` is the source of truth (`wtf.moji.app`, portrait only on iPhone); `native/www/index.html` is the page the shell shows when the site is unreachable. The app icon and splash come from `npm run ios:icons` (`scripts/gen-app-icons.ts`: the wordmark on the sky gradient from `src/config/design.ts`, then `@capacitor/assets` fills `ios/App/App/Assets.xcassets`).
 
+**CI build, no Mac needed.** `.github/workflows/ios.yml` builds the project on a macOS runner on every push that touches `ios/`, `native/`, `capacitor.config.ts` or the package files (and on demand from the Actions tab): a Debug simulator build (`moji-ios-simulator`, drop the unzipped `App.app` onto a booted Simulator) and an unsigned Release device build (`moji-ios-unsigned-ipa`, sign it with your own certificate before installing). Signing and a TestFlight upload step need Apple credentials as repo secrets and are not set up yet.
+
 On a Mac with Xcode 16+:
 
 ```bash
