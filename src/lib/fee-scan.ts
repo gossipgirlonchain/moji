@@ -11,7 +11,7 @@ const TRANSFER = parseAbiItem("event Transfer(address indexed from, address inde
 const OWNER_ABI = [{ type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] }] as const;
 
 /** Largest eth_getLogs block range each public RPC accepts. Halved on the fly when a node complains. */
-const CHUNK: Record<number, bigint> = { 4663: 500_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n, 42161: 10_000n };
+const CHUNK: Record<number, bigint> = { 4663: 500_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n, 42161: 10_000n, 56: 2_000n };
 
 export type ClaimScan = {
   /** whole-token amounts paid out to every beneficiary in the scanned range */

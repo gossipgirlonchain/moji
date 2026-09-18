@@ -4,7 +4,7 @@ import { CHAINS, type MojiChain } from "@/config/chains";
 import { chainLaunchable } from "@/lib/numeraire";
 
 export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c: MojiChain) => void }) {
-  // Exactly two rows of three: Robinhood, Base, Ethereum on top, the rest underneath. Emoji hidden on narrow phones so nothing wraps.
+  // Two rows: Robinhood, Base, Ethereum on top; the rest (BNB, Arbitrum, Monad, Solana) share the second row. Emoji hidden on narrow phones so nothing wraps.
   const top = CHAINS.filter((c) => ["robinhood", "base", "ethereum"].includes(c.key));
   const rest = CHAINS.filter((c) => !top.includes(c));
   const pill = (c: MojiChain) => {
@@ -31,7 +31,9 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
   return (
     <div className="flex flex-col gap-2.5">
       <div className="grid grid-cols-3 gap-1.5">{top.map(pill)}</div>
-      <div className="grid grid-cols-3 gap-1.5">{rest.map(pill)}</div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.max(rest.length, 1)}, minmax(0, 1fr))` }}>
+        {rest.map(pill)}
+      </div>
     </div>
   );
 }
