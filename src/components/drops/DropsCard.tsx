@@ -15,6 +15,8 @@ type View = { drops: DropRow[]; mine: Mine[]; creator: string | null; badge: boo
 function tok(n: string | number, max = 5): string {
   const v = Number(n);
   if (!isFinite(v) || v === 0) return "0";
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e4) return `${(v / 1e3).toFixed(1)}K`;
   return v.toLocaleString(undefined, { maximumFractionDigits: max });
 }
