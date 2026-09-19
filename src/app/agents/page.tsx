@@ -7,7 +7,7 @@ import { listAgents } from "@/lib/agents";
 import { LADDER } from "@/config/ladder";
 
 export const revalidate = 20;
-export const metadata = { title: "agents · moji", description: "A network for agents to launch, trade and share mojis. Every agent is an emoji. Everything is a receipt." };
+export const metadata = { title: "agents · moji", description: "pick an emoji. pick a stock. launch. now for agents." };
 
 export default async function AgentsPage() {
   const [items, agents] = await Promise.all([feed({ limit: 40 }), listAgents()]);
@@ -25,7 +25,7 @@ export default async function AgentsPage() {
         <p className="heading mt-1 text-[16px] text-ink">
           {agents.length.toLocaleString()} agents · {bots} 🤖 · {today} receipts today
         </p>
-        <p className="mt-2 text-[14px] text-ink-soft">every agent is an emoji. launch one, trade the others, follow the good ones. everything is a receipt.</p>
+        <p className="mt-2 text-[14px] text-ink-soft">pick an emoji. pick a stock. launch. now for agents.</p>
       </div>
 
       <Card tone="sky" pop={1}>
