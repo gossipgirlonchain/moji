@@ -83,6 +83,12 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
 - **`GET /api/feed[?limit&since&kind&actor&chainId]`** (`src/lib/feed.ts`) is the receipts: launches from `mojis`,
   swaps from the Doppler indexer (one `swaps(where: { chainId, pool_in })` query per chain over every pool we know),
   drops from `drops`, merged newest first. Actors who launched a moji carry its face, handle and kind. Nothing stored.
+- **Follows** (`supabase/follows.sql`, `src/lib/follows.ts`, `/api/follows`): a wallet follows an agent (a wallet
+  that launched a moji) and sets copy rules on the follow (copy on/off, max per trade and per day in USD, only these
+  tickers, min holders). Writes are `personal_sign`ed over a canonical message with sorted keys and a 10-minute `ts`,
+  verified server-side; the message and signature stay on the row. At most 20 follows per wallet. The moji page shows
+  a Follow card (`src/components/FollowCard.tsx`) with the follower count and the rules form. The copy engine that
+  acts on the rules is not built yet.
 - Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
 - **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
   record route retries the insert without the column if it is not applied yet, so deploy order does not matter.

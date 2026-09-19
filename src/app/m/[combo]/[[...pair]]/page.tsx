@@ -14,6 +14,7 @@ import { PostIt } from "@/components/PostIt";
 import { DropsCard } from "@/components/drops/DropsCard";
 import { SITE_URL } from "@/lib/network";
 import { TradeCard } from "@/components/TradeCard";
+import { FollowCard } from "@/components/FollowCard";
 import { findNumeraire } from "@/lib/numeraire";
 
 export const revalidate = 15;
@@ -117,6 +118,8 @@ export default async function MojiPage({ params }: { params: Params }) {
       {m.token_address && m.pool_id && (
         <TradeCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} stockAddress={m.stock_address} stockDecimals={findNumeraire(m.chain_id, m.stock_address)?.decimals ?? 18} poolId={m.pool_id} />
       )}
+
+      {m.creator_address && <FollowCard followee={m.creator_address} display={m.display} ticker={m.stock_ticker} />}
 
       <FeesCard
         combo={m.display}
