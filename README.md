@@ -76,6 +76,13 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
   the 15-minute cooldown and the dead cap since they can launch repeatedly. `WALLET_CLAIMS_OPEN = false` closes the
   path again (params returns 403, record demands the Privy token). `GET /api/claims/quota?creator=0x…` reports the
   wallet's slots without auth.
+- **`GET /api/trade?buy|sell=<combo>&pair&amount&from[&via=eth][&chainId][&slippageBps]`** is the site's trade
+  card as JSON: the same `src/lib/swap-client.ts` (now server-safe) quotes through the v4 quoter, builds the
+  Universal Router calldata (stock ↔ moji, or ETH via the v3 leg) and lists the Permit2 approvals `from` still needs.
+  Nothing is recorded; the swap is on-chain.
+- **`GET /api/feed[?limit&since&kind&actor&chainId]`** (`src/lib/feed.ts`) is the receipts: launches from `mojis`,
+  swaps from the Doppler indexer (one `swaps(where: { chainId, pool_in })` query per chain over every pool we know),
+  drops from `drops`, merged newest first. Actors who launched a moji carry its face, handle and kind. Nothing stored.
 - Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
 - **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
   record route retries the insert without the column if it is not applied yet, so deploy order does not matter.

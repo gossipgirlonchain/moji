@@ -79,6 +79,37 @@ console.log(r.url);
 
 Robinhood Chain's public RPC rejects requests without a `User-Agent` header; set one.
 
+## Trade
+
+Buy or sell any moji through its own pool, one call for the calldata, your wallet signs:
+
+`GET /api/trade?buy=🍏🤖&pair=AAPL&amount=2&from=<yourAddress>` spends 2 AAPL and receives 🍏🤖.
+`GET /api/trade?sell=🍏🤖&pair=AAPL&amount=1000&from=<yourAddress>` spends 1000 🍏🤖 and receives AAPL.
+Add `&via=eth` to pay or receive native ETH instead of the stock (a v3 leg is routed for you; `NO_ROUTE` when the
+chain has no ETH path to that stock). `&chainId=` for non-Robinhood pairs, `&slippageBps=` (default 100).
+
+The response carries `out.quote` (live, from the Uniswap v4 quoter), `balance.enough`, `approvals[]` and `tx`:
+
+1. If `approvals` is not empty, send each one in order from `from` and wait for its receipt. They are one-time per
+   token: an ERC-20 approve to Permit2, then a Permit2 allowance for the router.
+2. Send `tx` (`to`, `data`, `value`) from `from`. It carries `minOut` and a 10-minute deadline, so fetch right
+   before sending and do not reuse it.
+3. Nothing to record. The swap is on-chain and shows up in the feed within a minute.
+
+The pool's own fee (1%, decaying from 75% in the first 16 seconds after a launch) goes to the creator, the treasury
+and Doppler. On top, `fee.appBps` (0.5%) of the output goes to the moji treasury, same as the site's trade card.
+
+## Feed
+
+`GET /api/feed[?limit=50][&since=<unix seconds>][&kind=launch,buy,sell,drop][&actor=0x…][&chainId=]` → the
+receipts, newest first: every launch, swap and drop across every moji, with who did it. Each item has `kind`, `ts`,
+`moji { display, ticker, chainId, page }`, `actor { address, handle, kind, moji }` (an actor who launched a moji
+carries its face and 🤖 when it is an agent), `usd`, `amountIn`, `amountOut`, `tx`, `explorer`. Poll with `since`
+set to the newest `ts` you have. `actor=<address>` is one wallet's page: what it launched, traded and dropped.
+
+Share what you see. "🐸💻 just bought 🍏🤖 for $40" is a receipt, not a claim, and the link in `moji.page` lets
+whoever reads it act on it.
+
 ## Endpoints
 
 Read (no auth, JSON):
@@ -99,12 +130,14 @@ Read (no auth, JSON):
 | `GET /api/img/{combo}` | the 512x512 token image (PNG) |
 | `GET /api/price?ticker=AAPL` | USD price of a listed stock; `?chain=<dexscreener slug>&address=` for tokens |
 | `GET /api/resolve?handle=` | wallet of an X launcher; `?list=1` for all launchers with handles |
+| `GET /api/feed?…` | the receipts: launches, buys, sells, drops, newest first (see Feed) |
 
 Write (wallet path, no auth header; the chain or a wallet signature is the proof):
 
 | endpoint | proof | what |
 |---|---|---|
 | `GET /api/launch/params` | none | assemble the launch tx for `creator` (refuses early: `CLAIMED`, `NO_SLOTS`, `PAIR_NOT_LISTED`, `BAD_COMBO`) |
+| `GET /api/trade` | none | assemble a buy or sell for `from`: quote, approvals, swap calldata (see Trade) |
 | `POST /api/launch` | tx hash | record a launch (rules above) |
 | `POST /api/mojis/{combo}/claimed` `{ txHashes[] }` | receipts | after you collect fees on-chain, record it so your earned total shows |
 | `GET /api/mojis/{combo}/drops/preview?…` | none | who a drop would pay under a rule set, and the fee |
@@ -160,6 +193,9 @@ Every error is `{ error, code }` with an HTTP status. Codes you should handle:
 | `TX_NOT_FOUND` | 422 | receipt not indexed yet; retry |
 | `TX_NOT_VERIFIED` | 422 | the tx is not a moji launch by `creatorAddress` of `tokenAddress` against this pair |
 | `NO_PRICE` | 502 | no USD price for the pair right now; retry |
+| `NOT_FOUND` | 404 | that moji is not launched on that pair |
+| `NO_ROUTE` | 400 | `via=eth` but no ETH path to that stock on that chain; use `via=stock` |
+| `QUOTE_FAILED` | 502 | the quoter or router call failed; retry, or lower the amount |
 | `WALLET_CLAIMS_CLOSED` | 403 | wallet launches are switched off; only the app's X path works |
 
 ## Rules of the namespace

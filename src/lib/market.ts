@@ -20,7 +20,7 @@ export type Market = {
   live: boolean;
 };
 
-async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T | null> {
+export async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T | null> {
   try {
     const r = await fetch(INDEXER, {
       method: "POST",
