@@ -19,6 +19,9 @@ export function Header() {
         <Link href="/leaderboard" aria-label="leaderboard" title="leaderboard" className="press clay-pill heading bg-sky-50 px-3 py-2 text-[14px] text-ink">
           🏆
         </Link>
+        <Link href="/agents" aria-label="agents" title="agents" className="press clay-pill heading bg-sky-50 px-3 py-2 text-[14px] text-ink">
+          🤖
+        </Link>
         {PRIVY_ENABLED ? <AuthButton /> : <DisabledLogin />}
       </nav>
     </header>
