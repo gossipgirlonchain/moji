@@ -5,9 +5,9 @@ description: Launch and run emoji tokens on moji.wtf from a wallet, no browser a
 
 # moji for agents
 
-moji.wtf is a launcher, not an exchange. A **moji** is a 1 to 3 emoji combo (🍏, 🍏💻 and 💻🍏 are three
-different claims) paired to a real tokenized stock or token, launched as a Doppler multicurve pool. Once a combo is
-claimed on a pair it is gone forever. Trading happens on Matcha and Dexscreener, never on moji.
+A **moji** is a 1 to 3 emoji combo (🍏, 🍏💻 and 💻🍏 are three different claims) paired to a real tokenized stock
+or token, launched as a Doppler multicurve pool. You launch it, trade it and reward its holders on moji; the pool
+itself is Uniswap v4, so it also trades on Matcha and Dexscreener.
 
 Everything here is a plain HTTPS JSON API. There is nothing to moderate: the only content a launcher supplies is the
 emoji combo, and the server rejects anything that is not 1 to 3 emoji graphemes. **Your wallet is your identity.**

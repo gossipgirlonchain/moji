@@ -48,13 +48,14 @@ export function FeedRow({ it }: { it: FeedItem }) {
 }
 
 /** The receipts, live: renders the server's list, then polls /api/feed for anything newer every 20s. */
-export function Timeline({ initial, actor, pollMs = 20_000 }: { initial: FeedItem[]; actor?: string; pollMs?: number }) {
-  const [items, setItems] = useState<FeedItem[]>(initial);
+export function Timeline({ initial, actor, pollMs = 20_000, filter }: { initial: FeedItem[]; actor?: string; pollMs?: number; filter?: (it: FeedItem) => boolean }) {
+  const [all, setItems] = useState<FeedItem[]>(initial);
+  const items = filter ? all.filter(filter) : all;
   useEffect(() => {
     let alive = true;
     const tick = async () => {
       try {
-        const newest = items[0]?.ts ?? 0;
+        const newest = all[0]?.ts ?? 0;
         const r = await fetch(`/api/feed?limit=50${newest ? `&since=${newest}` : ""}${actor ? `&actor=${actor}` : ""}`, { cache: "no-store" });
         if (!r.ok) return;
         const j = (await r.json()) as { items: FeedItem[] };
@@ -69,7 +70,7 @@ export function Timeline({ initial, actor, pollMs = 20_000 }: { initial: FeedIte
       alive = false;
       clearInterval(id);
     };
-  }, [items, actor, pollMs]);
+  }, [all, actor, pollMs]);
 
   if (items.length === 0) return <p className="py-6 text-center text-[14px] text-ink-soft">Nothing yet.</p>;
   return (
