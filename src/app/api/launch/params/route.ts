@@ -30,7 +30,7 @@ const fail = (error: string, code: string, status: number, extra: Record<string,
  *
  * The launch, assembled server-side for a wallet that is not in a browser: the exact Airlock `create` calldata the
  * app would sign, ready to send from `creator`. Refuses (with a code) before any gas is spent when the combo is
- * invalid or already paired, the pair is not listed, or the wallet is over its cap. The chain, the pair and the fee
+ * invalid or already paired, the pair is not listed, or the wallet has used its launch slots. The chain, the pair and the fee
  * structure are the same as the app's; nothing here is configurable beyond the launch market cap.
  *
  * Send `tx` from `creator` (it must be the tx sender), wait for the receipt, then POST /api/launch with `then.record.body`
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
   }
 
   const quota = await launchQuota({ address: creator });
-  if (quota.blocked) return fail(quota.message ?? "Launch cap reached", "DEAD_CAP", 429, { quota });
+  if (quota.blocked) return fail(quota.message ?? "Launch cap reached", "NO_SLOTS", 429, { quota });
 
   const stockPriceUsd = await stockPriceServer(chain.chainId, stock.address, stock.ticker);
   if (!(stockPriceUsd > 0)) return fail(`No USD price for ${stock.ticker} right now`, "NO_PRICE", 502);

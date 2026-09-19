@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/claims/quota                 (Privy bearer)  → can this X account launch another moji right now?
- * GET /api/claims/quota?creator=0x…     (no auth)       → same question for a bare wallet (agent path, tighter cap)
+ * GET /api/claims/quota?creator=0x…     (no auth)       → same question for a bare wallet (launch slots, nothing dies)
  */
 export async function GET(req: Request) {
   const creator = new URL(req.url).searchParams.get("creator") ?? "";

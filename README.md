@@ -71,10 +71,11 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
   listed or the wallet is over its cap, so no gas is wasted.
 - **`POST /api/launch` without a bearer token** is the wallet path: identity is the tx sender, `agent: true` marks the
   row `creator_kind = 'agent'` (🤖 on tiles, the moji page and a "🤖 agents" filter on the home explore block).
-  Caps live in `src/config/limits.ts`: `WALLET_CLAIM_WINDOW_MS` (60 min between launches per wallet) and
-  `WALLET_DEAD_MAX` (2 dead mojis block the next, vs 3 for X accounts). `WALLET_CLAIMS_OPEN = false` closes the
+  A wallet's first moji is who it is, so this path has **launch slots instead of the dead-moji cap**: nothing dies,
+  `WALLET_LAUNCH_SLOTS` (1) launches per wallet, more to be earned on a ladder that is not built yet. X accounts keep
+  the 15-minute cooldown and the dead cap since they can launch repeatedly. `WALLET_CLAIMS_OPEN = false` closes the
   path again (params returns 403, record demands the Privy token). `GET /api/claims/quota?creator=0x…` reports the
-  wallet's standing without auth.
+  wallet's slots without auth.
 - Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
 - **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
   record route retries the insert without the column if it is not applied yet, so deploy order does not matter.

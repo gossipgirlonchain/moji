@@ -4,7 +4,7 @@ import { hasSupabase, supabaseServer } from "@/lib/supabase";
 import { hasLinkedWallet, getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
 import { isXExempt } from "@/config/whitelist";
 import { launchQuota } from "@/lib/limits";
-import { WALLET_CLAIMS_OPEN, WALLET_CLAIM_WINDOW_MS } from "@/config/limits";
+import { WALLET_CLAIMS_OPEN } from "@/config/limits";
 import { verifyLaunchTx } from "@/lib/launch-verify";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
@@ -42,8 +42,8 @@ const fail = (error: string, code: string, status: number) => NextResponse.json(
  *    (fee beneficiaries carry the treasury and protocol shares, the integrator is ours): verifyLaunchTx
  *  - with a Privy access token: that DID must have a linked X account (read from Privy server-side),
  *    one claim per DID per 15 minutes, dead-moji cap on the DID
- *  - without one (WALLET_CLAIMS_OPEN): the wallet that sent the tx is the identity, one claim per wallet
- *    per hour, tighter dead-moji cap on the wallet. `agent: true` marks the row as an agent launch.
+ *  - without one (WALLET_CLAIMS_OPEN): the wallet that sent the tx is the identity and its first moji is who it
+ *    is: WALLET_LAUNCH_SLOTS launches per wallet, nothing dies. `agent: true` marks the row as an agent launch.
  * Inserts the claim (unique index on (combo, network) is the permanence guarantee) and the moji row,
  * then renders the token image into Supabase Storage.
  */
@@ -91,9 +91,10 @@ export async function POST(req: Request) {
   }
   const launcher = who.did ? { did: who.did } : { address: body.creatorAddress };
 
-  // Dead-moji cap (the launch page and the params endpoint check this before anything is sent on-chain; this is the backstop).
+  // Dead-moji cap for X accounts, launch slots for wallets (the launch page and the params endpoint check this
+  // before anything is sent on-chain; this is the backstop).
   const quota = await launchQuota(launcher);
-  if (quota.blocked) return fail(quota.message ?? "Launch cap reached", "DEAD_CAP", 429);
+  if (quota.blocked) return fail(quota.message ?? "Launch cap reached", quota.rule === "dead" ? "DEAD_CAP" : "NO_SLOTS", 429);
 
   // The chain is the source of truth for what was launched: creator, token, pair, fee beneficiaries, integrator.
   const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash: body.txHash as `0x${string}`, tokenAddress: body.tokenAddress as `0x${string}`, creatorAddress: body.creatorAddress as `0x${string}`, numeraire: stock.address });
@@ -101,16 +102,15 @@ export async function POST(req: Request) {
 
   const sb = supabaseServer();
 
-  // Rate limit: one claim per X account (DID) per 15 minutes, or per wallet per hour.
-  const windowMs = who.did ? CLAIM_WINDOW_MS : WALLET_CLAIM_WINDOW_MS;
-  const since = new Date(Date.now() - windowMs).toISOString();
-  let recentQ = sb.from("mojis").select("launched_at").eq("network", NETWORK).gte("launched_at", since).order("launched_at", { ascending: false }).limit(1);
-  recentQ = who.did ? recentQ.eq("creator_did", who.did) : recentQ.ilike("creator_address", body.creatorAddress);
-  const { data: recent } = await recentQ;
-  if (recent && recent.length > 0) {
-    const next = new Date(new Date(recent[0].launched_at).getTime() + windowMs);
-    const mins = Math.max(1, Math.ceil((next.getTime() - Date.now()) / 60000));
-    return NextResponse.json({ error: `One claim every ${Math.round(windowMs / 60000)} minutes. Try again in ${mins} min.`, code: "RATE_LIMITED", retryAfterMinutes: mins }, { status: 429 });
+  // Rate limit: one claim per X account (DID) per 15 minutes. Wallets are held by their slots instead.
+  if (who.did) {
+    const since = new Date(Date.now() - CLAIM_WINDOW_MS).toISOString();
+    const { data: recent } = await sb.from("mojis").select("launched_at").eq("creator_did", who.did).gte("launched_at", since).order("launched_at", { ascending: false }).limit(1);
+    if (recent && recent.length > 0) {
+      const next = new Date(new Date(recent[0].launched_at).getTime() + CLAIM_WINDOW_MS);
+      const mins = Math.max(1, Math.ceil((next.getTime() - Date.now()) / 60000));
+      return NextResponse.json({ error: `One claim every 15 minutes. Try again in ${mins} min.`, code: "RATE_LIMITED", retryAfterMinutes: mins }, { status: 429 });
+    }
   }
 
   const { error: claimErr } = await sb.from("claims").insert({ combo: v.normalized, display: v.display, chain_id: chain.chainId, network: NETWORK, stock_address: stock.address });
