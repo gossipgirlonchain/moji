@@ -36,6 +36,8 @@ export type MojiRow = {
   creator_did: string | null;
   creator_handle: string | null;
   creator_address: string | null;
+  /** how the launch was recorded: "x" (Privy + linked X), "wallet" (tx hash only), "agent" (wallet that said it is an agent). supabase/agents.sql */
+  creator_kind?: "x" | "wallet" | "agent" | null;
   network: "mainnet" | "testnet";
   price_usd: number | null;
   volume24_usd: number | null;

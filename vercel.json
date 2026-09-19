@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/drops",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/copy",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

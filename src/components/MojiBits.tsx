@@ -37,6 +37,21 @@ export function DropsDot({ m, className = "" }: { m: RewardsKey; className?: str
   );
 }
 
+/** Launched by an autonomous agent (recorded through the wallet path with `agent: true`). */
+export function isAgentLaunch(m: Pick<MojiRow, "creator_kind">): boolean {
+  return m.creator_kind === "agent";
+}
+
+/** 🤖 pinned to a tile corner, no background. */
+export function AgentDot({ m, className = "" }: { m: Pick<MojiRow, "creator_kind">; className?: string }) {
+  if (!isAgentLaunch(m)) return null;
+  return (
+    <span className={`block text-[22px] leading-[1] ${className}`} title="launched by an agent" aria-label="launched by an agent">
+      🤖
+    </span>
+  );
+}
+
 /** Chain identifier: the chain's emoji, pinned to a tile corner or inline in a row. */
 export function ChainDot({ chainId, className = "" }: { chainId: number; className?: string }) {
   const c = chainById(chainId);
@@ -55,6 +70,7 @@ export function MojiTile({ m, pop, compact }: { m: MojiRow; pop?: number; compac
       className={`press relative flex flex-col items-center gap-1 text-center ${compact ? "clay-sm bg-sky-50 px-2 pb-4 pt-5" : "clay bg-white px-3 py-5"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
       <DropsDot m={m} className="absolute right-3 top-3" />
+      <AgentDot m={m} className="absolute left-3 top-3" />
       <span className="text-[44px] leading-none">{m.display}</span>
       <span className="heading mt-2 max-w-full truncate text-[15px] text-ink">
         {m.display} / {m.stock_ticker}

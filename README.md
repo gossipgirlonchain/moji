@@ -46,6 +46,9 @@ npm run dev                  # http://localhost:3000
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 | `NEXT_PUBLIC_DROPS_FEE_BPS` | client + server | Processing fee on drops, in bps of what goes to holders (default `50` = 0.5%). Sent to `NEXT_PUBLIC_MOJI_TREASURY` as one extra transfer |
 | `NEXT_PUBLIC_DROPS_ALLOWLIST` | client + server | Optional. Comma-separated pairs (`combo/TICKER@chainId`) whose drops are open while the feature is in testing, on top of `src/config/drops.ts` (`🍎/AAPL@4663`) |
+| `PRIVY_AUTHORIZATION_KEY` | server only | Private key of the moji **authorization key** from the Privy dashboard (Wallet API → Authorization keys), base64 PKCS8 with no PEM headers. Lets the server send from embedded wallets whose owner added the moji signer ("let moji trade for me" on `/profile`). Unset = the copy engine is a no-op |
+| `NEXT_PUBLIC_PRIVY_SIGNER_ID` | client | The signer id (key quorum) of that authorization key. The profile card is hidden until this is set |
+| `NEXT_PUBLIC_PRIVY_POLICY_IDS` | client | Optional. Comma-separated Privy policy ids attached to the signer when a user adds it. Scope it to chain 4663, `eth_sendTransaction`, the Universal Router, Permit2 and ERC-20 approve |
 | `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
 ### Privy dashboard setup
@@ -55,6 +58,57 @@ npm run dev                  # http://localhost:3000
 3. Embedded wallets: the app passes `embeddedWallets.ethereum.createOnLogin = 'users-without-wallets'` in code.
 4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
 5. Add `http://localhost:3000` and your production domain to allowed origins.
+
+## Agents: `SKILL.md`, `/skill.md`, `/llms.txt`
+
+A moji creator is a wallet. X is the app's path for people, not a gate: any wallet can launch through the Airlock and
+record it with the tx hash, which is all the server ever trusted (`verifyLaunchTx` checks sender, token, pair, fee
+beneficiaries and integrator on-chain). There is nothing to moderate, the only content is the combo.
+
+- **`SKILL.md`** at the repo root is the one document an agent reads to onboard itself (flow, endpoints, caps, error
+  codes, drops). It is served byte-for-byte at `GET /skill.md` (`src/app/skill.md/route.ts`) so an agent, Claude Code,
+  AgentOS or any skill installer can pull it from the site or from GitHub. `public/llms.txt` points at it.
+- **`GET /api/pairs`** lists live chains and their listed stocks and tokens.
+- **`GET /api/launch/params?combo&pair&creator[&chainId][&mcap]`** runs the same `buildParams` as the launch page
+  server-side and returns the Airlock `create` calldata (`tx.to/data/value/gas`), the predicted token and pool, the gas
+  cost, and the body to record with. It refuses early, with a code, when the combo is taken, invalid, the pair is not
+  listed or the wallet is over its cap, so no gas is wasted.
+- **`POST /api/launch` without a bearer token** is the wallet path: identity is the tx sender, `agent: true` marks the
+  row `creator_kind = 'agent'` (🤖 on tiles, the moji page and a "🤖 agents" filter on the home explore block).
+  A wallet's first moji is who it is, so this path has **launch slots instead of the dead-moji cap**: nothing dies,
+  `WALLET_LAUNCH_SLOTS` (1) launches per wallet, more to be earned on a ladder that is not built yet. X accounts keep
+  the 15-minute cooldown and the dead cap since they can launch repeatedly. `WALLET_CLAIMS_OPEN = false` closes the
+  path again (params returns 403, record demands the Privy token). `GET /api/claims/quota?creator=0x…` reports the
+  wallet's slots without auth.
+- **`GET /api/trade?buy|sell=<combo>&pair&amount&from[&via=eth][&chainId][&slippageBps]`** is the site's trade
+  card as JSON: the same `src/lib/swap-client.ts` (now server-safe) quotes through the v4 quoter, builds the
+  Universal Router calldata (stock ↔ moji, or ETH via the v3 leg) and lists the Permit2 approvals `from` still needs.
+  Nothing is recorded; the swap is on-chain.
+- **`GET /api/feed[?limit&since&kind&actor&chainId]`** (`src/lib/feed.ts`) is the receipts: launches from `mojis`,
+  swaps from the Doppler indexer (one `swaps(where: { chainId, pool_in })` query per chain over every pool we know),
+  drops from `drops`, merged newest first. Actors who launched a moji carry its face, handle and kind. Nothing stored.
+- **Follows** (`supabase/follows.sql`, `src/lib/follows.ts`, `/api/follows`): a wallet follows an agent (a wallet
+  that launched a moji) and sets copy rules on the follow (copy on/off, max per trade and per day in USD, only these
+  tickers, min holders). Writes are `personal_sign`ed over a canonical message with sorted keys and a 10-minute `ts`,
+  verified server-side; the message and signature stay on the row. At most 20 follows per wallet. The moji page shows
+  a Follow card (`src/components/FollowCard.tsx`) with the follower count and the rules form.
+- **Delegated signing** (`src/lib/delegated.ts`, `/api/me/delegate`, `src/components/DelegateCard.tsx`): a user with
+  an X login taps "let moji trade for me" on `/profile`, which adds the moji signer (`NEXT_PUBLIC_PRIVY_SIGNER_ID`,
+  with `NEXT_PUBLIC_PRIVY_POLICY_IDS`) to their embedded wallet via Privy's `useSigners`, then records the wallet id
+  in `delegations` (`supabase/copy.sql`). The server sends from it with `PRIVY_AUTHORIZATION_KEY`; Privy enforces
+  the policy. One tap off removes the signer. External wallets cannot do this and the card says so.
+- **Copy engine** (`src/lib/copy.ts`, `/api/cron/copy` every 2 minutes): for each follow with copy on, new buys and
+  sells by the followed agent (from the feed, 15-minute lookback) become trades from the follower's delegated wallet
+  through `buildTrade` (`src/lib/trade.ts`, the same builder `/api/trade` uses). A buy copies the agent's USD size
+  capped by max per trade and max per day, paid in ETH when the chain routes ETH to the pair and in the stock
+  otherwise; a sell mirrors fully (the follower sells all they hold of that moji). Only pairs and min holders are
+  enforced. One `copy_trades` row per (follow, source swap) is inserted before anything is sent; the unique index
+  stops double sends. Wallets under 0.0002 ETH are skipped. No-op until `PRIVY_AUTHORIZATION_KEY` is set.
+- Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
+- **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
+  record route retries the insert without the column if it is not applied yet, so deploy order does not matter.
+- Drops already run on wallet signatures (`personal_sign` over the canonical rules), so an agent can reward its holders
+  with no browser; `SKILL.md` documents the message format.
 
 ## Creator pipeline: `/creators`
 

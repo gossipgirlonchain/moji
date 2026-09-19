@@ -1,5 +1,3 @@
-"use client";
-
 import { encodeAbiParameters, encodeFunctionData, erc20Abi, formatUnits, maxUint160, maxUint256, parseAbi, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { computePoolId, getAddresses, quoterV2Abi, v4QuoterAbi } from "@whetstone-research/doppler-sdk/evm";
 import { FEE_TICK_SPACING, MOJI_TREASURY } from "@/config/fees";
@@ -98,6 +96,23 @@ export function encodeSwap(chainId: number, key: PoolKey, tokenIn: Address, toke
   const v4Input = encodeAbiParameters([{ type: "bytes" }, { type: "bytes[]" }], [actionsHex, params]);
   const commands = ("0x" + V4_SWAP.toString(16).padStart(2, "0")) as Hex;
   return encodeFunctionData({ abi: routerAbi, functionName: "execute", args: [commands, [v4Input], BigInt(Math.floor(Date.now() / 1000) + 600)] });
+}
+
+export type ApprovalTx = { to: Address; data: Hex; why: "erc20-to-permit2" | "permit2-to-router" };
+
+/** The approval transactions `owner` still needs before the router can pull `amount` of `token`, as calldata to sign. */
+export async function neededApprovals(pc: PublicClient, chainId: number, owner: Address, token: Address, amount: bigint): Promise<ApprovalTx[]> {
+  const { router, permit2 } = addressesFor(chainId);
+  if (!router || !permit2) throw new Error("no router on this chain");
+  const out: ApprovalTx[] = [];
+  const erc = await pc.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, permit2] });
+  if (erc < amount) out.push({ to: token, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [permit2, maxUint256] }), why: "erc20-to-permit2" });
+  const [allowed, expiration] = await pc.readContract({ address: permit2, abi: permit2Abi, functionName: "allowance", args: [owner, token, router] });
+  const now = Math.floor(Date.now() / 1000);
+  if (allowed < amount || Number(expiration) <= now + 60) {
+    out.push({ to: permit2, data: encodeFunctionData({ abi: permit2Abi, functionName: "approve", args: [token, router, maxUint160, now + 30 * 24 * 3600] }), why: "permit2-to-router" });
+  }
+  return out;
 }
 
 /** Make sure Permit2 can pull `token` for the router: ERC-20 approve to Permit2 once, then a Permit2 allowance to the router. */
