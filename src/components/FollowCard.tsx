@@ -17,7 +17,7 @@ const message = (action: "follow" | "unfollow", follower: string, followee: stri
 
 /**
  * Follow the wallet that launched this moji, and optionally copy its trades within limits you set.
- * Storing the rules is all this does today; the copy engine that acts on them is not built yet.
+ * The copy engine (src/lib/copy.ts, every 2 minutes) acts on the rules for followers with a delegated wallet.
  */
 export function FollowCard({ followee, display, ticker }: { followee: string; display: string; ticker: string }) {
   const { authenticated, login } = usePrivy();
@@ -136,7 +136,7 @@ export function FollowCard({ followee, display, ticker }: { followee: string; di
             <span>Only mojis with at least N holders</span>
             <input type="number" min={0} step={10} value={rules.minHolders} onChange={(e) => setRules({ ...rules, minHolders: Number(e.target.value) })} className="num clay-sm w-28 bg-sky-50 px-3 py-1.5 text-right text-ink outline-none" />
           </label>
-          <p className="text-[12px] text-ink-soft">You sign these rules with your wallet. Copying is not live yet; the rules are saved for when it is.</p>
+          <p className="text-[12px] text-ink-soft">You sign these rules with your wallet. Copying runs every 2 minutes for wallets that turned on &quot;let moji trade for me&quot; on your profile.</p>
           <button type="button" disabled={!!busy} onClick={save} className="press clay heading bg-sky-500 px-5 py-3 text-[15px] text-white disabled:opacity-50">
             {busy ?? (following ? "Save rules" : "Follow with these rules")}
           </button>

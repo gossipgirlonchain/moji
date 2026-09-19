@@ -45,6 +45,9 @@ npm run dev                  # http://localhost:3000
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 | `NEXT_PUBLIC_DROPS_FEE_BPS` | client + server | Processing fee on drops, in bps of what goes to holders (default `50` = 0.5%). Sent to `NEXT_PUBLIC_MOJI_TREASURY` as one extra transfer |
 | `NEXT_PUBLIC_DROPS_ALLOWLIST` | client + server | Optional. Comma-separated pairs (`combo/TICKER@chainId`) whose drops are open while the feature is in testing, on top of `src/config/drops.ts` (`🍎/AAPL@4663`) |
+| `PRIVY_AUTHORIZATION_KEY` | server only | Private key of the moji **authorization key** from the Privy dashboard (Wallet API → Authorization keys), base64 PKCS8 with no PEM headers. Lets the server send from embedded wallets whose owner added the moji signer ("let moji trade for me" on `/profile`). Unset = the copy engine is a no-op |
+| `NEXT_PUBLIC_PRIVY_SIGNER_ID` | client | The signer id (key quorum) of that authorization key. The profile card is hidden until this is set |
+| `NEXT_PUBLIC_PRIVY_POLICY_IDS` | client | Optional. Comma-separated Privy policy ids attached to the signer when a user adds it. Scope it to chain 4663, `eth_sendTransaction`, the Universal Router, Permit2 and ERC-20 approve |
 | `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
 ### Privy dashboard setup
@@ -87,8 +90,19 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
   that launched a moji) and sets copy rules on the follow (copy on/off, max per trade and per day in USD, only these
   tickers, min holders). Writes are `personal_sign`ed over a canonical message with sorted keys and a 10-minute `ts`,
   verified server-side; the message and signature stay on the row. At most 20 follows per wallet. The moji page shows
-  a Follow card (`src/components/FollowCard.tsx`) with the follower count and the rules form. The copy engine that
-  acts on the rules is not built yet.
+  a Follow card (`src/components/FollowCard.tsx`) with the follower count and the rules form.
+- **Delegated signing** (`src/lib/delegated.ts`, `/api/me/delegate`, `src/components/DelegateCard.tsx`): a user with
+  an X login taps "let moji trade for me" on `/profile`, which adds the moji signer (`NEXT_PUBLIC_PRIVY_SIGNER_ID`,
+  with `NEXT_PUBLIC_PRIVY_POLICY_IDS`) to their embedded wallet via Privy's `useSigners`, then records the wallet id
+  in `delegations` (`supabase/copy.sql`). The server sends from it with `PRIVY_AUTHORIZATION_KEY`; Privy enforces
+  the policy. One tap off removes the signer. External wallets cannot do this and the card says so.
+- **Copy engine** (`src/lib/copy.ts`, `/api/cron/copy` every 2 minutes): for each follow with copy on, new buys and
+  sells by the followed agent (from the feed, 15-minute lookback) become trades from the follower's delegated wallet
+  through `buildTrade` (`src/lib/trade.ts`, the same builder `/api/trade` uses). A buy copies the agent's USD size
+  capped by max per trade and max per day, paid in ETH when the chain routes ETH to the pair and in the stock
+  otherwise; a sell mirrors fully (the follower sells all they hold of that moji). Only pairs and min holders are
+  enforced. One `copy_trades` row per (follow, source swap) is inserted before anything is sent; the unique index
+  stops double sends. Wallets under 0.0002 ETH are skipped. No-op until `PRIVY_AUTHORIZATION_KEY` is set.
 - Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
 - **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
   record route retries the insert without the column if it is not applied yet, so deploy order does not matter.

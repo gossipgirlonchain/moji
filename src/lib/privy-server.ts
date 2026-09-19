@@ -13,6 +13,25 @@ function privy(): PrivyClient | null {
 
 export const PRIVY_SERVER_CONFIGURED = Boolean(appId && appSecret);
 
+/** The server client, or null when the app id or secret is unset. */
+export function privyClient(): PrivyClient | null {
+  return privy();
+}
+
+export type PrivyWalletAccount = { type: "wallet"; address: string; id?: string | null; wallet_client_type?: string; connector_type?: string; delegated?: boolean; chain_type?: string };
+
+/** A user's linked accounts, server-side. Null when Privy is unset or the user is unknown. */
+export async function linkedAccounts(did: string): Promise<PrivyWalletAccount[] | null> {
+  const p = privy();
+  if (!p) return null;
+  try {
+    const user = await p.users()._get(did);
+    return user.linked_accounts as unknown as PrivyWalletAccount[];
+  } catch {
+    return null;
+  }
+}
+
 export type VerifiedUser = { did: string };
 
 /** Verify a Privy access token from the Authorization header. Null when missing/invalid, "unconfigured" when no secret. */
