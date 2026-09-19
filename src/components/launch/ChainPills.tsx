@@ -15,12 +15,7 @@ export function ChainPills({ value, onChange }: { value: MojiChain; onChange: (c
         key={c.key}
         type="button"
         disabled={soon && !tease}
-        onClick={(e) => {
-          // Where the tap landed, for the gold wave when BNB is picked (see LaunchFlow).
-          document.documentElement.style.setProperty("--egg-x", `${e.clientX}px`);
-          document.documentElement.style.setProperty("--egg-y", `${e.clientY}px`);
-          onChange(c);
-        }}
+        onClick={() => onChange(c)}
         data-pressed={active ? "true" : undefined}
         className={`press clay-pill heading flex grow items-center justify-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12.5px] ${
           active ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"

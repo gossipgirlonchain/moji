@@ -24,16 +24,13 @@ export function LaunchFlow() {
   const [curve, setCurve] = useState<CurveDefaults>(CURVE_DEFAULTS);
 
   // Easter egg: BNB turns the page gold. The palette is CSS variables on <html>, so one attribute retints
-  // everything; `theme-fade` eases the colors and a gold wave sweeps out from the tapped pill.
+  // everything; `theme-fade` eases the colors and a soft gold gradient behind the page fades in with them.
   const gold = chain.key === "bsc";
-  const [wave, setWave] = useState(0);
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add("theme-fade");
-    if (gold) {
-      root.dataset.theme = "gold";
-      setWave((w) => w + 1);
-    } else delete root.dataset.theme;
+    if (gold) root.dataset.theme = "gold";
+    else delete root.dataset.theme;
     return () => {
       delete root.dataset.theme;
       root.classList.remove("theme-fade");
@@ -49,7 +46,7 @@ export function LaunchFlow() {
 
   return (
     <main className="flex flex-col gap-4">
-      {gold && wave > 0 && <div key={wave} className="gold-wave" aria-hidden onAnimationEnd={() => setWave(0)} />}
+      <div className="gold-sheen" aria-hidden />
       <h1 className="pop text-center text-[30px] text-sky-600">launch a moji</h1>
 
       <Card pop={1}>

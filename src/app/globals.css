@@ -197,7 +197,7 @@ em-emoji-picker {
 }
 
 /* Easter egg: picking BNB on the launch page turns the sky gold. The whole palette lives in the
-   variables above, so one attribute on <html> retints every surface; the wave below hides the flip. */
+   variables above, so one attribute on <html> retints every surface and the colors cross-fade. */
 :root[data-theme="gold"] {
   --sky-50: #FFFBEB;
   --sky-100: #FDF0C4;
@@ -229,20 +229,25 @@ html.theme-fade *:not(.press) {
 html.theme-fade .press {
   transition: transform 180ms var(--bounce), box-shadow 900ms ease, background-color 900ms ease, color 900ms ease, opacity 180ms ease;
 }
-/* Gold wave: a radial gradient that grows from the tapped pill (--egg-x/--egg-y) over the page, then fades. */
-.gold-wave {
+/* Gold sheen: a soft vertical gradient behind the page that cross-fades in with the palette. */
+.gold-sheen {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: -1;
   pointer-events: none;
-  background: radial-gradient(circle at var(--egg-x, 50%) var(--egg-y, 50%), rgba(255, 224, 120, 0.95) 0%, rgba(243, 188, 53, 0.70) 30%, rgba(233, 165, 28, 0.35) 60%, rgba(233, 165, 28, 0) 100%);
-  animation: goldWave 1300ms ease-out forwards;
+  background: linear-gradient(180deg, #FFF8E1 0%, #FBE6A3 55%, #F5CB5A 100%);
+  opacity: 0;
+  transition: opacity 1200ms ease;
 }
-@keyframes goldWave {
-  0% { clip-path: circle(0 at var(--egg-x, 50%) var(--egg-y, 50%)); opacity: 1; }
-  55% { clip-path: circle(170vmax at var(--egg-x, 50%) var(--egg-y, 50%)); opacity: 0.85; }
-  100% { clip-path: circle(170vmax at var(--egg-x, 50%) var(--egg-y, 50%)); opacity: 0; }
+:root[data-theme="gold"] .gold-sheen {
+  opacity: 1;
 }
-@media (prefers-reduced-motion: reduce) {
-  .gold-wave { animation-duration: 400ms; }
+/* <body> paints its own background over negative z-index layers, so it goes clear while gold and the
+   sheen shows through; <html> keeps the flat gold behind everything. */
+:root[data-theme="gold"] body {
+  background: transparent;
+}
+/* Beats the theme-fade catch-all above so the sheen keeps its own, slower opacity fade. */
+html.theme-fade .gold-sheen {
+  transition: opacity 1200ms ease;
 }
