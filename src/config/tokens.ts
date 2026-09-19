@@ -48,6 +48,12 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("base", "EARPODS", "EARPODS", "0xfb064Ea62dB2A6258d50D1fD0Ca11E5Cf2a8Fee1"),
     t("base", "MEAT", "Meat", "0xa9F56fB9b3e02dF8d36c67F12D4d03919250fEe1"),
   ],
+  // BNB Chain: the canonical CAKE and BTCB contracts (PancakeSwap's and Binance's own). Added 2026-09-18 from the
+  // canonical addresses; re-run `npx tsx scripts/verify-canon.ts` (bsc block) to re-check symbol/decimals and liquidity.
+  56: [
+    t("bsc", "CAKE", "PancakeSwap Token", "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82"),
+    t("bsc", "BTCB", "BTCB Token", "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c"),
+  ],
   1: [
     t("ethereum", "UNI", "Uniswap", "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"),
     t("ethereum", "LINK", "Chainlink", "0x514910771AF9Ca656af840dff83E8264EcF986CA"),

@@ -1,5 +1,6 @@
 import "server-only";
 import { formatUnits } from "viem";
+import { getAddresses } from "@whetstone-research/doppler-sdk/evm";
 import { publicClientFor } from "./rpc";
 import { chainById } from "@/config/chains";
 import { findStock } from "@/config/stocks";
@@ -36,14 +37,25 @@ export async function gql<T>(query: string, variables: Record<string, unknown>):
   }
 }
 
-/** ETH (or MON) in USD from the Doppler indexer, which sources it from Chainlink (docs: "eth_price"). */
-export async function nativePriceUsd(symbol: "ETH" | "MON"): Promise<number> {
+export type NativeSymbol = "ETH" | "MON" | "BNB";
+
+/**
+ * Native gas token in USD. ETH and MON come from the Doppler indexer, which sources them from Chainlink
+ * (docs: "eth_price"). BNB has no indexer price field, so it is WBNB's most liquid Dexscreener pair.
+ */
+export async function nativePriceUsd(symbol: NativeSymbol): Promise<number> {
+  if (symbol === "BNB") return dexscreenerPriceUsd("bsc", getAddresses(56).weth);
   const field = symbol === "MON" ? "monadUsdcPrices" : "ethPrices";
   const data = await gql<Record<string, { items: { price: string }[] }>>(`{ ${field}(limit: 1, orderBy: "timestamp", orderDirection: "desc") { items { price } } }`, {});
   const raw = data?.[field]?.items?.[0]?.price;
   if (!raw) return 0;
   // ethPrices is Chainlink 8-decimal; monadUsdcPrices is an 18-decimal USDC quote (verified against Dexscreener WMON).
   return Number(formatUnits(BigInt(raw), symbol === "MON" ? 18 : 8));
+}
+
+/** Gas symbol → the native price source key. Anything unknown is priced like ETH. */
+export function nativeSymbol(gasSymbol: string): NativeSymbol {
+  return gasSymbol === "MON" || gasSymbol === "BNB" ? gasSymbol : "ETH";
 }
 
 /** Spot USD price of a token from its most liquid real pair on Dexscreener (pairs under $1K/24h volume ignored). */
@@ -63,7 +75,7 @@ export async function dexscreenerPriceUsd(dexChain: string, address: string): Pr
 export async function stockPriceServer(chainId: number, stockAddress: string, tickerHint?: string): Promise<number> {
   const chain = chainById(chainId);
   const w = chain ? wethNumeraire(chain) : null;
-  if (w && w.address.toLowerCase() === stockAddress.toLowerCase()) return nativePriceUsd(chain!.gasSymbol === "MON" ? "MON" : "ETH");
+  if (w && w.address.toLowerCase() === stockAddress.toLowerCase()) return nativePriceUsd(nativeSymbol(chain!.gasSymbol));
   const numeraire = findNumeraire(chainId, stockAddress);
   if (numeraire?.priceSource === "dexscreener" && numeraire.dexChain) return dexscreenerPriceUsd(numeraire.dexChain, numeraire.address);
   const stock = findStock(chainId, stockAddress) ?? numeraire ?? (tickerHint ? { ticker: tickerHint, chainlinkFeed: undefined } : undefined);

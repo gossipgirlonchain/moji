@@ -6,7 +6,7 @@ import { WagmiProvider as PlainWagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { mainnet, arbitrum, base, monad } from "viem/chains";
 import { useState } from "react";
-import { SUPPORTED_EVM_CHAINS, robinhoodChain } from "@/config/chains";
+import { SUPPORTED_EVM_CHAINS, bscChain, robinhoodChain } from "@/config/chains";
 import { transportFor } from "@/lib/rpc";
 
 /**
@@ -20,6 +20,7 @@ export const wagmiConfig = createConfig({
     [base.id]: transportFor(base),
     [arbitrum.id]: transportFor(arbitrum),
     [mainnet.id]: transportFor(mainnet),
+    [bscChain.id]: transportFor(bscChain),
     [monad.id]: transportFor(monad),
   },
 });

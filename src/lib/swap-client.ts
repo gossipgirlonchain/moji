@@ -28,6 +28,7 @@ const STABLE: Record<number, Address> = {
   8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC
   1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
   42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // USDC
+  56: "0x55d398326f99059fF775485246999027B3197955", // USDT (BSC-USD), the deepest stable on BNB Chain
 };
 const V3_FEES = [100, 500, 3000, 10000];
 /** Chains whose Universal Router is built on the older v4 periphery: the exact-in struct carries sqrtPriceLimitX96. Robinhood's is. */

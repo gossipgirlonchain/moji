@@ -1,5 +1,5 @@
 import { defineChain, type Chain } from "viem";
-import { mainnet, arbitrum, base, monad } from "viem/chains";
+import { mainnet, arbitrum, base, bsc, monad } from "viem/chains";
 
 /**
  * Robinhood Chain (chainId 4663).
@@ -28,7 +28,26 @@ export const robinhoodChain = defineChain({
   testnet: false,
 });
 
-export type ChainKey = "robinhood" | "solana" | "ethereum" | "arbitrum" | "base" | "monad";
+/**
+ * BNB Smart Chain (chainId 56). Doppler is deployed here (Airlock, DopplerHookInitializer, Rehype hook,
+ * DopplerERC20V1Factory, NoOp migrator + governance, Bundler; see `getAddresses(56)` in the SDK, mirroring
+ * docs.doppler.lol contract addresses). viem's default RPC is thirdweb; the public BNB Chain endpoints go
+ * first so reads do not hang on one rate-limited host. Gas token is BNB, so mojis here pair against WBNB.
+ */
+export const bscChain = defineChain({
+  ...bsc,
+  rpcUrls: {
+    default: {
+      http: [
+        process.env.NEXT_PUBLIC_BSC_RPC_URL ?? "https://bsc-dataseed.bnbchain.org",
+        "https://bsc-rpc.publicnode.com",
+        ...bsc.rpcUrls.default.http,
+      ],
+    },
+  },
+});
+
+export type ChainKey = "robinhood" | "solana" | "ethereum" | "arbitrum" | "base" | "bsc" | "monad";
 
 export type MojiChain = {
   key: ChainKey;
@@ -116,6 +135,20 @@ export const CHAINS: MojiChain[] = [
     matchaSlug: "arbitrum",
   },
   {
+    key: "bsc",
+    chainId: 56,
+    name: "BNB Chain",
+    short: "BNB",
+    emoji: "🟡",
+    viem: bscChain,
+    gasSymbol: bscChain.nativeCurrency.symbol,
+    numeraire: "weth",
+    minGasNative: "0.003",
+    live: true,
+    dexscreenerSlug: "bsc",
+    matchaSlug: "bsc",
+  },
+  {
     key: "monad",
     chainId: 143,
     name: "Monad",
@@ -152,7 +185,7 @@ export function chainByKey(key: ChainKey): MojiChain {
 }
 
 /** EVM chains Privy/wagmi should know about. Robinhood is default. */
-export const SUPPORTED_EVM_CHAINS = [robinhoodChain, base, arbitrum, mainnet, monad] as const;
+export const SUPPORTED_EVM_CHAINS = [robinhoodChain, base, arbitrum, mainnet, bscChain, monad] as const;
 
 /** Chains a launch can actually happen on: live flag AND a viem definition. Stock inventory is checked separately. */
 export const LAUNCHABLE_CHAIN_IDS = CHAINS.filter((c) => c.live && c.viem).map((c) => c.chainId);

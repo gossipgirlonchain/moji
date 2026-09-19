@@ -14,9 +14,9 @@ export async function GET(req: Request) {
     return p > 0 ? NextResponse.json({ ticker, price: p, source: "dexscreener" }) : NextResponse.json({ error: "no price" }, { status: 502 });
   }
   if (!/^[A-Z0-9.]{1,12}$/.test(ticker)) return NextResponse.json({ error: "bad ticker" }, { status: 400 });
-  if (ticker === "ETH" || ticker === "MON") {
+  if (ticker === "ETH" || ticker === "MON" || ticker === "BNB") {
     const p = await nativePriceUsd(ticker);
-    return p > 0 ? NextResponse.json({ ticker, price: p, source: "doppler-indexer" }) : NextResponse.json({ error: "no price" }, { status: 502 });
+    return p > 0 ? NextResponse.json({ ticker, price: p, source: ticker === "BNB" ? "dexscreener" : "doppler-indexer" }) : NextResponse.json({ error: "no price" }, { status: 502 });
   }
   const fallback = async () => {
     const p = await yahooPrice(ticker);

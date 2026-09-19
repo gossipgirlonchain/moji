@@ -89,11 +89,18 @@ export default async function MojiPage({ params }: { params: Params }) {
             </a>
           </p>
         )}
-        {hasHolderRewards(m) && (
-          <a href="#rewards" className="press clay-pill heading mt-3 inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
-            🪂 holder rewards
-          </a>
-        )}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {hasHolderRewards(m) && (
+            <a href="#rewards" className="press clay-pill heading inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
+              🪂 holder rewards
+            </a>
+          )}
+          {m.telegram_url && (
+            <a href={m.telegram_url} target="_blank" rel="noopener noreferrer" className="press clay-pill heading inline-flex items-center gap-1.5 bg-sky-500 px-4 py-2 text-[14px] text-white">
+              Telegram ↗
+            </a>
+          )}
+        </div>
       </div>
 
       <Card pop={1}>
@@ -109,6 +116,7 @@ export default async function MojiPage({ params }: { params: Params }) {
             <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
               Dexscreener ↗
             </LinkButton>
+
           </>
         ) : (
           <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>

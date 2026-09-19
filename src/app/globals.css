@@ -195,3 +195,59 @@ em-emoji-picker {
   .home-breakout { width: calc(100vw - 40px); max-width: 1360px; margin-left: calc(50% - 50vw + 20px); margin-right: calc(50% - 50vw + 20px); }
   @media (min-width: 1400px) { .home-breakout { margin-left: calc(50% - 680px); margin-right: calc(50% - 680px); } }
 }
+
+/* Easter egg: picking BNB on the launch page turns the sky gold. The whole palette lives in the
+   variables above, so one attribute on <html> retints every surface and the colors cross-fade. */
+:root[data-theme="gold"] {
+  --sky-50: #FFFBEB;
+  --sky-100: #FDF0C4;
+  --sky-200: #FBE39A;
+  --sky-300: #F8D164;
+  --sky-400: #F3BC35;
+  --sky-500: #E9A51C;
+  --sky-600: #C8850C;
+  --ink: #5C3A0A;
+  --ink-soft: #A67C2E;
+  --clay:
+    8px 8px 24px rgba(92, 58, 10, 0.16),
+    inset -8px -8px 16px rgba(92, 58, 10, 0.10),
+    inset 8px 8px 16px rgba(255, 255, 255, 0.50);
+  --clay-sm:
+    4px 4px 14px rgba(92, 58, 10, 0.14),
+    inset -4px -4px 10px rgba(92, 58, 10, 0.09),
+    inset 4px 4px 10px rgba(255, 255, 255, 0.55);
+  --clay-press:
+    inset 6px 6px 14px rgba(92, 58, 10, 0.17),
+    inset -6px -6px 14px rgba(255, 255, 255, 0.55);
+}
+/* While the launch page is mounted, colors ease between the two palettes in both directions. */
+html.theme-fade,
+html.theme-fade body,
+html.theme-fade *:not(.press) {
+  transition: background-color 900ms ease, color 900ms ease, box-shadow 900ms ease, border-color 900ms ease;
+}
+html.theme-fade .press {
+  transition: transform 180ms var(--bounce), box-shadow 900ms ease, background-color 900ms ease, color 900ms ease, opacity 180ms ease;
+}
+/* Gold sheen: a soft vertical gradient behind the page that cross-fades in with the palette. */
+.gold-sheen {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, #FFF8E1 0%, #FBE6A3 55%, #F5CB5A 100%);
+  opacity: 0;
+  transition: opacity 1200ms ease;
+}
+:root[data-theme="gold"] .gold-sheen {
+  opacity: 1;
+}
+/* <body> paints its own background over negative z-index layers, so it goes clear while gold and the
+   sheen shows through; <html> keeps the flat gold behind everything. */
+:root[data-theme="gold"] body {
+  background: transparent;
+}
+/* Beats the theme-fade catch-all above so the sheen keeps its own, slower opacity fade. */
+html.theme-fade .gold-sheen {
+  transition: opacity 1200ms ease;
+}

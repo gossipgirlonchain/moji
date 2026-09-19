@@ -10,7 +10,7 @@ Built by dogfooding the [Doppler SDK](https://github.com/whetstoneresearch/doppl
 
 - Next.js 15 App Router, TypeScript, Tailwind 4
 - Privy (`@privy-io/react-auth` + `@privy-io/wagmi`) for auth. Login methods: X (Twitter) and external wallets only. Embedded wallets for X-only users. **Gas is not sponsored.**
-- wagmi 3 + viem 2.56 with a custom `defineChain` for Robinhood Chain (4663)
+- wagmi 3 + viem 2.56 with a custom `defineChain` for Robinhood Chain (4663); Base, Ethereum, Arbitrum and BNB Chain (56) from viem
 - `@whetstone-research/doppler-sdk` multicurve launch (`buildMulticurveAuction`)
 - emoji-mart picker, lightweight-charts, Supabase (claims registry + moji metadata)
 - Doppler skills bundles installed in `.claude/skills/` from [whetstoneresearch/doppler-skills](https://github.com/whetstoneresearch/doppler-skills)
@@ -35,6 +35,7 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_PRIVY_APP_ID` | client | Privy app id. Login is disabled in the UI until this is set |
 | `PRIVY_APP_SECRET` | server only | Used by `/api/launch` to verify the caller's Privy access token and record their DID. If unset, launches are still recorded but without DID verification |
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | client + server | Optional RPC override for 4663 (default `https://rpc.mainnet.chain.robinhood.com`) |
+| `NEXT_PUBLIC_BSC_RPC_URL` | client + server | Optional RPC override for 56 (default `https://bsc-dataseed.bnbchain.org`, then publicnode and viem's default) |
 | `DOPPLER_INDEXER_URL` | server | Optional. Default `https://prod.indexer.doppler.lol/graphql` (indexes 4663) |
 | `NEXT_PUBLIC_MOJI_TREASURY` | client + server | Wallet that receives the 25% treasury share of every pool's fees. Launch fails loudly if unset |
 | `NEXT_PUBLIC_MOJI_INTEGRATOR` | client + server | Optional. Integrator address passed to the Airlock on every launch (`.withIntegrator`), which attributes mojis to moji in the Doppler app and collects Airlock integrator fees. Defaults to the treasury |
@@ -258,7 +259,7 @@ Exact normalization rule, implemented in `src/lib/emoji.ts` and checked by `npx 
 - Launching requires a Privy account with a linked X account. Wallet-only users can browse, view any moji and open the trade links; their LAUNCH button reads "Link X to claim" and opens Privy's X link flow.
 - `POST /api/launch` verifies the Privy access token, reads the DID's linked accounts from Privy server-side (`@privy-io/node`), and refuses without `twitter_oauth`. The X handle written to the row comes from Privy, not the client.
 - Rate limit: one claim per DID per 15 minutes, enforced server-side against `mojis.creator_did`. Returns 429 with the minutes remaining.
-- Only chains with `live: true` in `src/config/chains.ts` are claimable. Flip that flag to switch a chain on; nothing else changes. Right now only Robinhood Chain is live.
+- Only chains with `live: true` in `src/config/chains.ts` are claimable. Flip that flag to switch a chain on; nothing else changes. Live today: Robinhood Chain, Base, Ethereum, Arbitrum, BNB Chain.
 - The claim insert goes first; the unique index is the permanence guarantee. A conflict returns 409 and nothing else is written.
 
 ## Token images and sharing
@@ -316,12 +317,13 @@ Doppler's Airlock takes any ERC-20 as the numeraire, so a moji can pair against 
 | Base | 8453 | ETH | 8 Coinbase Tokenized Stocks: AAPL, AMZN, GOOGL, META, MSFT, MSTR, NVDA, TSLA (`stocks-base.ts`, 8 decimals) | ETH, AERO, VVV, VIRTUAL, NOCK, BNKR, CLANKER, BRETT, TOSHI, DEGEN |
 | Ethereum | 1 | ETH | soon | ETH, UNI, LINK, AAVE, PEPE, COMP, ONDO, LDO, ENA |
 | Arbitrum One | 42161 | ETH | soon | ETH, ARB, PENDLE, GMX, RAIN |
+| BNB Chain | 56 | BNB | soon | BNB (WBNB), CAKE, BTCB |
 | Monad | 143 | MON | soon | soon |
 | Solana | | SOL | soon | mints staged in `tokens.ts` (PENGU, PUMP, WIF, BONK, JUP, TRUMP, FARTCOIN, POPCAT, RAY, JTO) for the Solana build |
 
 Every EVM address was verified on-chain (symbol, name, decimals) and checked for real DEX liquidity on 2026-09-12; fake-liquidity pools were excluded. Curated tokens live in `src/config/tokens.ts`; WETH comes from Doppler's address map (`getAddresses(chainId).weth`).
 
-**Prices for the curve and USD display:** WETH from the Doppler indexer (`ethPrices`, Chainlink-sourced); curated tokens from their most liquid real Dexscreener pair; Robinhood stocks from the Chainlink feed, then Robinhood's quote API, then Yahoo; Coinbase stocks by ticker via the same stock path.
+**Prices for the curve and USD display:** WETH from the Doppler indexer (`ethPrices`, Chainlink-sourced); WBNB from its Dexscreener pair (the indexer has no BNB price); curated tokens from their most liquid real Dexscreener pair; Robinhood stocks from the Chainlink feed, then Robinhood's quote API, then Yahoo; Coinbase stocks by ticker via the same stock path.
 
 ## Seeding
 
