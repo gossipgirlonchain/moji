@@ -14,7 +14,7 @@ export default async function SkillPage() {
   const body = raw.replace(/^---[\s\S]*?---\s*/, "");
   const html = await marked.parse(body, { gfm: true });
   return (
-    <main className="flex flex-col gap-4">
+    <main className="mx-auto flex w-full max-w-[900px] flex-col gap-4">
       <div className="pop flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[26px] leading-none text-sky-600">skill.md</h1>
