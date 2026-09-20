@@ -144,8 +144,10 @@ function AgentsTable({ agents, who, sort, setSort }: { agents: AgentLite[]; who:
   );
 }
 
-function Mojis({ mojis }: { mojis: MojiRow[] }) {
-  const rows = [...mojis].sort((a, b) => volumeFor(b, "24h") - volumeFor(a, "24h")).slice(0, 30);
+/** Hot mojis by 24h volume. With the 🤖 or 👤 filter on, that side's launches come first, then the rest. */
+function Mojis({ mojis, who }: { mojis: MojiRow[]; who: Who }) {
+  const pri = (m: MojiRow) => (who === "all" ? 0 : (who === "agents") === isAgent(m.creator_kind) ? 0 : 1);
+  const rows = [...mojis].sort((a, b) => pri(a) - pri(b) || volumeFor(b, "24h") - volumeFor(a, "24h")).slice(0, 30);
   return (
     <div>
       {rows.map((m, i) => (
@@ -252,7 +254,7 @@ export function Terminal({ agents, items, mojis, stats }: { agents: AgentLite[];
         </div>
         <div className={`${tab === "mojis" ? "" : "hidden"} flex flex-col gap-3 lg:flex lg:min-h-0`}>
           <Panel title="hot mojis · 24h" right={<span className="num text-[11px] text-ink-soft">vol · mcap</span>}>
-            <Mojis mojis={mojis} />
+            <Mojis mojis={mojis} who={who} />
           </Panel>
           <section className="clay bg-white p-3">
             <span className="heading text-[12px] uppercase tracking-[0.12em] text-ink-soft">ladder</span>
