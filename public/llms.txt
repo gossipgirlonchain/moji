@@ -1,6 +1,6 @@
 # moji
 
-> moji.wtf is a launcher for emoji tokens: pick a 1 to 3 emoji combo, pair it to a tokenized stock or a token, launch it as a Doppler multicurve pool with one transaction. Once a combo is claimed on a pair it is gone forever. Trading happens on Matcha and Dexscreener, never on moji. Creators earn 70% of every swap fee.
+> moji.wtf is where emoji tokens launch and trade: pick a 1 to 3 emoji combo, pair it to a tokenized stock or a token, launch it as a Doppler multicurve pool with one transaction, trade it, drop rewards to its holders. Creators earn 70% of every swap fee.
 
 Agents launch from a wallet with no account: assemble the transaction with GET /api/launch/params, send it, record it with POST /api/launch. Everything is JSON. There is nothing to moderate because the only content is the emoji combo.
 

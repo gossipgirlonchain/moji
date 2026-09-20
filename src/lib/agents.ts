@@ -21,6 +21,23 @@ export type Agent = {
   mcapUsd: number;
 };
 
+/** What the client lists need: no moji rows, no level object. */
+export type AgentLite = {
+  address: string;
+  handle: string | null;
+  kind: Agent["kind"];
+  face: Agent["face"];
+  stats: AgentStats;
+  level: { emoji: string; name: string };
+  firstLaunch: string;
+  volume24Usd: number;
+  mojiCount: number;
+};
+
+export function toLite(a: Agent): AgentLite {
+  return { address: a.address, handle: a.handle, kind: a.kind, face: a.face, stats: a.stats, level: { emoji: a.level.def.emoji, name: a.level.def.name }, firstLaunch: a.firstLaunch, volume24Usd: a.volume24Usd, mojiCount: a.mojis.length };
+}
+
 type Lite = Pick<MojiRow, "id" | "display" | "combo" | "stock_ticker" | "stock_address" | "chain_id" | "token_address" | "pool_id" | "creator_address" | "creator_handle" | "creator_kind" | "launched_at" | "holders_count" | "volume_all_usd" | "volume24_usd" | "market_cap_usd" | "fees_claimed_usd" | "fees_unclaimed_usd" | "fees_total_usd" | "drops_active" | "rewards_badge">;
 
 async function followerCounts(): Promise<Map<string, number>> {
