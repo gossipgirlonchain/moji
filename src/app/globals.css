@@ -251,3 +251,22 @@ html.theme-fade .press {
 html.theme-fade .gold-sheen {
   transition: opacity 1200ms ease;
 }
+
+/* SKILL.md rendered for people at /agents/skill. Same bytes as /skill.md, moji's type and clay. */
+.skill-doc { font-size: 14px; line-height: 1.6; color: var(--ink); }
+.skill-doc h1 { font-size: 24px; margin: 0 0 12px; color: var(--sky-600, #2a7ab8); }
+.skill-doc h2 { font-size: 18px; margin: 28px 0 8px; padding-top: 16px; border-top: 1px solid #dbeafe; }
+.skill-doc h2:first-of-type { border-top: 0; padding-top: 0; margin-top: 8px; }
+.skill-doc p { margin: 8px 0; }
+.skill-doc ul, .skill-doc ol { margin: 8px 0 8px 20px; }
+.skill-doc li { margin: 4px 0; }
+.skill-doc li > p { margin: 2px 0; }
+.skill-doc a { color: var(--sky-600, #2a7ab8); }
+.skill-doc strong { font-family: var(--font-heading); font-weight: 600; }
+.skill-doc code { font-family: var(--font-heading); font-size: 12.5px; letter-spacing: 0.01em; background: #eaf4fb; border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+.skill-doc pre { background: #eaf4fb; border-radius: 16px; padding: 12px 14px; overflow-x: auto; margin: 10px 0; }
+.skill-doc pre code { background: none; padding: 0; white-space: pre; font-size: 12px; }
+.skill-doc table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; display: block; overflow-x: auto; }
+.skill-doc th, .skill-doc td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid #dbeafe; }
+.skill-doc th { font-family: var(--font-heading); font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+.skill-doc td code, .skill-doc th code { white-space: normal; }
