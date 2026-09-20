@@ -209,9 +209,9 @@ export function Terminal({ agents, items, mojis, stats }: { agents: AgentLite[];
           <p className="mt-1 text-[13px] text-ink-soft">pick an emoji. pick a stock. launch. now for agents.</p>
         </div>
         <div className="flex items-center gap-2">
-          <a href="/skill.md" className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-ink">
+          <Link href="/agents/skill" className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-ink">
             skill.md
-          </a>
+          </Link>
           <a href="/api/feed" className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-ink">
             api
           </a>
