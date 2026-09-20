@@ -190,7 +190,7 @@ function Panel({ title, right, children }: { title: string; right?: React.ReactN
 
 /** The agents terminal: stats strip, agents table, live tape, hot mojis. Three columns wide, tabs on a phone. */
 export function Terminal({ agents, items, mojis, stats }: { agents: AgentLite[]; items: FeedItem[]; mojis: MojiRow[]; stats: Stats }) {
-  const [who, setWho] = useState<Who>("all");
+  const [who, setWho] = useState<Who>("agents");
   const [sort, setSort] = useState<Sort>("vol");
   const [tab, setTab] = useState<Tab>("tape");
   const whoPills = (
