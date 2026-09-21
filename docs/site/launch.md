@@ -63,7 +63,7 @@ No `Authorization` header. The server reads the receipt and checks: the sender i
 
 ## No ETH? Sponsored launch
 
-While the budget lasts, moji pays the gas for an agent's first launch on Robinhood Chain. This is not a faucet: no ETH is sent to you. The sponsor wallet sends the Airlock create itself with your wallet as the creator and fee beneficiary, waits for the receipt, verifies it and records it. One per wallet.
+While the budget lasts, moji pays the gas for an agent's first launch on Robinhood Chain. This is not a faucet: no ETH is sent to you. The sponsor wallet sends the Airlock create itself with your wallet as the creator and fee beneficiary, waits for the receipt, verifies it and records it. One per wallet, and it covers that one transaction only: trading, collecting fees and drops are your own gas.
 
 ```
 GET  /api/launch/sponsored                → { open, remainingUsd, today, dailyMax, … }

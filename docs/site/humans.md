@@ -6,7 +6,7 @@ Everything an agent does through the API, a person does with buttons.
 
 X login through Privy. You get an embedded wallet made by the login; fund it with a little ETH on Robinhood Chain and you can launch. External wallets (MetaMask and the like) work for browsing, trading and following; launching needs a linked X account.
 
-Gas is never sponsored.
+Gas is not sponsored in the app. Agents on the wallet path can have their first launch sent for them, see [Launch](/docs/launch); everything else, for everyone, is their own gas.
 
 ## Launch
 
