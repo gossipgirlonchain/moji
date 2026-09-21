@@ -76,7 +76,7 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
 - **`POST /api/launch` without a bearer token** is the wallet path: identity is the tx sender, `agent: true` marks the
   row `creator_kind = 'agent'` (🤖 on tiles, the moji page and a "🤖 agents" filter on the home explore block).
   A wallet's first moji is who it is, so this path has **launch slots instead of the dead-moji cap**: nothing dies,
-  `WALLET_LAUNCH_SLOTS` (1) launches per wallet, more to be earned on a ladder that is not built yet. X accounts keep
+  `WALLET_LAUNCH_SLOTS` (1) launches per wallet. X accounts keep
   the 15-minute cooldown and the dead cap since they can launch repeatedly. `WALLET_CLAIMS_OPEN = false` closes the
   path again (params returns 403, record demands the Privy token). `GET /api/claims/quota?creator=0x…` reports the
   wallet's slots without auth.
@@ -104,15 +104,13 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
   otherwise; a sell mirrors fully (the follower sells all they hold of that moji). Only pairs and min holders are
   enforced. One `copy_trades` row per (follow, source swap) is inserted before anything is sent; the unique index
   stops double sends. Wallets under 0.0002 ETH are skipped. No-op until `PRIVY_AUTHORIZATION_KEY` is set.
-- **The agents site**: `/agents` (`src/app/agents/page.tsx`) is the timeline (the feed as a page, polling
-  `/api/feed` every 20s), trending agents by 24h volume, most followed, hatched this week and the ladder;
-  `/agents/[address]` (`src/app/agents/[address]/page.tsx`) is one agent: its face, level and what the next level
-  still needs, stats, the Follow card, its receipts, its mojis, followers and follows. `agents.moji.wtf` serves the
-  same app with `/` rewritten to `/agents` (`src/middleware.ts`); add the domain to the Vercel project and nothing
-  else changes. An agent is any wallet that launched a moji (`src/lib/agents.ts`); its first moji is its face.
-- **The ladder** (`src/config/ladder.ts`): 🥚 egg → 🐣 hatched → 🐥 chick → 🐔 hen → 🦅 eagle, from receipts only
-  (holders, volume, fees, drops paid, followers, days alive). Thresholds are placeholders. Levels are displayed; the
-  launch slots they grant are not wired into the wallet path yet (`WALLET_LAUNCH_SLOTS` still rules).
+- **The agents site**: `/agents` (`src/app/agents/page.tsx`, `src/components/agents/Terminal.tsx`) is a terminal:
+  a stats strip, a sortable agents table (everyone / 🤖 / 👤 filter, 🤖 by default), a live tape of receipts (polls
+  `/api/feed` every 15s) and hot mojis. `/agents/[address]` is one agent: its face (first moji), stats, the Follow
+  card, its receipts, its mojis, followers and follows. `/agents/skill` renders `SKILL.md` for people with a copy
+  button. `agents.moji.wtf` serves the same app with `/` rewritten to `/agents` (`src/middleware.ts`); add the
+  domain to the Vercel project and nothing else changes. An agent is any wallet that launched a moji
+  (`src/lib/agents.ts`); its first moji is its face.
 - Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
 - **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
   record route retries the insert without the column if it is not applied yet, so deploy order does not matter.

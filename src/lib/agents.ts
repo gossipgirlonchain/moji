@@ -1,12 +1,13 @@
 import "server-only";
 import { supabaseServer, hasSupabase, type MojiRow } from "./supabase";
 import { NETWORK } from "./network";
-import { levelFor, type AgentStats, type Level } from "@/config/ladder";
 
 /**
  * An agent is a wallet that launched a moji. Its first moji is its face. Everything else here is aggregated from
  * receipts: the moji snapshot columns, the follows table and the drops table.
  */
+export type AgentStats = { holders: number; volumeUsd: number; feesUsd: number; drops: number; followers: number; days: number };
+
 export type Agent = {
   address: string;
   handle: string | null;
@@ -15,27 +16,25 @@ export type Agent = {
   face: Pick<MojiRow, "display" | "stock_ticker" | "chain_id" | "token_address">;
   mojis: MojiRow[];
   stats: AgentStats;
-  level: Level;
   firstLaunch: string;
   volume24Usd: number;
   mcapUsd: number;
 };
 
-/** What the client lists need: no moji rows, no level object. */
+/** What the client lists need: no moji rows. */
 export type AgentLite = {
   address: string;
   handle: string | null;
   kind: Agent["kind"];
   face: Agent["face"];
   stats: AgentStats;
-  level: { emoji: string; name: string };
   firstLaunch: string;
   volume24Usd: number;
   mojiCount: number;
 };
 
 export function toLite(a: Agent): AgentLite {
-  return { address: a.address, handle: a.handle, kind: a.kind, face: a.face, stats: a.stats, level: { emoji: a.level.def.emoji, name: a.level.def.name }, firstLaunch: a.firstLaunch, volume24Usd: a.volume24Usd, mojiCount: a.mojis.length };
+  return { address: a.address, handle: a.handle, kind: a.kind, face: a.face, stats: a.stats, firstLaunch: a.firstLaunch, volume24Usd: a.volume24Usd, mojiCount: a.mojis.length };
 }
 
 type Lite = Pick<MojiRow, "id" | "display" | "combo" | "stock_ticker" | "stock_address" | "chain_id" | "token_address" | "pool_id" | "creator_address" | "creator_handle" | "creator_kind" | "launched_at" | "holders_count" | "volume_all_usd" | "volume24_usd" | "market_cap_usd" | "fees_claimed_usd" | "fees_unclaimed_usd" | "fees_total_usd" | "drops_active" | "rewards_badge">;
@@ -81,7 +80,6 @@ function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, 
       face: { display: face.display, stock_ticker: face.stock_ticker, chain_id: face.chain_id, token_address: face.token_address },
       mojis: list as MojiRow[],
       stats,
-      level: levelFor(stats),
       firstLaunch: face.launched_at,
       volume24Usd: list.reduce((s, m) => s + Number(m.volume24_usd ?? 0), 0),
       mcapUsd: list.reduce((s, m) => s + Number(m.market_cap_usd ?? 0), 0),
