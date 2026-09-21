@@ -40,10 +40,9 @@ export function StockList({ stocks, value, onChange, placeholder }: { stocks: St
               style={{ borderRadius: "var(--r-sm)" }}
             >
               <StockLogo ticker={s.ticker} logo={s.logo} size={34} />
-              <span className="heading w-[64px] shrink-0 text-[16px]">{s.ticker}</span>
+              <span className="heading min-w-[64px] shrink-0 text-[16px]">{s.ticker}</span>
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-[13px] ${active ? "text-white/85" : "text-ink-soft"}`}>{s.name}</span>
-
               </span>
             </button>
           );

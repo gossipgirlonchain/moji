@@ -14,6 +14,7 @@ import { PRIVY_ENABLED } from "@/lib/privy-client";
 import { explorerTx } from "@/lib/links";
 import { short } from "@/lib/format";
 import { CopyButton } from "./CopyButton";
+import { DelegateCard } from "./DelegateCard";
 import { Button, Card, Label } from "./ui";
 
 export function Profile() {
@@ -170,6 +171,8 @@ function ProfileInner() {
           )}
         </div>
       </Card>
+
+      <DelegateCard />
 
       <SendCard chain={chain} chainId={chainId} assets={assets} onSent={() => { void refetchEth(); void refetchTokens(); }} />
 

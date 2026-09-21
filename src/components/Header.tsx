@@ -8,7 +8,9 @@ import { AuthButton } from "./AuthButton";
 
 export function Header() {
   return (
-    <header className="mb-5 flex items-center justify-between">
+    // home-breakout: on desktop the header sits on the same 1360px track on every page, whatever width the page
+    // shell is, so the nav never jumps between the wide pages and the phone-column ones.
+    <header className="home-breakout mb-5 flex items-center justify-between">
       <Link href="/" className="press clay-sm flex items-center gap-2 bg-white px-3 py-2" style={{ borderRadius: 999 }}>
         <Image src="/moji.png" alt="moji" width={64} height={33} priority className="h-[26px] w-auto" />
       </Link>
@@ -18,6 +20,9 @@ export function Header() {
         </Link>
         <Link href="/leaderboard" aria-label="leaderboard" title="leaderboard" className="press clay-pill heading bg-sky-50 px-3 py-2 text-[14px] text-ink">
           🏆
+        </Link>
+        <Link href="/agents" aria-label="agents" title="agents" className="press clay-pill heading bg-sky-50 px-3 py-2 text-[14px] text-ink">
+          🤖
         </Link>
         {PRIVY_ENABLED ? <AuthButton /> : <DisabledLogin />}
       </nav>

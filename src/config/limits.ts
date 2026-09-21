@@ -6,3 +6,13 @@
 export const DEAD_MAX = 3;
 export const DEAD_VOLUME_USD = 250;
 export const DEAD_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Wallet claims (no X account). Any wallet can launch through the Airlock and record it with the tx hash; the
+ * chain proves who sent it. A wallet's first moji is its identity (the agent IS 🍏🤖), so there is no dead-moji
+ * rule on this path: nothing dies, a quiet moji is just quiet. Spam is held off by launch slots instead: every
+ * wallet gets WALLET_LAUNCH_SLOTS launches.
+ * Flip WALLET_CLAIMS_OPEN to false to require X again (the params endpoint and the record route both read it).
+ */
+export const WALLET_CLAIMS_OPEN = true;
+export const WALLET_LAUNCH_SLOTS = 1;

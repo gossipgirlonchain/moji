@@ -129,7 +129,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
       let memeError: string | null = null;
       if (meme) {
         try {
-          memeUrl = await uploadMeme({ combo, chainId: chain.chainId, pair: stock.address }, meme, token);
+          memeUrl = await uploadMeme({ combo, chainId: chain.chainId, pair: stock.address }, meme, token ? { token } : null);
         } catch (e) {
           memeError = e instanceof Error ? e.message : "meme upload failed";
         }

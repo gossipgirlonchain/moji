@@ -14,6 +14,7 @@ import { PostIt } from "@/components/PostIt";
 import { DropsCard } from "@/components/drops/DropsCard";
 import { SITE_URL } from "@/lib/network";
 import { TradeCard } from "@/components/TradeCard";
+import { FollowCard } from "@/components/FollowCard";
 import { findNumeraire } from "@/lib/numeraire";
 import { CreatorMeme } from "@/components/CreatorMeme";
 
@@ -67,7 +68,7 @@ export default async function MojiPage({ params }: { params: Params }) {
   const creator = m.creator_handle
     ? { label: `@${m.creator_handle}`, href: xUrl(m.creator_handle) }
     : m.creator_address
-      ? { label: short(m.creator_address), href: explorerAddress(m.chain_id, m.creator_address) }
+      ? { label: `${m.creator_kind === "agent" ? "🤖 " : ""}${short(m.creator_address)}`, href: explorerAddress(m.chain_id, m.creator_address) }
       : null;
 
   return (
@@ -99,12 +100,19 @@ export default async function MojiPage({ params }: { params: Params }) {
             </a>
           </p>
         )}
-        <CreatorMeme combo={m.display} chainId={m.chain_id} pair={m.stock_address} creatorDid={m.creator_did} memeUrl={m.meme_url ?? null} />
-        {hasHolderRewards(m) && (
-          <a href="#rewards" className="press clay-pill heading mt-3 inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
-            🪂 holder rewards
-          </a>
-        )}
+        <CreatorMeme mojiId={m.id} combo={m.display} chainId={m.chain_id} pair={m.stock_address} creatorDid={m.creator_did} creatorAddress={m.creator_address} memeUrl={m.meme_url ?? null} />
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {hasHolderRewards(m) && (
+            <a href="#rewards" className="press clay-pill heading inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
+              🪂 holder rewards
+            </a>
+          )}
+          {m.telegram_url && (
+            <a href={m.telegram_url} target="_blank" rel="noopener noreferrer" className="press clay-pill heading inline-flex items-center gap-1.5 bg-sky-500 px-4 py-2 text-[14px] text-white">
+              Telegram ↗
+            </a>
+          )}
+        </div>
       </div>
 
       <Card pop={1}>
@@ -120,6 +128,7 @@ export default async function MojiPage({ params }: { params: Params }) {
             <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
               Dexscreener ↗
             </LinkButton>
+
           </>
         ) : (
           <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
@@ -129,6 +138,8 @@ export default async function MojiPage({ params }: { params: Params }) {
       {m.token_address && m.pool_id && (
         <TradeCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} stockAddress={m.stock_address} stockDecimals={findNumeraire(m.chain_id, m.stock_address)?.decimals ?? 18} poolId={m.pool_id} />
       )}
+
+      {m.creator_address && <FollowCard followee={m.creator_address} display={m.display} ticker={m.stock_ticker} />}
 
       <FeesCard
         combo={m.display}

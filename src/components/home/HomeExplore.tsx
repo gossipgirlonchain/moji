@@ -4,16 +4,17 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { MojiRow } from "@/lib/supabase";
 import { CHAINS } from "@/config/chains";
-import { MojiTile, hasHolderRewards, volumeFor, type VolWindow } from "@/components/MojiBits";
+import { MojiTile, hasHolderRewards, isAgentLaunch, volumeFor, type VolWindow } from "@/components/MojiBits";
 import { Pill } from "@/components/ui";
 import { ChainSelect } from "@/components/ChainSelect";
 import { ClaimsCounter } from "@/components/ClaimsCounter";
 
-type Sort = "trending" | "new" | "rewards" | "mcap" | "fees";
+type Sort = "trending" | "new" | "rewards" | "agents" | "mcap" | "fees";
 const SORTS: [Sort, string][] = [
   ["trending", "trending"],
   ["new", "just launched"],
   ["rewards", "🪂 rewards"],
+  ["agents", "🤖 agents"],
   ["mcap", "market cap"],
   ["fees", "fees"],
 ];
@@ -34,6 +35,7 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
   const list = useMemo(() => {
     let rows = chain ? mojis.filter((m) => m.chain_id === chain) : mojis.slice();
     if (sort === "rewards") rows = rows.filter((m) => hasHolderRewards(m));
+    if (sort === "agents") rows = rows.filter((m) => isAgentLaunch(m)).sort((a, b) => volumeFor(b, window) - volumeFor(a, window));
     const fees = (m: MojiRow) => Number(m.fees_total_usd ?? 0) || Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
     switch (sort) {
       case "trending":

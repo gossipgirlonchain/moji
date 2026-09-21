@@ -59,7 +59,8 @@ type DropsView = { drops: DropRow[]; latestPayouts: PayoutRow[]; feeBps: number;
 function fmtTok(n: number | string, max = 4): string {
   const v = Number(n);
   if (!isFinite(v) || v === 0) return "0";
-  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e4) return `${(v / 1e3).toFixed(1)}K`;
   if (v < 0.0001) return v.toExponential(2);
   return v.toLocaleString(undefined, { maximumFractionDigits: max });

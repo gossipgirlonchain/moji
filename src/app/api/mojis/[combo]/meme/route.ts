@@ -6,6 +6,9 @@ import { hasSupabase, supabaseServer, type MojiRow } from "@/lib/supabase";
 import { verifyPrivyToken, PRIVY_SERVER_CONFIGURED } from "@/lib/privy-server";
 import { isAdmin } from "@/lib/admin";
 import { MEME_MAX_BYTES, processMeme, removeMeme, storeMeme } from "@/lib/memes";
+import { createHash } from "node:crypto";
+import { verifyMessage, type Address, type Hex } from "viem";
+import { memeRemoveMessage, memeSetMessage, MEME_SIGNATURE_TTL_MS } from "@/lib/meme-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,25 +17,45 @@ export const runtime = "nodejs";
  * The creator's meme for a moji.
  *   POST   /api/mojis/[combo]/meme?chain=&pair=   multipart `file` (png, jpg, gif, webp, ≤ 4 MB) → { meme_url }
  *   DELETE /api/mojis/[combo]/meme?chain=&pair=   takedown → { ok }
- * Creator only (Privy DID must match mojis.creator_did), or the admin cookie for takedowns and fixes.
+ * Creator only, or the admin cookie for takedowns and fixes. Two creator identities, matching the launch paths:
+ *   - app launches: a Privy access token whose DID matches mojis.creator_did
+ *   - wallet and agent launches (no DID): `signer` + `signature` from creator_address over the message in
+ *     src/lib/meme-auth.ts (POST binds the file's sha256, DELETE binds a fresh timestamp), so nothing replays.
  * The picture is normalized server-side (src/lib/memes.ts), stored in the moji-images bucket and mirrored into
  * image_url so the on-chain tokenURI, the OG card and every tile show the same file.
  */
-async function resolve(req: Request, ctx: { params: Promise<{ combo: string }> }) {
+type Auth = { kind: "admin" } | { kind: "did"; did: string } | { kind: "wallet"; signer: Address; signature: Hex };
+
+async function resolve(req: Request, ctx: { params: Promise<{ combo: string }> }, sig: { signer?: string | null; signature?: string | null }) {
   if (!hasSupabase() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: NextResponse.json({ error: "Supabase service role key not configured" }, { status: 500 }) };
   const { combo } = await ctx.params;
   const u = new URL(req.url);
   const m = await getMoji(decodeCombo(combo), u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null);
   if (!m) return { error: NextResponse.json({ error: "not found" }, { status: 404 }) };
 
-  const admin = await isAdmin();
-  if (!admin) {
+  if (await isAdmin()) return { m, auth: { kind: "admin" } as Auth };
+
+  const bearer = req.headers.get("authorization");
+  if (bearer) {
     if (!PRIVY_SERVER_CONFIGURED) return { error: NextResponse.json({ error: "Privy app secret not configured; memes need a verified creator" }, { status: 500 }) };
-    const verified = await verifyPrivyToken(req.headers.get("authorization"));
+    const verified = await verifyPrivyToken(bearer);
     if (!verified || verified === "unconfigured") return { error: NextResponse.json({ error: "Not logged in" }, { status: 401 }) };
     if (!m.creator_did || m.creator_did !== verified.did) return { error: NextResponse.json({ error: "Only the creator can change this moji's meme" }, { status: 403 }) };
+    return { m, auth: { kind: "did", did: verified.did } as Auth };
   }
-  return { m };
+
+  const signer = sig.signer?.toLowerCase();
+  if (signer && sig.signature) {
+    if (!m.creator_address || signer !== m.creator_address.toLowerCase()) return { error: NextResponse.json({ error: "Only the creator can change this moji's meme" }, { status: 403 }) };
+    return { m, auth: { kind: "wallet", signer: sig.signer as Address, signature: sig.signature as Hex } as Auth };
+  }
+  return { error: NextResponse.json({ error: "Not logged in" }, { status: 401 }) };
+}
+
+/** For the wallet path: the signature must be over exactly this message, from the creator's address. */
+async function checkSignature(auth: Auth, message: string): Promise<boolean> {
+  if (auth.kind !== "wallet") return true;
+  return verifyMessage({ address: auth.signer, message, signature: auth.signature }).catch(() => false);
 }
 
 function pagePath(m: MojiRow) {
@@ -45,24 +68,30 @@ function revalidate(m: MojiRow) {
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ combo: string }> }) {
-  const r = await resolve(req, ctx);
-  if ("error" in r) return r.error;
-  const m = r.m;
-
   let file: File | null = null;
+  let sig: { signer?: string | null; signature?: string | null } = {};
   try {
     const form = await req.formData();
     const f = form.get("file");
     if (f instanceof File) file = f;
+    sig = { signer: form.get("signer")?.toString(), signature: form.get("signature")?.toString() };
   } catch {
     return NextResponse.json({ error: "Send the picture as multipart form data under `file`" }, { status: 400 });
   }
+  const r = await resolve(req, ctx, sig);
+  if ("error" in r) return r.error;
+  const m = r.m;
+
   if (!file || file.size === 0) return NextResponse.json({ error: "No picture attached" }, { status: 400 });
   if (file.size > MEME_MAX_BYTES) return NextResponse.json({ error: "Pictures are capped at 4 MB" }, { status: 413 });
+  const input = Buffer.from(await file.arrayBuffer());
+  if (!(await checkSignature(r.auth, memeSetMessage(m.id, createHash("sha256").update(input).digest("hex"))))) {
+    return NextResponse.json({ error: "bad signature" }, { status: 403 });
+  }
 
   let processed;
   try {
-    processed = await processMeme(Buffer.from(await file.arrayBuffer()));
+    processed = await processMeme(input);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read that picture" }, { status: 415 });
   }
@@ -80,9 +109,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ combo: string 
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ combo: string }> }) {
-  const r = await resolve(req, ctx);
+  const body = (await req.json().catch(() => ({}))) as { signer?: string; signature?: string; ts?: number };
+  const r = await resolve(req, ctx, body);
   if ("error" in r) return r.error;
   const m = r.m;
+  if (r.auth.kind === "wallet") {
+    const ts = Number(body.ts ?? 0);
+    if (!ts || Math.abs(Date.now() - ts) > MEME_SIGNATURE_TTL_MS) return NextResponse.json({ error: "signature expired, try again" }, { status: 403 });
+    if (!(await checkSignature(r.auth, memeRemoveMessage(m.id, ts)))) return NextResponse.json({ error: "bad signature" }, { status: 403 });
+  }
   try {
     const rendered = await removeMeme(m);
     const { error } = await supabaseServer().from("mojis").update({ meme_url: null, image_url: rendered }).eq("id", m.id);

@@ -19,7 +19,7 @@ export type { Stock, Issuer } from "./stocks-types"
 
 export type ChainStocks = {
   chainId: number
-  key: 'robinhood' | 'solana' | 'ethereum' | 'arbitrum' | 'base' | 'monad'
+  key: 'robinhood' | 'solana' | 'ethereum' | 'arbitrum' | 'base' | 'bsc' | 'monad'
   name: string
   comingSoon?: boolean
   stocks: Stock[]
@@ -113,6 +113,7 @@ export const STOCKS: ChainStocks[] = [
   { chainId: 1, key: 'ethereum', name: 'Ethereum', stocks: [] }, // pairs against WETH, see src/lib/numeraire.ts
   { chainId: 42161, key: 'arbitrum', name: 'Arbitrum', stocks: featuredFirst(STOCKS_42161) }, // Reality rTokens (Bitget), see scripts/discover-reality.ts
   { chainId: 8453, key: 'base', name: 'Base', stocks: STOCKS_8453 }, // Coinbase Tokenized Stocks
+  { chainId: 56, key: 'bsc', name: 'BNB Chain', stocks: [] }, // pairs against BNB (WBNB) and curated tokens, see src/lib/numeraire.ts
   { chainId: 143, key: 'monad', name: 'Monad', stocks: [] },
 ]
 

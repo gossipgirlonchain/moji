@@ -36,6 +36,8 @@ export type MojiRow = {
   creator_did: string | null;
   creator_handle: string | null;
   creator_address: string | null;
+  /** how the launch was recorded: "x" (Privy + linked X), "wallet" (tx hash only), "agent" (wallet that said it is an agent). supabase/agents.sql */
+  creator_kind?: "x" | "wallet" | "agent" | null;
   network: "mainnet" | "testnet";
   price_usd: number | null;
   volume24_usd: number | null;
@@ -64,6 +66,8 @@ export type MojiRow = {
   /** creator-uploaded meme (supabase/memes.sql); image_url mirrors it while set */
   meme_url?: string | null;
   metadata_url: string | null;
+  /** community link shown on the moji page, set per moji */
+  telegram_url?: string | null;
   launched_at: string;
   /** creator drops (supabase/drops.sql) */
   holders_scanned_block?: number | string | null;

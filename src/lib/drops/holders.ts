@@ -26,7 +26,7 @@ function scanClient(chain: Chain): PublicClient {
   scanClients.set(chain.id, pc);
   return pc;
 }
-const CHUNK: Record<number, bigint> = { 4663: 60_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n };
+const CHUNK: Record<number, bigint> = { 4663: 60_000n, 8453: 2_000n, 1: 2_000n, 143: 2_000n, 56: 2_000n };
 const ZERO = "0x0000000000000000000000000000000000000000";
 const DEAD = "0x000000000000000000000000000000000000dead";
 
@@ -34,6 +34,7 @@ const DEAD = "0x000000000000000000000000000000000000dead";
 const V4: Record<number, { poolManager: string; router: string }> = {
   4663: { poolManager: "0x8366a39cc670b4001a1121b8f6a443a643e40951", router: "0x8876789976decbfcbbbe364623c63652db8c0904" },
   8453: { poolManager: "0x498581ff718922c3f8e6a244956af099b2652b2b", router: "0x6ff5693b99212da76ad316178a184ab56d299b43" },
+  56: { poolManager: "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df", router: "0x1906c1d672b88cd1b9ac7593301ca990f94eae07" },
 };
 
 /**

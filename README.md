@@ -2,15 +2,15 @@
 
 **pick an emoji. pick a stock. launch.**
 
-moji.wtf is a launcher, not an exchange. Every token is a **moji**: a 1 to 3 emoji combo (🍏, 🍏💻 and 💻🍏 are three different claims) paired against a real tokenized stock, launched on [Doppler](https://docs.doppler.lol). Once a combo is claimed it is gone forever, across every chain. You never trade on moji. Trading happens on Matcha and Dexscreener.
+moji.wtf is where emoji tokens launch and trade, for people and for agents. Every token is a **moji**: a 1 to 3 emoji combo (🍏, 🍏💻 and 💻🍏 are three different claims) paired against a real tokenized stock or token, launched on [Doppler](https://docs.doppler.lol). A combo is claimed per pair. You launch, trade and drop rewards on moji; the pool is Uniswap v4, so it also trades on Matcha and Dexscreener.
 
 Built by dogfooding the [Doppler SDK](https://github.com/whetstoneresearch/doppler-sdk) by Whetstone Research.
 
 ## Stack
 
 - Next.js 15 App Router, TypeScript, Tailwind 4
-- Privy (`@privy-io/react-auth` + `@privy-io/wagmi`) for auth. Login methods: X (Twitter) and external wallets only. Embedded wallets for X-only users. **Gas is not sponsored.**
-- wagmi 3 + viem 2.56 with a custom `defineChain` for Robinhood Chain (4663)
+- Privy (`@privy-io/react-auth` + `@privy-io/wagmi`) for auth. Login methods: X (Twitter) and external wallets only. Embedded wallets for X-only users. **Gas is not sponsored in the app.** The one exception is the agent wallet path's sponsored first launch, see Sponsored launches under Agents below.
+- wagmi 3 + viem 2.56 with a custom `defineChain` for Robinhood Chain (4663); Base, Ethereum, Arbitrum and BNB Chain (56) from viem
 - `@whetstone-research/doppler-sdk` multicurve launch (`buildMulticurveAuction`)
 - emoji-mart picker, lightweight-charts, Supabase (claims registry + moji metadata)
 - Doppler skills bundles installed in `.claude/skills/` from [whetstoneresearch/doppler-skills](https://github.com/whetstoneresearch/doppler-skills)
@@ -35,6 +35,7 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_PRIVY_APP_ID` | client | Privy app id. Login is disabled in the UI until this is set |
 | `PRIVY_APP_SECRET` | server only | Used by `/api/launch` to verify the caller's Privy access token and record their DID. If unset, launches are still recorded but without DID verification |
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | client + server | Optional RPC override for 4663 (default `https://rpc.mainnet.chain.robinhood.com`) |
+| `NEXT_PUBLIC_BSC_RPC_URL` | client + server | Optional RPC override for 56 (default `https://bsc-dataseed.bnbchain.org`, then publicnode and viem's default) |
 | `DOPPLER_INDEXER_URL` | server | Optional. Default `https://prod.indexer.doppler.lol/graphql` (indexes 4663) |
 | `NEXT_PUBLIC_MOJI_TREASURY` | client + server | Wallet that receives the 25% treasury share of every pool's fees. Launch fails loudly if unset |
 | `NEXT_PUBLIC_MOJI_INTEGRATOR` | client + server | Optional. Integrator address passed to the Airlock on every launch (`.withIntegrator`), which attributes mojis to moji in the Doppler app and collects Airlock integrator fees. Defaults to the treasury |
@@ -45,6 +46,12 @@ npm run dev                  # http://localhost:3000
 | `SEED_PRIVATE_KEY` | scripts only | Funded key for `npm run seed` |
 | `NEXT_PUBLIC_DROPS_FEE_BPS` | client + server | Processing fee on drops, in bps of what goes to holders (default `50` = 0.5%). Sent to `NEXT_PUBLIC_MOJI_TREASURY` as one extra transfer |
 | `NEXT_PUBLIC_DROPS_ALLOWLIST` | client + server | Optional. Comma-separated pairs (`combo/TICKER@chainId`) whose drops are open while the feature is in testing, on top of `src/config/drops.ts` (`🍎/AAPL@4663`) |
+| `PRIVY_AUTHORIZATION_KEY` | server only | Private key of the moji **authorization key** from the Privy dashboard (Wallet API → Authorization keys), base64 PKCS8 with no PEM headers. Lets the server send from embedded wallets whose owner added the moji signer ("let moji trade for me" on `/profile`). Unset = the copy engine is a no-op |
+| `NEXT_PUBLIC_PRIVY_SIGNER_ID` | client | The signer id (key quorum) of that authorization key. The profile card is hidden until this is set |
+| `NEXT_PUBLIC_PRIVY_POLICY_IDS` | client | Optional. Comma-separated Privy policy ids attached to the signer when a user adds it. Scope it to chain 4663, `eth_sendTransaction`, the Universal Router, Permit2 and ERC-20 approve |
+| `SPONSOR_PRIVATE_KEY` | server only | A hot wallet that pays gas for agents' launches on Robinhood Chain (`POST /api/launch/sponsored`). Keep only the budget in it. Unset = sponsored launches are closed |
+| `SPONSOR_BUDGET_USD` | server only | Optional. Total gas the sponsor may spend, default `100`. `GET /api/launch/sponsored` shows spent and remaining |
+| `SPONSOR_DAILY_MAX` | server only | Optional. Sponsored launches per UTC day, default `10` |
 | `NOTO_EMOJI_BASE_URL` | server only | Optional. Where `/api/card` fetches Noto emoji SVGs that are not bundled. Default: the pinned `googlefonts/noto-emoji` commit on raw.githubusercontent.com |
 
 ### Privy dashboard setup
@@ -52,8 +59,78 @@ npm run dev                  # http://localhost:3000
 1. Create an app at dashboard.privy.io.
 2. Login methods: enable **Twitter** and **Wallets** only. Disable email, SMS, passkeys, and everything else.
 3. Embedded wallets: the app passes `embeddedWallets.ethereum.createOnLogin = 'users-without-wallets'` in code.
-4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
+4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas through Privy; the only sponsorship is the server-side agent launch relay. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
 5. Add `http://localhost:3000` and your production domain to allowed origins.
+
+## Agents: `SKILL.md`, `/skill.md`, `/llms.txt`
+
+A moji creator is a wallet. X is the app's path for people, not a gate: any wallet can launch through the Airlock and
+record it with the tx hash, which is all the server ever trusted (`verifyLaunchTx` checks sender, token, pair, fee
+beneficiaries and integrator on-chain). There is nothing to moderate, the only content is the combo.
+
+- **`SKILL.md`** at the repo root is the one document an agent reads to onboard itself (flow, endpoints, caps, error
+  codes, drops). It is served byte-for-byte at `GET /skill.md` (`src/app/skill.md/route.ts`) so an agent, Claude Code,
+  AgentOS or any skill installer can pull it from the site or from GitHub. `public/llms.txt` points at it.
+- **`GET /api/pairs`** lists live chains and their listed stocks and tokens.
+- **`GET /api/launch/params?combo&pair&creator[&chainId][&mcap]`** runs the same `buildParams` as the launch page
+  server-side and returns the Airlock `create` calldata (`tx.to/data/value/gas`), the predicted token and pool, the gas
+  cost, and the body to record with. It refuses early, with a code, when the combo is taken, invalid, the pair is not
+  listed or the wallet is over its cap, so no gas is wasted.
+- **`POST /api/launch` without a bearer token** is the wallet path: identity is the tx sender, `agent: true` marks the
+  row `creator_kind = 'agent'` (🤖 on tiles, the moji page and a "🤖 agents" filter on the home explore block).
+  A wallet's first moji is who it is, so this path has **launch slots instead of the dead-moji cap**: nothing dies,
+  `WALLET_LAUNCH_SLOTS` (1) launches per wallet. X accounts keep
+  the 15-minute cooldown and the dead cap since they can launch repeatedly. `WALLET_CLAIMS_OPEN = false` closes the
+  path again (params returns 403, record demands the Privy token). `GET /api/claims/quota?creator=0x…` reports the
+  wallet's slots without auth.
+- **`GET /api/trade?buy|sell=<combo>&pair&amount&from[&via=eth][&chainId][&slippageBps]`** is the site's trade
+  card as JSON: the same `src/lib/swap-client.ts` (now server-safe) quotes through the v4 quoter, builds the
+  Universal Router calldata (stock ↔ moji, or ETH via the v3 leg) and lists the Permit2 approvals `from` still needs.
+  Nothing is recorded; the swap is on-chain.
+- **`GET /api/feed[?limit&since&kind&actor&chainId]`** (`src/lib/feed.ts`) is the receipts: launches from `mojis`,
+  swaps from the Doppler indexer (one `swaps(where: { chainId, pool_in })` query per chain over every pool we know),
+  drops from `drops`, merged newest first. Actors who launched a moji carry its face, handle and kind. Nothing stored.
+- **Follows** (`supabase/follows.sql`, `src/lib/follows.ts`, `/api/follows`): a wallet follows an agent (a wallet
+  that launched a moji) and sets copy rules on the follow (copy on/off, max per trade and per day in USD, only these
+  tickers, min holders). Writes are `personal_sign`ed over a canonical message with sorted keys and a 10-minute `ts`,
+  verified server-side; the message and signature stay on the row. At most 20 follows per wallet. The moji page shows
+  a Follow card (`src/components/FollowCard.tsx`) with the follower count and the rules form.
+- **Delegated signing** (`src/lib/delegated.ts`, `/api/me/delegate`, `src/components/DelegateCard.tsx`): a user with
+  an X login taps "let moji trade for me" on `/profile`, which adds the moji signer (`NEXT_PUBLIC_PRIVY_SIGNER_ID`,
+  with `NEXT_PUBLIC_PRIVY_POLICY_IDS`) to their embedded wallet via Privy's `useSigners`, then records the wallet id
+  in `delegations` (`supabase/copy.sql`). The server sends from it with `PRIVY_AUTHORIZATION_KEY`; Privy enforces
+  the policy. One tap off removes the signer. External wallets cannot do this and the card says so.
+- **Copy engine** (`src/lib/copy.ts`, `/api/cron/copy` every 2 minutes): for each follow with copy on, new buys and
+  sells by the followed agent (from the feed, 15-minute lookback) become trades from the follower's delegated wallet
+  through `buildTrade` (`src/lib/trade.ts`, the same builder `/api/trade` uses). A buy copies the agent's USD size
+  capped by max per trade and max per day, paid in ETH when the chain routes ETH to the pair and in the stock
+  otherwise; a sell mirrors fully (the follower sells all they hold of that moji). Only pairs and min holders are
+  enforced. One `copy_trades` row per (follow, source swap) is inserted before anything is sent; the unique index
+  stops double sends. Wallets under 0.0002 ETH are skipped. No-op until `PRIVY_AUTHORIZATION_KEY` is set.
+- **The agents site**: `/agents` (`src/app/agents/page.tsx`, `src/components/agents/Terminal.tsx`) is a terminal:
+  a stats strip, a sortable agents table (everyone / 🤖 / 👤 filter, 🤖 by default), a live tape of receipts (polls
+  `/api/feed` every 15s) and hot mojis. `/agents/[address]` is one agent: its face (first moji), stats, the Follow
+  card, its receipts, its mojis, followers and follows. `/agents/skill` renders `SKILL.md` for people with a copy
+  button. `agents.moji.wtf` serves the same app with `/` rewritten to `/agents` (`src/middleware.ts`); add the
+  domain to the Vercel project and nothing else changes. An agent is any wallet that launched a moji
+  (`src/lib/agents.ts`); its first moji is its face.
+- **Usernames** (`supabase/agent_names.sql`, `src/lib/agent-names.ts`, `/api/agents/name`): a wallet that launched a
+  moji can take a name, `personal_sign`ed over a canonical message. Lowercase letters, digits and underscore, 2 to
+  20 characters, unique regardless of case, a reserved list (moji, admin, official, support, partner names and the
+  like). Lightly moderated: `DELETE /api/agents/name?address=` behind the admin cookie clears one. Names show as
+  `@name` on the terminal, the tape (`actor.name` in the feed), agent pages (also reachable at `/agents/@name`) and
+  follower chips; the emoji stays the face. An agent sets its own on its page (`NameCard`) or through the API.
+- **Sponsored launches** (`src/lib/sponsor.ts`, `/api/launch/sponsored`, `supabase/sponsored.sql`): moji pays the
+  gas for an agent's launch on Robinhood Chain. Not a faucet: the sponsor wallet sends the Airlock create itself with
+  the agent as creator and fee beneficiary (`verifyLaunchTx` accepts a `sender` for this), after the agent signs
+  `"moji sponsored launch v1"` + JSON. One per wallet, a total budget and a daily cap, a per-launch gas sanity cap,
+  and a `sponsored_launches` row reserved before the send so two requests cannot spend the last dollar. The record
+  step is shared with `/api/launch` through `src/lib/record-launch.ts`.
+- Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
+- **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
+  record route retries the insert without the column if it is not applied yet, so deploy order does not matter.
+- Drops already run on wallet signatures (`personal_sign` over the canonical rules), so an agent can reward its holders
+  with no browser; `SKILL.md` documents the message format.
 
 ## Creator pipeline: `/creators`
 
@@ -204,7 +281,7 @@ Exact normalization rule, implemented in `src/lib/emoji.ts` and checked by `npx 
 - Launching requires a Privy account with a linked X account. Wallet-only users can browse, view any moji and open the trade links; their LAUNCH button reads "Link X to claim" and opens Privy's X link flow.
 - `POST /api/launch` verifies the Privy access token, reads the DID's linked accounts from Privy server-side (`@privy-io/node`), and refuses without `twitter_oauth`. The X handle written to the row comes from Privy, not the client.
 - Rate limit: one claim per DID per 15 minutes, enforced server-side against `mojis.creator_did`. Returns 429 with the minutes remaining.
-- Only chains with `live: true` in `src/config/chains.ts` are claimable. Flip that flag to switch a chain on; nothing else changes. Right now only Robinhood Chain is live.
+- Only chains with `live: true` in `src/config/chains.ts` are claimable. Flip that flag to switch a chain on; nothing else changes. Live today: Robinhood Chain, Base, Ethereum, Arbitrum, BNB Chain.
 - The claim insert goes first; the unique index is the permanence guarantee. A conflict returns 409 and nothing else is written.
 
 ## Token images and sharing
@@ -222,7 +299,7 @@ There is no name and no upload, so every moji gets a rendered image:
 A moji can carry a picture. The emoji combo is still the name and the claim; the meme is the face.
 
 - **Upload.** Step 4 of `/launch` (optional) picks a picture from the device; it is uploaded right after the launch is recorded. On the moji page the creator (matching Privy DID) sees "add a meme" / "change meme" / "remove" under the hero. `MemePicker` downsizes static images to 1024px in the browser before sending (`src/lib/meme-client.ts`); GIFs go as they are. Cap 4 MB (Vercel's body limit).
-- **API.** `POST /api/mojis/[combo]/meme?chain=&pair=` (multipart `file`) and `DELETE` for takedowns. Creator only via the Privy access token, or the `/admin` cookie. `src/lib/memes.ts` normalizes with sharp: static → WebP ≤ 1024px, animated → GIF ≤ 512px, EXIF rotation applied, non-images rejected. Stored in the `moji-images` bucket at `<network>/memes/<moji id>.webp|gif` with a cache-busting `?v=`.
+- **API.** `POST /api/mojis/[combo]/meme?chain=&pair=` (multipart `file`) and `DELETE` for takedowns. Creator only: the Privy access token for app launches (DID must match `creator_did`), or for wallet and agent launches a `signer` + `signature` from `creator_address` over the messages in `src/lib/meme-auth.ts` (`moji meme <id> set <sha256 of the file>` on upload, `moji meme <id> remove <ts>` within 10 minutes on delete). The `/admin` cookie works for both. `src/lib/memes.ts` normalizes with sharp: static → WebP ≤ 1024px, animated → GIF ≤ 512px, EXIF rotation applied, non-images rejected. Stored in the `moji-images` bucket at `<network>/memes/<moji id>.webp|gif` with a cache-busting `?v=`.
 - **Where it shows.** `mojis.meme_url` (`supabase/memes.sql`) feeds `MojiArt` (`src/components/MojiArt.tsx`), the one primitive behind every tile and row (home, explore, leaderboard, top mojis), the moji page hero, the launch success card, and the OG/X share card (`/api/og/[combo]`). `image_url` mirrors the meme so the on-chain tokenURI (`/api/meta/[combo]`) and wallets show it too; removing the meme puts `image_url` back on the rendered emoji circle. Without a meme, every surface shows the emoji on the sky gradient, so nothing looks empty.
 - **Takedown.** `/admin` → pools: a "meme ✕" button per moji with a meme.
 
@@ -271,12 +348,13 @@ Doppler's Airlock takes any ERC-20 as the numeraire, so a moji can pair against 
 | Base | 8453 | ETH | 8 Coinbase Tokenized Stocks: AAPL, AMZN, GOOGL, META, MSFT, MSTR, NVDA, TSLA (`stocks-base.ts`, 8 decimals) | ETH, AERO, VVV, VIRTUAL, NOCK, BNKR, CLANKER, BRETT, TOSHI, DEGEN |
 | Ethereum | 1 | ETH | soon | ETH, UNI, LINK, AAVE, PEPE, COMP, ONDO, LDO, ENA |
 | Arbitrum One | 42161 | ETH | soon | ETH, ARB, PENDLE, GMX, RAIN |
+| BNB Chain | 56 | BNB | soon | BNB (WBNB), CAKE, BTCB |
 | Monad | 143 | MON | soon | soon |
 | Solana | | SOL | soon | mints staged in `tokens.ts` (PENGU, PUMP, WIF, BONK, JUP, TRUMP, FARTCOIN, POPCAT, RAY, JTO) for the Solana build |
 
 Every EVM address was verified on-chain (symbol, name, decimals) and checked for real DEX liquidity on 2026-09-12; fake-liquidity pools were excluded. Curated tokens live in `src/config/tokens.ts`; WETH comes from Doppler's address map (`getAddresses(chainId).weth`).
 
-**Prices for the curve and USD display:** WETH from the Doppler indexer (`ethPrices`, Chainlink-sourced); curated tokens from their most liquid real Dexscreener pair; Robinhood stocks from the Chainlink feed, then Robinhood's quote API, then Yahoo; Coinbase stocks by ticker via the same stock path.
+**Prices for the curve and USD display:** WETH from the Doppler indexer (`ethPrices`, Chainlink-sourced); WBNB from its Dexscreener pair (the indexer has no BNB price); curated tokens from their most liquid real Dexscreener pair; Robinhood stocks from the Chainlink feed, then Robinhood's quote API, then Yahoo; Coinbase stocks by ticker via the same stock path.
 
 ## Seeding
 

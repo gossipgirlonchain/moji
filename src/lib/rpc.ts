@@ -20,6 +20,7 @@ const EXTRA_RPCS: Record<number, string[]> = {
   42161: ["https://arb1.arbitrum.io/rpc", "https://arbitrum-one-rpc.publicnode.com"],
   8453: ["https://mainnet.base.org", "https://base-rpc.publicnode.com"],
   143: ["https://rpc.monad.xyz", "https://monad-rpc.publicnode.com"],
+  56: ["https://bsc-dataseed.bnbchain.org", "https://bsc-rpc.publicnode.com", "https://bsc.drpc.org"],
 };
 
 export function transportFor(chain: Chain) {

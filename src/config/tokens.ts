@@ -29,6 +29,7 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("robinhood", "QUOTRON", "Quotrons", "0x5a86828Efd322bfb16d93cFeD16EE9BC14940D7F"),
     t("robinhood", "ORBIO", "Orbio", "0xAa07A0e9209e16aC99708C3EC70159c6eF3128A3"),
     t("robinhood", "HOOKR", "Hookr", "0x18E674231A58c239Dc7DaeDcffE15Ec3A24cff5c"),
+    t("robinhood", "MUSEBOOK", "musebook", "0x91A2DAe9699f0B82540B5886b0d8759C22820bA3"),
   ],
   8453: [
     t("base", "AERO", "Aerodrome", "0x940181a94A35A4569E4529A3CDfB74e38FD98631"),
@@ -46,6 +47,12 @@ export const TOKENS: Record<number, TokenPair[]> = {
     t("base", "IPOD", "iPod", "0xA6af0cEa8FBC93E1eCcC00f1FdD9a0BBa251FeE1"),
     t("base", "EARPODS", "EARPODS", "0xfb064Ea62dB2A6258d50D1fD0Ca11E5Cf2a8Fee1"),
     t("base", "MEAT", "Meat", "0xa9F56fB9b3e02dF8d36c67F12D4d03919250fEe1"),
+  ],
+  // BNB Chain: the canonical CAKE and BTCB contracts (PancakeSwap's and Binance's own). Added 2026-09-18 from the
+  // canonical addresses; re-run `npx tsx scripts/verify-canon.ts` (bsc block) to re-check symbol/decimals and liquidity.
+  56: [
+    t("bsc", "CAKE", "PancakeSwap Token", "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82"),
+    t("bsc", "BTCB", "BTCB Token", "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c"),
   ],
   1: [
     t("ethereum", "UNI", "Uniswap", "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"),
