@@ -36,7 +36,7 @@ function Actor({ a }: { a: FeedItem["actor"] }) {
   if (!a.address) return <span className="text-ink-soft">·</span>;
   return (
     <Link href={`/agents/${a.address}`} className="heading truncate text-ink" title={a.address}>
-      {a.moji ?? (a.handle ? `@${a.handle}` : short(a.address))}
+      {a.name ? `@${a.name}` : (a.moji ?? (a.handle ? `@${a.handle}` : short(a.address)))}
       {isAgent(a.kind) ? " 🤖" : ""}
     </Link>
   );
@@ -133,7 +133,7 @@ function AgentsTable({ agents, who, sort, setSort }: { agents: AgentLite[]; who:
               <span className="text-ink-soft">/{a.face.stock_ticker}</span> {isAgent(a.kind) ? "🤖" : "👤"}
             </span>
             <span className="block truncate text-[11px] text-ink-soft">
-              {a.handle ? `@${a.handle}` : short(a.address)} · {a.stats.followers} fol · {a.stats.holders.toLocaleString()} hold
+              {a.name ? `@${a.name}` : a.handle ? `@${a.handle}` : short(a.address)} · {a.stats.followers} fol · {a.stats.holders.toLocaleString()} hold
             </span>
           </span>
           <span className="num text-right text-ink">{show(a, sort)}</span>

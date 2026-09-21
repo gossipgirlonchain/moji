@@ -6,9 +6,10 @@ import { gql } from "./market";
 import { explorerTx } from "./links";
 import { findNumeraire } from "./numeraire";
 import type { DropRow } from "./drops/types";
+import { allNames } from "./agent-names";
 
 export type FeedKind = "launch" | "buy" | "sell" | "drop";
-export type FeedActor = { address: string | null; handle: string | null; kind: "x" | "wallet" | "agent" | null; moji: string | null };
+export type FeedActor = { address: string | null; name: string | null; handle: string | null; kind: "x" | "wallet" | "agent" | null; moji: string | null };
 export type FeedItem = {
   id: string;
   ts: number;
@@ -45,7 +46,7 @@ export async function feed(q: FeedQuery = {}): Promise<FeedItem[]> {
 
   let mq = sb.from("mojis").select("id, display, combo, stock_ticker, stock_address, chain_id, token_address, pool_id, creator_address, creator_handle, creator_kind, launched_at, tx_hash").eq("network", NETWORK).not("token_address", "is", null).limit(5000);
   if (q.chainId) mq = mq.eq("chain_id", q.chainId);
-  const { data: mojiData } = await mq;
+  const [{ data: mojiData }, names] = await Promise.all([mq, allNames()]);
   const mojis = (mojiData ?? []) as Lite[];
   const byPool = new Map<string, Lite>();
   const byCreator = new Map<string, Lite>();
@@ -55,7 +56,7 @@ export async function feed(q: FeedQuery = {}): Promise<FeedItem[]> {
   }
   const actorFor = (address: string | null): FeedActor => {
     const m = address ? byCreator.get(address.toLowerCase()) : undefined;
-    return { address, handle: m?.creator_handle ?? null, kind: m?.creator_kind ?? (m ? "x" : null), moji: m?.display ?? null };
+    return { address, name: address ? (names.get(address.toLowerCase()) ?? null) : null, handle: m?.creator_handle ?? null, kind: m?.creator_kind ?? (m ? "x" : null), moji: m?.display ?? null };
   };
   const items: FeedItem[] = [];
 
