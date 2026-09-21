@@ -129,7 +129,7 @@ function AgentsTable({ agents, who, sort, setSort }: { agents: AgentLite[]; who:
           <Face s={a.face.display} />
           <span className="min-w-0">
             <span className="heading block truncate text-ink">
-              {a.level.emoji} {a.face.display}
+              {a.face.display}
               <span className="text-ink-soft">/{a.face.stock_ticker}</span> {isAgent(a.kind) ? "🤖" : "👤"}
             </span>
             <span className="block truncate text-[11px] text-ink-soft">

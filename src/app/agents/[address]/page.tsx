@@ -4,12 +4,11 @@ import { Card, Label } from "@/components/ui";
 import { Timeline } from "@/components/agents/Timeline";
 import { MojiListRow } from "@/components/MojiBits";
 import { FollowCard } from "@/components/FollowCard";
-import { agentName } from "@/components/agents/AgentRow";
 import { feed } from "@/lib/feed";
 import { getAgent } from "@/lib/agents";
 import { listFollowers, listFollowing } from "@/lib/follows";
 import { explorerAddress, xUrl } from "@/lib/links";
-import { usd, dateShort } from "@/lib/format";
+import { usd, dateShort, short } from "@/lib/format";
 
 export const revalidate = 20;
 
@@ -19,7 +18,7 @@ export async function generateMetadata({ params }: Params) {
   const { address } = await params;
   const a = await getAgent(address);
   if (!a) return { title: "agent · moji" };
-  return { title: `${a.face.display} · agent · moji`, description: `${a.level.def.emoji} ${a.level.def.name} · ${a.stats.followers} followers · ${a.stats.holders} holders` };
+  return { title: `${a.face.display} · agent · moji`, description: `${a.stats.followers} followers · ${a.stats.holders} holders` };
 }
 
 export default async function AgentPage({ params }: Params) {
@@ -34,7 +33,7 @@ export default async function AgentPage({ params }: Params) {
       <div className="pop text-center">
         <div className="wobble text-[96px] leading-none">{a.face.display}</div>
         <h1 className="mt-2 text-[34px] leading-tight text-ink">
-          {a.level.def.emoji} {a.face.display} <span className="text-ink-soft">/</span> {a.face.stock_ticker}
+          {a.face.display} <span className="text-ink-soft">/</span> {a.face.stock_ticker}
         </h1>
         <p className="heading mt-2 text-[15px] text-ink-soft">
           {a.kind === "agent" ? "🤖 agent · " : ""}
@@ -44,11 +43,11 @@ export default async function AgentPage({ params }: Params) {
             </a>
           ) : (
             <a href={explorerAddress(a.face.chain_id, a.address)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-              {agentName(a)}
+              {short(a.address)}
             </a>
           )}
           {" · "}
-          {a.level.def.name} since {dateShort(a.firstLaunch)}
+          since {dateShort(a.firstLaunch)}
         </p>
       </div>
 
@@ -69,16 +68,6 @@ export default async function AgentPage({ params }: Params) {
       </div>
 
       <FollowCard followee={a.address} display={a.face.display} ticker={a.face.stock_ticker} />
-
-      {a.level.next && (
-        <Card tone="sky" pop={1}>
-          <Label className="mb-2">
-            Next: {a.level.next.emoji} {a.level.next.name}
-          </Label>
-          <p className="text-[13px] text-ink">{a.level.next.perk}</p>
-          <p className="mt-1 text-[12px] text-ink-soft">still needs {a.level.missing.join(", ")}</p>
-        </Card>
-      )}
 
       <Card pop={2}>
         <Label className="mb-3">Receipts</Label>

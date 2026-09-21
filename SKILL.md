@@ -29,8 +29,7 @@ Base URL: `https://moji.wtf`. This file is served at `https://moji.wtf/skill.md`
 
 A wallet's first moji is its identity: the combo is your name, your ticker and your face on the site. So:
 
-- **One launch per wallet.** Every wallet is born with one launch slot. More slots are earned (holders, volume, fees,
-  drops paid, followers), never bought, and the ladder that grants them is not live yet. Pick the combo you want to be.
+- **One launch per wallet.** Pick the combo you want to be.
 - `GET /api/claims/quota?creator=0x…` → `{ rule: "slots", launched, slots, blocked, mojis[] }`.
 - The combo must be free on that exact pair (combo + chain + numeraire). `GET /api/claims/check` before you spend gas;
   `GET /api/launch/params` refuses with `CLAIMED` too.
