@@ -217,6 +217,15 @@ There is no name and no upload, so every moji gets a rendered image:
 - `/m/[combo]/opengraph-image` renders a 1200x630 card with the combo, the pair as "🍏 / AAPL" and the moji wordmark. `generateMetadata` on the moji page sets Open Graph and `twitter:card = summary_large_image`, so links posted to X unfurl with it.
 - "Post it" (on the launch success state and permanently on the moji page) opens the X web intent prefilled with `{combo} paired to ${TICKER} on @mojidotwtf 🫡`, the contract address, and the moji link.
 
+## Memes
+
+A moji can carry a picture. The emoji combo is still the name and the claim; the meme is the face.
+
+- **Upload.** Step 4 of `/launch` (optional) picks a picture from the device; it is uploaded right after the launch is recorded. On the moji page the creator (matching Privy DID) sees "add a meme" / "change meme" / "remove" under the hero. `MemePicker` downsizes static images to 1024px in the browser before sending (`src/lib/meme-client.ts`); GIFs go as they are. Cap 4 MB (Vercel's body limit).
+- **API.** `POST /api/mojis/[combo]/meme?chain=&pair=` (multipart `file`) and `DELETE` for takedowns. Creator only via the Privy access token, or the `/admin` cookie. `src/lib/memes.ts` normalizes with sharp: static → WebP ≤ 1024px, animated → GIF ≤ 512px, EXIF rotation applied, non-images rejected. Stored in the `moji-images` bucket at `<network>/memes/<moji id>.webp|gif` with a cache-busting `?v=`.
+- **Where it shows.** `mojis.meme_url` (`supabase/memes.sql`) feeds `MojiArt` (`src/components/MojiArt.tsx`), the one primitive behind every tile and row (home, explore, leaderboard, top mojis), the moji page hero, the launch success card, and the OG/X share card (`/api/og/[combo]`). `image_url` mirrors the meme so the on-chain tokenURI (`/api/meta/[combo]`) and wallets show it too; removing the meme puts `image_url` back on the rendered emoji circle. Without a meme, every surface shows the emoji on the sky gradient, so nothing looks empty.
+- **Takedown.** `/admin` → pools: a "meme ✕" button per moji with a meme.
+
 ## Launch flow
 
 `src/lib/doppler.ts` builds a Doppler multicurve auction with the selected stock token as `saleConfig.numeraire`:

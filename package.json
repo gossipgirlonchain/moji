@@ -32,6 +32,7 @@
     "next": "15.5.25",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "sharp": "^0.35.4",
     "viem": "^2.56.0",
     "wagmi": "^3.7.7"
   },
@@ -47,7 +48,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
-    "sharp": "^0.35.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

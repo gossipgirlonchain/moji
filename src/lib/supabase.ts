@@ -61,6 +61,8 @@ export type MojiRow = {
   fee_current: number | null;
   snapshot_at: string | null;
   image_url: string | null;
+  /** creator-uploaded meme (supabase/memes.sql); image_url mirrors it while set */
+  meme_url?: string | null;
   metadata_url: string | null;
   launched_at: string;
   /** creator drops (supabase/drops.sql) */

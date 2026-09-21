@@ -15,6 +15,7 @@ import { DropsCard } from "@/components/drops/DropsCard";
 import { SITE_URL } from "@/lib/network";
 import { TradeCard } from "@/components/TradeCard";
 import { findNumeraire } from "@/lib/numeraire";
+import { CreatorMeme } from "@/components/CreatorMeme";
 
 export const revalidate = 15;
 
@@ -72,7 +73,17 @@ export default async function MojiPage({ params }: { params: Params }) {
   return (
     <main className="flex flex-col gap-4">
       <div className="pop text-center">
-        <div className="wobble text-[96px] leading-none">{m.display}</div>
+        {m.meme_url ? (
+          <div className="clay relative mx-auto aspect-square w-full max-w-[400px] overflow-hidden bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={m.meme_url} alt={`${m.display} meme`} className="block h-full w-full object-cover" />
+            <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 text-[40px] leading-none shadow-sm" aria-hidden>
+              {m.display}
+            </span>
+          </div>
+        ) : (
+          <div className="wobble text-[96px] leading-none">{m.display}</div>
+        )}
         <h1 className="mt-2 text-[34px] leading-tight text-ink">
           {m.display} <span className="text-ink-soft">/</span> {m.stock_ticker}
         </h1>
@@ -88,6 +99,7 @@ export default async function MojiPage({ params }: { params: Params }) {
             </a>
           </p>
         )}
+        <CreatorMeme combo={m.display} chainId={m.chain_id} pair={m.stock_address} creatorDid={m.creator_did} memeUrl={m.meme_url ?? null} />
         {hasHolderRewards(m) && (
           <a href="#rewards" className="press clay-pill heading mt-3 inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
             🪂 holder rewards
