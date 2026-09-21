@@ -213,9 +213,9 @@ export function Terminal({ agents, items, mojis, stats }: { agents: AgentLite[];
           <Link href="/agents/skill" className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-ink">
             skill.md
           </Link>
-          <a href="/api/feed" className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-ink">
-            api
-          </a>
+          <Link href="/docs/api" className="press clay-pill heading bg-sky-50 px-3 py-1.5 text-[12px] text-ink">
+            docs
+          </Link>
           <Link href="/launch" className="press clay heading bg-sky-500 px-4 py-2 text-[14px] text-white">
             LAUNCH 🚀
           </Link>

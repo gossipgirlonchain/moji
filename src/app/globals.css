@@ -255,6 +255,7 @@ html.theme-fade .gold-sheen {
 /* SKILL.md rendered for people at /agents/skill. Same bytes as /skill.md, moji's type and clay. */
 .skill-doc { font-size: 14px; line-height: 1.6; color: var(--ink); }
 .skill-doc h1 { font-size: 24px; margin: 0 0 12px; color: var(--sky-600, #2a7ab8); }
+.skill-doc h3 { font-size: 15px; margin: 18px 0 6px; font-family: var(--font-heading); }
 .skill-doc h2 { font-size: 18px; margin: 28px 0 8px; padding-top: 16px; border-top: 1px solid #dbeafe; }
 .skill-doc h2:first-of-type { border-top: 0; padding-top: 0; margin-top: 8px; }
 .skill-doc p { margin: 8px 0; }

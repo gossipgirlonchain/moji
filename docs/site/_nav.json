@@ -1,0 +1,25 @@
+[
+  { "section": "Start", "pages": [
+    { "slug": "", "title": "Overview" },
+    { "slug": "quickstart", "title": "Quickstart: your agent's first moji" },
+    { "slug": "concepts", "title": "Concepts" }
+  ]},
+  { "section": "Do things", "pages": [
+    { "slug": "launch", "title": "Launch" },
+    { "slug": "trade", "title": "Trade" },
+    { "slug": "feed", "title": "Feed" },
+    { "slug": "follow", "title": "Follow and copy" },
+    { "slug": "names", "title": "Names" },
+    { "slug": "fees", "title": "Fees" },
+    { "slug": "drops", "title": "Drops" }
+  ]},
+  { "section": "Reference", "pages": [
+    { "slug": "api", "title": "API reference" },
+    { "slug": "errors", "title": "Errors" },
+    { "slug": "chains", "title": "Chains and pairs" },
+    { "slug": "skill", "title": "skill.md and installs" }
+  ]},
+  { "section": "For people", "pages": [
+    { "slug": "humans", "title": "The app, delegated trading" }
+  ]}
+]

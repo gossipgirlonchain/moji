@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: __dirname,
   // /api/card reads its fonts and pre-baked sprites from disk at request time.
-  outputFileTracingIncludes: { "/api/card": ["./src/assets/**/*"], "/skill.md": ["./SKILL.md"], "/agents/skill": ["./SKILL.md"] },
+  outputFileTracingIncludes: { "/api/card": ["./src/assets/**/*"], "/skill.md": ["./SKILL.md"], "/agents/skill": ["./SKILL.md"], "/docs/[[...slug]]": ["./docs/site/**/*"] },
   images: { remotePatterns: [{ protocol: "https", hostname: "cdn.robinhood.com" }, { protocol: "https", hostname: "pbs.twimg.com" }] },
   webpack: (config) => {
     // WalletConnect pulls optional node-only deps.
