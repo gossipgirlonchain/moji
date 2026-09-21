@@ -18,12 +18,14 @@ import { ensureChain, pickWallet } from "@/lib/wallet";
 import { PostIt } from "@/components/PostIt";
 import Link from "next/link";
 import { SITE_URL } from "@/lib/network";
+import { uploadMeme } from "@/lib/meme-client";
+import { MojiArt } from "@/components/MojiArt";
 
-type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults };
+type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults; meme?: File | null };
 
 type Phase = "idle" | "pricing" | "signing" | "confirming" | "recording" | "done";
 
-export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
+export function LaunchAction({ chain, stock, combo, available, curve, meme }: Props) {
   const router = useRouter();
   const { ready, authenticated, user, login, linkTwitter, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
@@ -32,7 +34,7 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null);
-  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string } | null>(null);
+  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string; memeUrl: string | null; memeError: string | null } | null>(null);
   const hasX = Boolean(user?.twitter?.username) || isXExempt(address);
   // Dead-moji cap: ask the server whether this account may launch right now.
   const [quota, setQuota] = useState<{ blocked: boolean; message: string | null; dead: number; max: number } | null>(null);
@@ -122,9 +124,19 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
       });
       const j = (await r.json()) as { href?: string; url?: string; error?: string };
       if (!r.ok) throw new Error(j.error ?? "Could not record launch");
+      // The meme rides along after the row exists (creator-only upload). Best effort: the moji page can add it later.
+      let memeUrl: string | null = null;
+      let memeError: string | null = null;
+      if (meme) {
+        try {
+          memeUrl = await uploadMeme({ combo, chainId: chain.chainId, pair: stock.address }, meme, token ? { token } : null);
+        } catch (e) {
+          memeError = e instanceof Error ? e.message : "meme upload failed";
+        }
+      }
       setPhase("done");
       const href = j.href ?? `/m/${encodeURIComponent(combo)}`;
-      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker, ca: res.tokenAddress });
+      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker, ca: res.tokenAddress, memeUrl, memeError });
       router.prefetch(href);
     } catch (e) {
       setPhase("idle");
@@ -157,10 +169,11 @@ export function LaunchAction({ chain, stock, combo, available, curve }: Props) {
   if (done) {
     return (
       <div className="clay pop flex flex-col items-center gap-3 bg-white p-5 text-center">
-        <div className="wobble text-[64px] leading-none">{done.combo}</div>
+        {done.memeUrl ? <MojiArt m={{ display: done.combo, meme_url: done.memeUrl }} size={200} radius={24} /> : <div className="wobble text-[64px] leading-none">{done.combo}</div>}
         <p className="heading text-[22px] text-ink">
           {done.combo} / {done.ticker} is live.
         </p>
+        {done.memeError && <p className="text-[12px] text-coral">meme not saved ({done.memeError}). add it from your moji page.</p>}
         <PostIt combo={done.combo} ticker={done.ticker} url={done.url} ca={done.ca} size="lg" />
         <Link href={done.href} className="press clay heading block w-full bg-sky-500 px-6 py-3.5 text-[17px] text-white">
           view your moji

@@ -43,3 +43,7 @@ create policy "mojis are public" on public.mojis for select using (true);
 -- Global counter helper
 create or replace function public.claims_count()
 returns bigint language sql stable as $$ select count(*) from public.claims $$;
+
+-- Creator memes (supabase/memes.sql)
+alter table public.mojis add column if not exists image_url text;
+alter table public.mojis add column if not exists meme_url text;

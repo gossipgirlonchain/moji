@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { MojiRow } from "@/lib/supabase";
-import { MojiListRow, volumeFor, type VolWindow } from "./MojiBits";
+import { MojiTile, volumeFor, type VolWindow } from "./MojiBits";
 import { Pill } from "./ui";
 import { CHAINS } from "@/config/chains";
 import { ChainSelect } from "./ChainSelect";
@@ -68,12 +68,15 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
         ))}
       </div>
       <ChainSelect chains={chains} value={chain} onChange={setChain} className="self-start" />
-      <div className="flex flex-col gap-2.5">
-        {list.length === 0 && <p className="py-6 text-center text-[14px] text-ink-soft">No mojis match.</p>}
-        {list.map((m) => (
-          <MojiListRow key={m.id} m={m} window={window} />
-        ))}
-      </div>
+      {list.length === 0 ? (
+        <p className="py-6 text-center text-[14px] text-ink-soft">No mojis match.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {list.map((m) => (
+            <MojiTile key={m.id} m={m} window={window} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

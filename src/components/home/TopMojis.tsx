@@ -4,6 +4,7 @@ import { usd } from "@/lib/format";
 import { chainById } from "@/config/chains";
 import { Label } from "@/components/ui";
 import { DropsDot, mojiHref } from "@/components/MojiBits";
+import { MojiArt } from "@/components/MojiArt";
 
 /** Desktop row: the five biggest mojis as wide cards. */
 export function TopMojis({ mojis }: { mojis: MojiRow[] }) {
@@ -21,7 +22,7 @@ export function TopMojis({ mojis }: { mojis: MojiRow[] }) {
           return (
             <Link key={m.id} href={mojiHref(m)} className={`press clay pop pop-${Math.min(5, i + 1)} relative flex items-center gap-4 bg-white px-5 py-4`}>
               <DropsDot m={m} className="absolute right-3 top-3" />
-              <span className="text-[52px] leading-none">{m.display}</span>
+              <MojiArt m={m} size={76} radius={18} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="heading truncate text-[17px] text-ink">
                   {m.display} / {m.stock_ticker}

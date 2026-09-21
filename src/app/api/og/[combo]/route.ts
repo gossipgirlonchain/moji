@@ -12,5 +12,5 @@ export async function GET(req: Request, ctx: { params: Promise<{ combo: string }
   const v = validateCombo(decodeCombo(combo));
   const display = v.ok ? v.display : "🫥";
   const m = v.ok ? await getMoji(v.display, u.searchParams.get("pair"), Number(u.searchParams.get("chain") ?? 0) || null) : null;
-  return renderOgImage(display, m?.stock_ticker ?? "moji");
+  return renderOgImage(display, m?.stock_ticker ?? "moji", m?.meme_url ?? null);
 }

@@ -50,9 +50,33 @@ export function renderTokenImage(combo: string, size = 512): ImageResponse {
   );
 }
 
-/** 1200x630 Open Graph card: combo, "🍏 / AAPL", wordmark. */
-export async function renderOgImage(combo: string, ticker: string): Promise<ImageResponse> {
+/** 1200x630 Open Graph card: the meme (or the emoji circle), "🍏 / AAPL", wordmark. */
+export async function renderOgImage(combo: string, ticker: string, memeUrl?: string | null): Promise<ImageResponse> {
   const wordmark = await wordmarkDataUrl();
+  const art = memeUrl ? (
+    <div style={{ width: 360, height: 360, borderRadius: 48, overflow: "hidden", boxShadow: CLAY_SHADOW, display: "flex", position: "relative", background: SKY[100] }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={memeUrl} width={360} height={360} alt="" style={{ objectFit: "cover", width: 360, height: 360 }} />
+      <div style={{ position: "absolute", left: 16, bottom: 16, display: "flex", padding: "6px 14px", borderRadius: 999, background: "rgba(255,255,255,0.92)", fontSize: 56, lineHeight: 1 }}>{combo}</div>
+    </div>
+  ) : (
+    <div
+      style={{
+        width: 330,
+        height: 330,
+        borderRadius: 9999,
+        background: SKY_GRADIENT,
+        boxShadow: CLAY_SHADOW,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 180,
+        lineHeight: 1,
+      }}
+    >
+      {combo}
+    </div>
+  );
   return new ImageResponse(
     (
       <div
@@ -80,22 +104,7 @@ export async function renderOgImage(combo: string, ticker: string): Promise<Imag
             padding: "0 72px",
           }}
         >
-          <div
-            style={{
-              width: 330,
-              height: 330,
-              borderRadius: 9999,
-              background: SKY_GRADIENT,
-              boxShadow: CLAY_SHADOW,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 180,
-              lineHeight: 1,
-            }}
-          >
-            {combo}
-          </div>
+          {art}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 18 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={wordmark} width={300} height={155} alt="moji" style={{ objectFit: "contain" }} />

@@ -3,6 +3,7 @@ import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 import { dropsAllowlisted } from "@/config/drops";
 import { chainById } from "@/config/chains";
+import { MojiArt } from "./MojiArt";
 
 /** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
 export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
@@ -63,20 +64,35 @@ export function ChainDot({ chainId, className = "" }: { chainId: number; classNa
   );
 }
 
-export function MojiTile({ m, pop, compact }: { m: MojiRow; pop?: number; compact?: boolean }) {
+/** Picture-first tile: the meme (or the emoji on sky) as a square, name and numbers under it. */
+export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number; compact?: boolean; window?: VolWindow }) {
+  const vol = window ? volumeFor(m, window) : Number(m.volume24_usd ?? 0);
+  const fees = Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
   return (
     <Link
       href={mojiHref(m)}
-      className={`press relative flex flex-col items-center gap-1 text-center ${compact ? "clay-sm bg-sky-50 px-2 pb-4 pt-5" : "clay bg-white px-3 py-5"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
+      className={`press relative flex flex-col overflow-hidden text-center ${compact ? "clay-sm bg-sky-50" : "clay bg-white"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
     >
-      <DropsDot m={m} className="absolute right-3 top-3" />
-      <AgentDot m={m} className="absolute left-3 top-3" />
-      <span className="text-[44px] leading-none">{m.display}</span>
-      <span className="heading mt-2 max-w-full truncate text-[15px] text-ink">
-        {m.display} / {m.stock_ticker}
+      <MojiArt m={m} radius={0} emojiSize={compact ? 56 : 72} />
+      <DropsDot m={m} className="absolute right-2.5 top-2.5 drop-shadow" />
+      <AgentDot m={m} className="absolute left-2.5 top-2.5 drop-shadow" />
+      <span className={`flex flex-col items-center gap-0.5 ${compact ? "px-2 pb-3 pt-2" : "px-3 pb-3.5 pt-2.5"}`}>
+        <span className={`heading max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>
+          {m.display} / {m.stock_ticker}
+        </span>
+        <span className={`heading text-ink-soft ${compact ? "text-[12px]" : "text-[13px]"}`}>{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
+        {(window || compact) && vol > 0 && (
+          <span className="text-[11px] text-ink-soft">
+            vol{window ? ` ${window}` : ""} {usd(vol)}
+            {window && fees > 0 ? (
+              <>
+                {" · "}
+                <span className="text-mint">{usd(fees)} fees</span>
+              </>
+            ) : null}
+          </span>
+        )}
       </span>
-      <span className="heading text-[13px] text-ink-soft">{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
-      {compact && Number(m.volume24_usd ?? 0) > 0 && <span className="text-[11px] text-ink-soft">vol {usd(m.volume24_usd)}</span>}
     </Link>
   );
 }
@@ -85,7 +101,7 @@ export function McapRow({ m, rank }: { m: MojiRow; rank: number }) {
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-sky-50 px-4 py-3">
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
-      <span className="text-[30px] leading-none">{m.display}</span>
+      <MojiArt m={m} size={44} radius={14} />
       <span className="heading flex-1 text-[15px] text-ink">
         {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
       </span>
@@ -99,7 +115,7 @@ export function EarnerRow({ m, rank }: { m: MojiRow & { earnedUsd?: number }; ra
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-sky-50 px-4 py-3">
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
-      <span className="text-[30px] leading-none">{m.display}</span>
+      <MojiArt m={m} size={44} radius={14} />
       <span className="heading flex-1 text-[15px] text-ink">
         {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
       </span>
@@ -118,7 +134,7 @@ export function MojiListRow({ m, window = "24h" }: { m: MojiRow; window?: VolWin
   const vol = volumeFor(m, window);
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-white px-4 py-3">
-      <span className="text-[30px] leading-none">{m.display}</span>
+      <MojiArt m={m} size={48} radius={14} />
       <span className="flex-1">
         <span className="heading block text-[15px] text-ink">
           {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />

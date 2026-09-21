@@ -294,6 +294,15 @@ There is no name and no upload, so every moji gets a rendered image:
 - `/m/[combo]/opengraph-image` renders a 1200x630 card with the combo, the pair as "🍏 / AAPL" and the moji wordmark. `generateMetadata` on the moji page sets Open Graph and `twitter:card = summary_large_image`, so links posted to X unfurl with it.
 - "Post it" (on the launch success state and permanently on the moji page) opens the X web intent prefilled with `{combo} paired to ${TICKER} on @mojidotwtf 🫡`, the contract address, and the moji link.
 
+## Memes
+
+A moji can carry a picture. The emoji combo is still the name and the claim; the meme is the face.
+
+- **Upload.** Step 4 of `/launch` (optional) picks a picture from the device; it is uploaded right after the launch is recorded. On the moji page the creator (matching Privy DID) sees "add a meme" / "change meme" / "remove" under the hero. `MemePicker` downsizes static images to 1024px in the browser before sending (`src/lib/meme-client.ts`); GIFs go as they are. Cap 4 MB (Vercel's body limit).
+- **API.** `POST /api/mojis/[combo]/meme?chain=&pair=` (multipart `file`) and `DELETE` for takedowns. Creator only: the Privy access token for app launches (DID must match `creator_did`), or for wallet and agent launches a `signer` + `signature` from `creator_address` over the messages in `src/lib/meme-auth.ts` (`moji meme <id> set <sha256 of the file>` on upload, `moji meme <id> remove <ts>` within 10 minutes on delete). The `/admin` cookie works for both. `src/lib/memes.ts` normalizes with sharp: static → WebP ≤ 1024px, animated → GIF ≤ 512px, EXIF rotation applied, non-images rejected. Stored in the `moji-images` bucket at `<network>/memes/<moji id>.webp|gif` with a cache-busting `?v=`.
+- **Where it shows.** `mojis.meme_url` (`supabase/memes.sql`) feeds `MojiArt` (`src/components/MojiArt.tsx`), the one primitive behind every tile and row (home, explore, leaderboard, top mojis), the moji page hero, the launch success card, and the OG/X share card (`/api/og/[combo]`). `image_url` mirrors the meme so the on-chain tokenURI (`/api/meta/[combo]`) and wallets show it too; removing the meme puts `image_url` back on the rendered emoji circle. Without a meme, every surface shows the emoji on the sky gradient, so nothing looks empty.
+- **Takedown.** `/admin` → pools: a "meme ✕" button per moji with a meme.
+
 ## Launch flow
 
 `src/lib/doppler.ts` builds a Doppler multicurve auction with the selected stock token as `saleConfig.numeraire`:
@@ -363,6 +372,31 @@ Vercel or Railway, Node 20+.
 2. Build command `npm run build`, start `npm start`.
 3. Add the production origin to Privy allowed origins and the X OAuth callback.
 4. Point `moji.wtf` at the deployment.
+
+## iOS app
+
+Two ways onto an iPhone. Both load the same deployment, so a web deploy updates the app and nothing needs resubmitting for a web-only change.
+
+- **Home screen install, today.** Safari → Share → Add to Home Screen. `src/app/manifest.ts` and the `appleWebApp` metadata in `layout.tsx` make it a standalone app with the sky icon (`public/icon-{192,512}.png`). The page runs edge to edge (`viewport-fit=cover`) and `.shell-safe` in `globals.css` pads for the notch and the home indicator.
+- **App Store / TestFlight build.** `ios/` is a Capacitor 8 Xcode project (Swift Package Manager, no CocoaPods) whose WKWebView loads `https://moji.wtf`. `capacitor.config.ts` is the source of truth (`wtf.moji.app`, portrait only on iPhone); `native/www/index.html` is the page the shell shows when the site is unreachable. The app icon and splash come from `npm run ios:icons` (`scripts/gen-app-icons.ts`: the wordmark on the sky gradient from `src/config/design.ts`, then `@capacitor/assets` fills `ios/App/App/Assets.xcassets`).
+
+**CI build, no Mac needed.** `.github/workflows/ios.yml` builds the project on a macOS runner on every push that touches `ios/`, `native/`, `capacitor.config.ts` or the package files (and on demand from the Actions tab): a Debug simulator build (`moji-ios-simulator`, drop the unzipped `App.app` onto a booted Simulator) and an unsigned Release device build (`moji-ios-unsigned-ipa`, sign it with your own certificate before installing). Signing and a TestFlight upload step need Apple credentials as repo secrets and are not set up yet.
+
+On a Mac with Xcode 16+:
+
+```bash
+npm install
+npm run ios:sync    # copies native/www and capacitor.config.ts into ios/
+npm run ios:open    # opens ios/App/App.xcodeproj
+```
+
+In Xcode pick your team under Signing & Capabilities, run on a device, then Product → Archive → Distribute to TestFlight. Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in the project per release. To point the shell at a preview deployment or a dev server on the same Wi-Fi: `MOJI_NATIVE_URL=http://<mac-ip>:3000 npm run ios:sync` (`Info.plist` allows local networking; add that origin to Privy's allowed origins).
+
+What to know before shipping:
+
+- **Login stays in the web view.** The X login round trip (moji.wtf → auth.privy.io → x.com → back) is on `server.allowNavigation`; every other top-level link to another host, and every `target="_blank"` link (Matcha, Dexscreener, explorers, the X post intent), opens in Safari. The web view origin is `moji.wtf`, so the Privy dashboard needs no new origin. Test X login and an external wallet connect on a real device before submitting: WalletConnect deep links into wallet apps work from the web view, browser extensions do not exist there.
+- **Native hooks.** Capacitor injects `window.Capacitor` into the hosted page. `isNativeApp()` in `src/lib/native.ts` and `<html data-native="ios">` (set by `NativeBridge`) are the hooks for anything that should behave differently inside the app.
+- **Review.** The app is a shell around the site (App Store guideline 4.2, minimum functionality) that launches tokens (3.1.5, cryptocurrency). Universal links or push notifications for fee claims and drops would strengthen the submission; neither is built yet.
 
 ## Pages
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { deleteMeme } from "@/lib/meme-client";
 import Link from "next/link";
 import { mojiHref } from "@/components/MojiBits";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -305,7 +306,10 @@ function PoolsView({ pools }: { pools: Pool[] }) {
           <tbody>
             {sorted.map((p) => (
               <tr key={p.id} className="border-t border-sky-100">
-                <td className={td}><Link href={mojiHref(p)} className="heading text-[15px] text-ink">{p.display} / {p.stock_ticker}</Link></td>
+                <td className={td}>
+                  <Link href={mojiHref(p)} className="heading text-[15px] text-ink">{p.display} / {p.stock_ticker}</Link>
+                  {p.meme_url && <MemeTakedown m={p} />}
+                </td>
                 <td className={`${td} text-ink-soft`}>{p.chain_id}</td>
                 <td className={`${td} num`}>{usd(p.market.marketCapUsd)}</td>
                 <td className={`${td} num`}>{usd(Number(p.volume_all_usd ?? 0))}</td>
@@ -531,5 +535,31 @@ function TreasuryWallet() {
         )}
       </div>
     </Card>
+  );
+}
+
+/** Admin takedown for a creator meme (DELETE /api/mojis/[combo]/meme with the admin cookie). */
+function MemeTakedown({ m }: { m: Pick<MojiRow, "display" | "chain_id" | "stock_address" | "meme_url"> }) {
+  const [state, setState] = useState<"idle" | "busy" | "gone" | "error">("idle");
+  if (state === "gone") return <span className="ml-2 text-[11px] text-ink-soft">meme removed</span>;
+  return (
+    <button
+      type="button"
+      disabled={state === "busy"}
+      title="remove the creator's meme"
+      onClick={async () => {
+        if (!confirm(`Remove the meme on ${m.display}?`)) return;
+        setState("busy");
+        try {
+          await deleteMeme({ combo: m.display, chainId: m.chain_id, pair: m.stock_address }, null);
+          setState("gone");
+        } catch {
+          setState("error");
+        }
+      }}
+      className="press clay-pill heading ml-2 bg-coral px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white disabled:opacity-60"
+    >
+      {state === "error" ? "retry meme ✕" : "meme ✕"}
+    </button>
   );
 }

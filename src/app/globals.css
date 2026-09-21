@@ -183,6 +183,19 @@ em-emoji-picker {
 
 .mono { font-family: var(--font-heading); letter-spacing: 0.02em; }
 
+/* Safe areas. The iOS shell (ios/) and home-screen installs run edge to edge (viewport-fit=cover), so the
+   shell keeps its 16px top and 112px bottom padding plus the notch and home indicator insets. */
+.shell-safe {
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Inside the iOS shell or a home-screen install, links and images are app controls: no long-press sheet. */
+html[data-native] a, html[data-native] img { -webkit-touch-callout: none; }
+@media (display-mode: standalone) {
+  a, img { -webkit-touch-callout: none; }
+}
+
 /* Home page layout. Plain CSS on purpose: these rules must survive any cached build. */
 .shell-home { max-width: 460px; }
 .home-desktop { display: none; }

@@ -16,12 +16,14 @@ import { Advanced } from "./Advanced";
 import { LaunchAction, LaunchActionDisabled } from "./LaunchAction";
 import { SolanaTease } from "./SolanaTease";
 import { Button } from "@/components/ui";
+import { MemePicker } from "@/components/MemePicker";
 
 export function LaunchFlow() {
   const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
   const [stock, setStock] = useState<Stock | undefined>(undefined);
   const [emoji, setEmoji] = useState<string[]>([]);
   const [curve, setCurve] = useState<CurveDefaults>(CURVE_DEFAULTS);
+  const [meme, setMeme] = useState<File | null>(null);
 
   // Easter egg: BNB turns the page gold. The palette is CSS variables on <html>, so one attribute retints
   // everything; `theme-fade` eases the colors and a soft gold gradient behind the page fades in with them.
@@ -103,12 +105,18 @@ export function LaunchFlow() {
         </div>
       </Card>
 
+      <Card pop={4}>
+        <Label className="mb-1">4 · Meme <span className="normal-case tracking-normal text-ink-soft">· optional</span></Label>
+        <p className="mb-3 text-[13px] text-ink-soft">a picture for your moji. it becomes the token image, the share card and the tile everywhere. you can add or change it later.</p>
+        <MemePicker value={meme} onChange={setMeme} />
+      </Card>
+
       {chain.key === "solana" ? (
         <Button size="lg" disabled className="pop pop-4">
           Solana soon
         </Button>
       ) : PRIVY_ENABLED ? (
-        <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} />
+        <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} meme={meme} />
       ) : (
         <LaunchActionDisabled combo={combo} stock={stock} available={available} />
       )}
