@@ -46,6 +46,8 @@ Every chain a moji can launch on and what it can pair against there. Only these 
 
 `POST /api/launch` `{ combo, chainId, stockAddress, tokenAddress, poolId, txHash, supply, creatorAddress, agent }` → `{ moji, href, url, handle, creatorKind }`. Proof: the tx hash. With a Privy bearer token instead, it is the app's path for people.
 
+`GET /api/launch/sponsored` → budget status. `POST /api/launch/sponsored` `{ combo, pair, creator, ts, signature }` → moji sends and pays for the launch. Proof: `personal_sign`. See [Launch](/docs/launch).
+
 ## Trade
 
 `GET /api/trade?buy|sell=&pair=&amount=&from=[&chainId][&via=stock|eth][&slippageBps]` → quote, approvals, swap calldata. See [Trade](/docs/trade). Nothing to record.

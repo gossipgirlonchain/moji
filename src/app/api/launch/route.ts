@@ -5,13 +5,10 @@ import { hasLinkedWallet, getLinkedTwitter, verifyPrivyToken, PRIVY_SERVER_CONFI
 import { isXExempt } from "@/config/whitelist";
 import { launchQuota } from "@/lib/limits";
 import { WALLET_CLAIMS_OPEN } from "@/config/limits";
-import { launchTweet, postTweet, X_AUTOPOST } from "@/lib/x";
 import { verifyLaunchTx } from "@/lib/launch-verify";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
-import { NETWORK, SITE_URL } from "@/lib/network";
-import { storeMojiImage } from "@/lib/images";
-import { refreshOne } from "@/lib/snapshot";
+import { recordLaunch } from "@/lib/record-launch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -114,50 +111,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const { error: claimErr } = await sb.from("claims").insert({ combo: v.normalized, display: v.display, chain_id: chain.chainId, network: NETWORK, stock_address: stock.address });
-  if (claimErr) {
-    const conflict = claimErr.code === "23505";
-    return fail(conflict ? `${v.display} is already paired to ${stock.ticker} on ${chain.short}` : claimErr.message, conflict ? "CLAIMED" : "DB_ERROR", conflict ? 409 : 500);
-  }
-
-  const metadataUrl = `${SITE_URL}/api/meta/${encodeURIComponent(v.display)}?chain=${chain.chainId}&pair=${stock.address}`;
-  const row = {
-    combo: v.normalized,
-    display: v.display,
-    network: NETWORK,
-    chain_id: chain.chainId,
-    stock_ticker: stock.ticker,
-    stock_address: stock.address,
-    token_address: body.tokenAddress,
-    pool_id: body.poolId ?? null,
-    tx_hash: body.txHash,
-    supply: body.supply ?? null,
-    creator_did: who.did,
-    creator_handle: who.handle,
-    creator_address: body.creatorAddress,
-    metadata_url: metadataUrl,
-  };
-  let { data, error } = await sb.from("mojis").insert({ ...row, creator_kind: who.kind }).select("*").single();
-  // Before supabase/agents.sql is applied the column does not exist (PGRST204): record the launch without it.
-  if (error?.code === "PGRST204") ({ data, error } = await sb.from("mojis").insert(row).select("*").single());
-  if (error) return fail(error.message, "DB_ERROR", 500);
-
-  // Token image into Storage (best effort; the metadata route falls back to a live render).
-  let imageUrl: string | null = null;
-  try {
-    imageUrl = await storeMojiImage(v.display, v.normalized);
-    if (imageUrl) await sb.from("mojis").update({ image_url: imageUrl }).eq("id", data.id);
-  } catch (e) {
-    console.error("image store failed", e);
-  }
-
-  // Snapshot so the new row shows a price on the next home/explore render (cron refreshes fees within 2 min).
-  try {
-    await refreshOne(data as never);
-  } catch {}
-
-  const href = `/m/${encodeURIComponent(v.display)}/${encodeURIComponent(stock.ticker)}${chain.chainId !== 4663 ? `/${chain.chainId}` : ""}`;
-  // Announce from @mojidotwtf. Fire and forget: a failed tweet never fails a launch.
-  if (X_AUTOPOST) void postTweet(launchTweet({ display: v.display, stock_ticker: stock.ticker, creator_handle: who.handle, token_address: body.tokenAddress }, `${SITE_URL}${href}`)).catch(() => {});
-  return NextResponse.json({ moji: { ...data, image_url: imageUrl }, href, url: `${SITE_URL}${href}`, handle: who.handle, creatorKind: who.kind });
+  const rec = await recordLaunch({ v, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
+  if (!rec.ok) return fail(rec.error, rec.code, rec.status);
+  return NextResponse.json({ moji: rec.moji, href: rec.href, url: rec.url, handle: who.handle, creatorKind: who.kind });
 }

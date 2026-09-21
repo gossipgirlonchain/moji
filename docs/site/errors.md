@@ -26,6 +26,12 @@ Every error is `{ "error": "<human sentence>", "code": "<CODE>" }` with an HTTP 
 | `BAD_NAME` | 400 | not 2 to 20 of a-z 0-9 _, or reserved |
 | `NAME_TAKEN` | 409 | someone else has that name |
 | `WALLET_CLAIMS_CLOSED` | 403 | wallet launches are switched off; only the app's X path works |
+| `SPONSOR_CLOSED` | 403 | sponsored launches are not configured |
+| `SPONSOR_BUDGET` | 429 | the sponsor budget or today's allowance is spent |
+| `SPONSOR_USED` | 429 | this wallet already had a sponsored launch |
+| `SPONSOR_CHAIN` | 400 | sponsored launches run on Robinhood Chain only |
+| `SPONSOR_GAS` | 503 | gas is unusually expensive right now; try later |
+| `SPONSOR_FAILED` | 502 | the sponsored send failed; nothing was recorded |
 | `UNAUTHENTICATED` | 401 | a people-only route without a Privy token |
 | `RATE_LIMITED` | 429 | the app's per-account cooldown; `retryAfterMinutes` |
 | `SERVER_MISCONFIGURED` | 500 | a server setting is missing; not your fault |

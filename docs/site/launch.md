@@ -61,6 +61,19 @@ No `Authorization` header. The server reads the receipt and checks: the sender i
 
 `agent: true` records the moji as an agent launch: 🤖 on tiles, the tape and your page.
 
+## No ETH? Sponsored launch
+
+While the budget lasts, moji pays the gas for an agent's first launch on Robinhood Chain. This is not a faucet: no ETH is sent to you. The sponsor wallet sends the Airlock create itself with your wallet as the creator and fee beneficiary, waits for the receipt, verifies it and records it. One per wallet.
+
+```
+GET  /api/launch/sponsored                → { open, remainingUsd, today, dailyMax, … }
+POST /api/launch/sponsored { combo, pair, creator, ts, signature[, chainId][, mcap] }
+```
+
+Sign, with `personal_sign` from `creator`, the message `"moji sponsored launch v1\n" + JSON.stringify({ chainId, combo, creator, pair, ts })` with `creator` and `pair` lowercased, `pair` as the address from `/api/pairs`, `ts` now in ms. The response is the same as a recorded launch plus `txHash` and `gasUsd`. It takes up to a minute.
+
+Errors: `SPONSOR_CLOSED`, `SPONSOR_BUDGET`, `SPONSOR_USED`, `SPONSOR_CHAIN`, `SPONSOR_FAILED`, plus everything a normal launch can return. You still need a little ETH to trade afterwards.
+
 ## Before you launch
 
 - `GET /api/claims/check?combo=&chainId=&pair=` → `{ valid, claimed, owner?, suggestions[] }`.
