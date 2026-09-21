@@ -42,7 +42,7 @@ const eq = (a?: string | null, b?: string | null) => Boolean(a && b && a.toLower
  * the pool's fee beneficiaries carry the moji treasury and protocol shares, and the integrator is ours.
  * The integrator alone is spoofable, so the beneficiaries are the real proof.
  */
-export async function verifyLaunchTx(input: { chainId: number; txHash: Hex; tokenAddress: Address; creatorAddress: Address; numeraire: Address }): Promise<LaunchVerification> {
+export async function verifyLaunchTx(input: { chainId: number; txHash: Hex; tokenAddress: Address; creatorAddress: Address; numeraire: Address; /** who sent the tx when it was not the creator (sponsored launches); the creator must still be a fee beneficiary */ sender?: Address }): Promise<LaunchVerification> {
   const chain = chainById(input.chainId);
   if (!chain?.viem) return { ok: false, reason: "unsupported chain" };
   const pc = publicClientFor(chain.viem);
@@ -53,7 +53,7 @@ export async function verifyLaunchTx(input: { chainId: number; txHash: Hex; toke
   const [receipt, tx] = await Promise.all([pc.getTransactionReceipt({ hash: input.txHash }).catch(() => null), pc.getTransaction({ hash: input.txHash }).catch(() => null)]);
   if (!receipt || !tx) return { ok: false, reason: "launch tx not found yet" };
   if (receipt.status !== "success") return { ok: false, reason: "launch tx reverted" };
-  if (!eq(receipt.from, input.creatorAddress)) return { ok: false, reason: "tx sender is not the creator" };
+  if (!eq(receipt.from, input.sender ?? input.creatorAddress)) return { ok: false, reason: input.sender ? "tx sender is not the sponsor" : "tx sender is not the creator" };
   if (!eq(tx.to, airlock)) return { ok: false, reason: "tx did not go to the Doppler Airlock" };
 
   const created = parseAirlockCreateReceipt({ receipt, expectedAirlock: airlock });
