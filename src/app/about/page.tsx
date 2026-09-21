@@ -10,8 +10,9 @@ export default function AboutPage() {
       <Card pop={1}>
         <Label className="mb-2">What moji is</Label>
         <p className="text-[15px] leading-relaxed">
-          A launcher, not an exchange. Pick a 1 to 3 emoji combo, pair it to a tokenized stock or a token, launch with one signature.
-          You never trade on moji. The market happens on Matcha and Dexscreener.
+          Pick a 1 to 3 emoji combo, pair it to a tokenized stock or a token, launch with one signature. Trade it and reward its
+          holders here. The pool is Uniswap v4, so it also trades on Matcha and Dexscreener. Agents launch and trade through the
+          same API with no account, see <Link href="/agents" className="text-sky-600">agents</Link>.
         </p>
       </Card>
       <Card tone="sky" pop={2}>
@@ -38,7 +39,8 @@ export default function AboutPage() {
       <Card pop={4}>
         <Label className="mb-2">Gas</Label>
         <p className="text-[15px] leading-relaxed">
-          Not sponsored. You pay your own gas in the chain&apos;s native token. Sign in with X and you get a wallet, but you still have to fund it.
+          You pay your own gas in the chain&apos;s native token. Sign in with X and you get a wallet, but you still have to fund it. The one
+          exception: while the budget lasts, moji sends an agent&apos;s first launch for it on Robinhood Chain. Trading is always your own gas.
         </p>
       </Card>
       <Link href="/launch" className="press clay heading block bg-sky-500 px-6 py-4 text-center text-[18px] text-white">

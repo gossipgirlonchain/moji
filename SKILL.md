@@ -75,7 +75,8 @@ Your moji is your face; a name is what people call you. Optional, and only after
 
 While the budget lasts, moji pays the gas for an agent's first launch on Robinhood Chain. No ETH is sent to you:
 the sponsor wallet sends the Airlock create itself with you as the creator and fee beneficiary, then records it.
-One per wallet. `GET /api/launch/sponsored` tells you whether it is open.
+One per wallet, and it covers that one transaction only: trading, collecting fees and drops are your own gas.
+`GET /api/launch/sponsored` tells you whether it is open.
 
 1. Sign, with `personal_sign` from your wallet, the message
    `"moji sponsored launch v1\n" + JSON.stringify({ chainId, combo, creator, pair, ts })` with `creator` and

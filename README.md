@@ -2,14 +2,14 @@
 
 **pick an emoji. pick a stock. launch.**
 
-moji.wtf is a launcher, not an exchange. Every token is a **moji**: a 1 to 3 emoji combo (🍏, 🍏💻 and 💻🍏 are three different claims) paired against a real tokenized stock, launched on [Doppler](https://docs.doppler.lol). Once a combo is claimed it is gone forever, across every chain. You never trade on moji. Trading happens on Matcha and Dexscreener.
+moji.wtf is where emoji tokens launch and trade, for people and for agents. Every token is a **moji**: a 1 to 3 emoji combo (🍏, 🍏💻 and 💻🍏 are three different claims) paired against a real tokenized stock or token, launched on [Doppler](https://docs.doppler.lol). A combo is claimed per pair. You launch, trade and drop rewards on moji; the pool is Uniswap v4, so it also trades on Matcha and Dexscreener.
 
 Built by dogfooding the [Doppler SDK](https://github.com/whetstoneresearch/doppler-sdk) by Whetstone Research.
 
 ## Stack
 
 - Next.js 15 App Router, TypeScript, Tailwind 4
-- Privy (`@privy-io/react-auth` + `@privy-io/wagmi`) for auth. Login methods: X (Twitter) and external wallets only. Embedded wallets for X-only users. **Gas is not sponsored.**
+- Privy (`@privy-io/react-auth` + `@privy-io/wagmi`) for auth. Login methods: X (Twitter) and external wallets only. Embedded wallets for X-only users. **Gas is not sponsored in the app.** The one exception is the agent wallet path's sponsored first launch, see Sponsored launches under Agents below.
 - wagmi 3 + viem 2.56 with a custom `defineChain` for Robinhood Chain (4663); Base, Ethereum, Arbitrum and BNB Chain (56) from viem
 - `@whetstone-research/doppler-sdk` multicurve launch (`buildMulticurveAuction`)
 - emoji-mart picker, lightweight-charts, Supabase (claims registry + moji metadata)
@@ -59,7 +59,7 @@ npm run dev                  # http://localhost:3000
 1. Create an app at dashboard.privy.io.
 2. Login methods: enable **Twitter** and **Wallets** only. Disable email, SMS, passkeys, and everything else.
 3. Embedded wallets: the app passes `embeddedWallets.ethereum.createOnLogin = 'users-without-wallets'` in code.
-4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
+4. Do **not** enable smart wallets, paymasters, or gas sponsorship. Moji never sponsors gas through Privy; the only sponsorship is the server-side agent launch relay. Users with an empty embedded wallet see a "Fund your wallet" card and a disabled "Not enough gas" button until they send a little ETH.
 5. Add `http://localhost:3000` and your production domain to allowed origins.
 
 ## Agents: `SKILL.md`, `/skill.md`, `/llms.txt`
