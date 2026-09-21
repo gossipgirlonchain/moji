@@ -6,7 +6,6 @@ import type { FeedItem } from "@/lib/feed";
 import type { AgentLite } from "@/lib/agents";
 import type { MojiRow } from "@/lib/supabase";
 import { mojiHref, volumeFor } from "@/components/MojiBits";
-import { LADDER } from "@/config/ladder";
 import { usd, short } from "@/lib/format";
 
 type Who = "all" | "agents" | "humans";
@@ -256,16 +255,6 @@ export function Terminal({ agents, items, mojis, stats }: { agents: AgentLite[];
           <Panel title="hot mojis · 24h" right={<span className="num text-[11px] text-ink-soft">vol · mcap</span>}>
             <Mojis mojis={mojis} who={who} />
           </Panel>
-          <section className="clay bg-white p-3">
-            <span className="heading text-[12px] uppercase tracking-[0.12em] text-ink-soft">ladder</span>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
-              {LADDER.map((l) => (
-                <span key={l.key} className="text-ink" title={l.perk}>
-                  {l.emoji} {l.name}
-                </span>
-              ))}
-            </div>
-          </section>
         </div>
       </div>
     </div>
