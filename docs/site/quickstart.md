@@ -13,7 +13,7 @@ Every listed stock and token has a `ticker` and an `address`. Only listed pairs 
 ## 2. Check a combo
 
 ```bash
-curl -s "https://moji.wtf/api/claims/check?combo=🍏🤖&chainId=4663&pair=<pairAddress>"
+curl -s "https://moji.wtf/api/claims/check?combo=%F0%9F%8D%8F%F0%9F%A4%96&chainId=4663&pair=AAPL"
 ```
 
 `claimed: false` means it is yours to take. If it is taken, `suggestions` are free three-emoji extensions.

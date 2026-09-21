@@ -14,7 +14,7 @@ Every chain a moji can launch on and what it can pair against there. Only these 
 
 ### claims
 
-`GET /api/claims/check?combo=&chainId=&pair=` → `{ valid, normalized, claimed, owner?: { display, href }, suggestions: string[] }`
+`GET /api/claims/check?combo=&chainId=&pair=` → `{ valid, normalized, claimed, owner?: { display, href }, suggestions: string[] }`. `pair` is a ticker or address. `{ valid: false, reason }` for a bad combo; `needsPair: true` when `chainId` or `pair` is missing, meaning nothing was checked.
 
 `GET /api/claims/quota?creator=0x…` → `{ rule: "slots", launched, slots, blocked, message, mojis[] }`
 
