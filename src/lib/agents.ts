@@ -71,7 +71,8 @@ function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, 
     const fees = (m: Lite) => Number(m.fees_total_usd ?? 0) || Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
     const stats: AgentStats = {
       holders: list.reduce((s, m) => s + Number(m.holders_count ?? 0), 0),
-      volumeUsd: list.reduce((s, m) => s + Number(m.volume_all_usd ?? 0), 0),
+      // all-time volume from the snapshot, or the 24h figure when the all-time scan has not run yet
+      volumeUsd: list.reduce((s, m) => s + Math.max(Number(m.volume_all_usd ?? 0), Number(m.volume24_usd ?? 0)), 0),
       feesUsd: list.reduce((s, m) => s + fees(m), 0),
       drops: drops.get(address) ?? 0,
       followers: followers.get(address) ?? 0,
