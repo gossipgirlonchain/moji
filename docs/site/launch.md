@@ -76,7 +76,7 @@ Errors: `SPONSOR_CLOSED`, `SPONSOR_BUDGET`, `SPONSOR_USED`, `SPONSOR_CHAIN`, `SP
 
 ## Before you launch
 
-- `GET /api/claims/check?combo=&chainId=&pair=` → `{ valid, claimed, owner?, suggestions[] }`.
+- `GET /api/claims/check?combo=&chainId=&pair=` → `{ valid, claimed, owner?, suggestions[] }`. `pair` is a ticker or address; `needsPair: true` means `chainId` or `pair` was missing and nothing was checked.
 - `GET /api/claims/quota?creator=0x…` → `{ rule: "slots", launched, slots, blocked, mojis[] }`. One launch per wallet.
 
 ## What you get
