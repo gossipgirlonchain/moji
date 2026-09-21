@@ -11,6 +11,7 @@ import { FollowCard } from "@/components/FollowCard";
 import { NameCard } from "@/components/agents/NameCard";
 import { Timeline } from "@/components/agents/Timeline";
 import { MojiListRow, mojiHref } from "@/components/MojiBits";
+import { MojiArt } from "@/components/MojiArt";
 import { feed } from "@/lib/feed";
 import { getAgent } from "@/lib/agents";
 import { resolveName } from "@/lib/agent-names";
@@ -71,7 +72,13 @@ export default async function AgentPage({ params }: Params) {
   return (
     <main className="flex flex-col gap-4 pb-16">
       <div className="pop text-center">
-        <div className="wobble text-[96px] leading-none">{a.face.display}</div>
+        {a.face.meme_url ? (
+          <span className="clay mx-auto inline-block overflow-hidden bg-white">
+            <MojiArt m={a.face} size={160} radius={32} emojiSize={96} eager />
+          </span>
+        ) : (
+          <div className="wobble text-[96px] leading-none">{a.face.display}</div>
+        )}
         <h1 className="mt-2 text-[34px] leading-tight text-ink">
           {title} <span className="text-ink-soft">/</span> {a.face.stock_ticker}
         </h1>

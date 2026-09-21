@@ -17,6 +17,8 @@ import { TradeCard } from "@/components/TradeCard";
 import { FollowCard } from "@/components/FollowCard";
 import { findNumeraire } from "@/lib/numeraire";
 import { CreatorMeme } from "@/components/CreatorMeme";
+import { MemeHero } from "@/components/MemeHero";
+import { detailsOf } from "@/lib/meme-details";
 
 export const revalidate = 15;
 
@@ -71,154 +73,164 @@ export default async function MojiPage({ params }: { params: Params }) {
       ? { label: `${m.creator_kind === "agent" ? "🤖 " : ""}${short(m.creator_address)}`, href: explorerAddress(m.chain_id, m.creator_address) }
       : null;
 
+  const details = detailsOf(m);
+  const links: [string, string][] = [
+    ["X ↗", details.x_url],
+    ["Telegram ↗", details.telegram_url],
+    ["Website ↗", details.website_url],
+  ];
+
   return (
-    <main className="flex flex-col gap-4">
-      <div className="pop text-center">
-        {m.meme_url ? (
-          <div className="clay relative mx-auto aspect-square w-full max-w-[400px] overflow-hidden bg-white">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={m.meme_url} alt={`${m.display} meme`} className="block h-full w-full object-cover" />
-            <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 text-[40px] leading-none shadow-sm" aria-hidden>
-              {m.display}
-            </span>
-          </div>
-        ) : (
-          <div className="wobble text-[96px] leading-none">{m.display}</div>
-        )}
-        <h1 className="mt-2 text-[34px] leading-tight text-ink">
-          {m.display} <span className="text-ink-soft">/</span> {m.stock_ticker}
-        </h1>
-        <p className="heading mt-3 text-[17px] text-ink-soft">
-          paired to <span className="text-ink">${m.stock_ticker}</span>
-          {stock && <span className="text-[13px]"> · {stock.name}</span>}
-        </p>
-        {creator && (
-          <p className="heading mt-1 text-[13px] text-ink-soft">
-            launched by{" "}
-            <a href={creator.href} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-              {creator.label}
-            </a>
+    // Phone: one column, top to bottom. Desktop (≥1024px): two columns, meme hero and chart on the left,
+    // trade, fees, drops, post-it and details on the right. The column wrappers are `contents` below lg,
+    // so the phone flow is exactly the single column it was.
+    <main className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+      <div className="contents lg:flex lg:flex-col lg:gap-4">
+        <div className="pop text-center">
+          {m.meme_url ? <MemeHero src={m.meme_url} display={m.display} /> : <div className="wobble text-[96px] leading-none">{m.display}</div>}
+          <h1 className="mt-2 text-[34px] leading-tight text-ink">
+            {m.display} <span className="text-ink-soft">/</span> {m.stock_ticker}
+          </h1>
+          <p className="heading mt-3 text-[17px] text-ink-soft">
+            paired to <span className="text-ink">${m.stock_ticker}</span>
+            {stock && <span className="text-[13px]"> · {stock.name}</span>}
           </p>
-        )}
-        <CreatorMeme mojiId={m.id} combo={m.display} chainId={m.chain_id} pair={m.stock_address} creatorDid={m.creator_did} creatorAddress={m.creator_address} memeUrl={m.meme_url ?? null} />
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-          {hasHolderRewards(m) && (
-            <a href="#rewards" className="press clay-pill heading inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
-              🪂 holder rewards
-            </a>
+          {creator && (
+            <p className="heading mt-1 text-[13px] text-ink-soft">
+              launched by{" "}
+              <a href={creator.href} target="_blank" rel="noopener noreferrer" className="text-sky-600">
+                {creator.label}
+              </a>
+            </p>
           )}
-          {m.telegram_url && (
-            <a href={m.telegram_url} target="_blank" rel="noopener noreferrer" className="press clay-pill heading inline-flex items-center gap-1.5 bg-sky-500 px-4 py-2 text-[14px] text-white">
-              Telegram ↗
-            </a>
+          {details.description && <p className="mx-auto mt-3 max-w-[440px] whitespace-pre-line text-[14px] leading-snug text-ink">{details.description}</p>}
+          <CreatorMeme mojiId={m.id} combo={m.display} chainId={m.chain_id} pair={m.stock_address} creatorDid={m.creator_did} creatorAddress={m.creator_address} memeUrl={m.meme_url ?? null} details={details} />
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {hasHolderRewards(m) && (
+              <a href="#rewards" className="press clay-pill heading inline-flex items-center gap-1.5 bg-mint px-4 py-2 text-[14px] text-white">
+                🪂 holder rewards
+              </a>
+            )}
+            {links.map(([label, href]) =>
+              href ? (
+                <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="press clay-pill heading inline-flex items-center gap-1.5 bg-sky-500 px-4 py-2 text-[14px] text-white">
+                  {label}
+                </a>
+              ) : null,
+            )}
+          </div>
+        </div>
+
+        <Card pop={1}>
+          <PriceChart combo={m.display} chainId={m.chain_id} pair={m.stock_address} marketCapUsd={market.marketCapUsd} priceUsd={market.priceUsd} />
+        </Card>
+
+        <div className="grid grid-cols-2 gap-3">
+          {m.token_address ? (
+            <>
+              <LinkButton href={matchaUrl(m.chain_id, m.token_address)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
+                Matcha ↗
+              </LinkButton>
+              <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
+                Dexscreener ↗
+              </LinkButton>
+            </>
+          ) : (
+            <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
           )}
         </div>
       </div>
 
-      <Card pop={1}>
-        <PriceChart combo={m.display} chainId={m.chain_id} pair={m.stock_address} marketCapUsd={market.marketCapUsd} priceUsd={market.priceUsd} />
-      </Card>
-
-      <div className="grid grid-cols-2 gap-3">
-        {m.token_address ? (
-          <>
-            <LinkButton href={matchaUrl(m.chain_id, m.token_address)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
-              Matcha ↗
-            </LinkButton>
-            <LinkButton href={dexscreenerUrl(m.chain_id, m.token_address, m.pool_id)} tone="outline" size="sm" external className="pop pop-2 whitespace-nowrap px-3 text-[13px]">
-              Dexscreener ↗
-            </LinkButton>
-
-          </>
-        ) : (
-          <p className="col-span-2 text-center text-[13px] text-ink-soft">token address pending, links appear once the launch is on-chain</p>
+      <div className="contents lg:flex lg:flex-col lg:gap-4">
+        {m.token_address && m.pool_id && (
+          <TradeCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} stockAddress={m.stock_address} stockDecimals={findNumeraire(m.chain_id, m.stock_address)?.decimals ?? 18} poolId={m.pool_id} />
         )}
+
+        {m.creator_address && <FollowCard followee={m.creator_address} display={m.display} ticker={m.stock_ticker} />}
+
+        <FeesCard
+          combo={m.display}
+          ticker={m.stock_ticker}
+          chainId={m.chain_id}
+          stockAddress={m.stock_address}
+          tokenAddress={m.token_address}
+          poolId={m.pool_id}
+          creatorAddress={m.creator_address}
+          pending={fees.pending}
+          claimed={{ stock: Number(m.fees_creator_stock_claimed ?? 0), moji: Number(m.fees_creator_moji_claimed ?? 0) }}
+          pendingUsd={fees.pendingUsd}
+          pendingStockUsd={fees.pendingStockUsd}
+          pendingMojiUsd={fees.pendingMojiUsd}
+          claimedUsd={fees.claimedUsd}
+          sources={fees.sources}
+          schedule={fees.schedule}
+          live={fees.live}
+          error={fees.error}
+        />
+
+        <div id="rewards" className="scroll-mt-4" />
+        <DropsCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} stockAddress={m.stock_address} manageHref={`/drops/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}/${m.chain_id}`} />
+
+        <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}${mojiHref(m)}`} ca={m.token_address} />
+
+        <Card pop={4}>
+          <Label className="mb-3">Details</Label>
+          <dl className="flex flex-col gap-3 text-[14px]">
+            <Row k="Contract">
+              {m.token_address ? (
+                <span className="flex items-center gap-2">
+                  <a href={explorerAddress(m.chain_id, m.token_address)} target="_blank" rel="noopener noreferrer" className="mono text-sky-600">
+                    {short(m.token_address, 6, 6)}
+                  </a>
+                  <CopyButton text={m.token_address} />
+                </span>
+              ) : (
+                <span className="text-ink-soft">pending</span>
+              )}
+            </Row>
+            <Row k={`Paired stock · ${m.stock_ticker}`}>
+              <span className="flex items-center gap-2">
+                <a href={explorerAddress(m.chain_id, m.stock_address)} target="_blank" rel="noopener noreferrer" className="mono text-sky-600">
+                  {short(m.stock_address, 6, 6)}
+                </a>
+                <CopyButton text={m.stock_address} />
+              </span>
+            </Row>
+            <Row k="Supply">
+              <span className="num">{m.supply ? num(m.supply) : "—"}</span>
+            </Row>
+            <Row k="Launched by">
+              {creator ? (
+                <a href={creator.href} target="_blank" rel="noopener noreferrer" className="text-sky-600">
+                  {creator.label}
+                </a>
+              ) : (
+                <span className="text-ink-soft">anon</span>
+              )}
+            </Row>
+            <Row k="Launch date">
+              <span>
+                {dateShort(m.launched_at)}
+                {m.tx_hash && (
+                  <>
+                    {" · "}
+                    <a href={explorerTx(m.chain_id, m.tx_hash)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
+                      tx
+                    </a>
+                  </>
+                )}
+              </span>
+            </Row>
+          </dl>
+        </Card>
+
+        {/* desktop: the launch call to action sits in the column; the phone keeps its fixed bar below */}
+        <Link href="/launch" className="press clay heading hidden bg-sky-500 px-6 py-4 text-center text-[19px] text-white lg:block">
+          LAUNCH YOUR OWN MOJI
+        </Link>
       </div>
 
-      {m.token_address && m.pool_id && (
-        <TradeCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} tokenAddress={m.token_address} stockAddress={m.stock_address} stockDecimals={findNumeraire(m.chain_id, m.stock_address)?.decimals ?? 18} poolId={m.pool_id} />
-      )}
-
-      {m.creator_address && <FollowCard followee={m.creator_address} display={m.display} ticker={m.stock_ticker} />}
-
-      <FeesCard
-        combo={m.display}
-        ticker={m.stock_ticker}
-        chainId={m.chain_id}
-        stockAddress={m.stock_address}
-        tokenAddress={m.token_address}
-        poolId={m.pool_id}
-        creatorAddress={m.creator_address}
-        pending={fees.pending}
-        claimed={{ stock: Number(m.fees_creator_stock_claimed ?? 0), moji: Number(m.fees_creator_moji_claimed ?? 0) }}
-        pendingUsd={fees.pendingUsd}
-        pendingStockUsd={fees.pendingStockUsd}
-        pendingMojiUsd={fees.pendingMojiUsd}
-        claimedUsd={fees.claimedUsd}
-        sources={fees.sources}
-        schedule={fees.schedule}
-        live={fees.live}
-        error={fees.error}
-      />
-
-
-      <div id="rewards" className="scroll-mt-4" />
-      <DropsCard combo={m.display} ticker={m.stock_ticker} chainId={m.chain_id} stockAddress={m.stock_address} manageHref={`/drops/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}/${m.chain_id}`} />
-
-      <PostIt combo={m.display} ticker={m.stock_ticker} url={`${SITE_URL}${mojiHref(m)}`} ca={m.token_address} />
-
-      <Card pop={4}>
-        <Label className="mb-3">Details</Label>
-        <dl className="flex flex-col gap-3 text-[14px]">
-          <Row k="Contract">
-            {m.token_address ? (
-              <span className="flex items-center gap-2">
-                <a href={explorerAddress(m.chain_id, m.token_address)} target="_blank" rel="noopener noreferrer" className="mono text-sky-600">
-                  {short(m.token_address, 6, 6)}
-                </a>
-                <CopyButton text={m.token_address} />
-              </span>
-            ) : (
-              <span className="text-ink-soft">pending</span>
-            )}
-          </Row>
-          <Row k={`Paired stock · ${m.stock_ticker}`}>
-            <span className="flex items-center gap-2">
-              <a href={explorerAddress(m.chain_id, m.stock_address)} target="_blank" rel="noopener noreferrer" className="mono text-sky-600">
-                {short(m.stock_address, 6, 6)}
-              </a>
-              <CopyButton text={m.stock_address} />
-            </span>
-          </Row>
-          <Row k="Supply">
-            <span className="num">{m.supply ? num(m.supply) : "—"}</span>
-          </Row>
-          <Row k="Launched by">
-            {creator ? (
-              <a href={creator.href} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-                {creator.label}
-              </a>
-            ) : (
-              <span className="text-ink-soft">anon</span>
-            )}
-          </Row>
-          <Row k="Launch date">
-            <span>
-              {dateShort(m.launched_at)}
-              {m.tx_hash && (
-                <>
-                  {" · "}
-                  <a href={explorerTx(m.chain_id, m.tx_hash)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
-                    tx
-                  </a>
-                </>
-              )}
-            </span>
-          </Row>
-        </dl>
-      </Card>
-
-      <div className="fixed inset-x-0 bottom-0 z-30 pb-[max(14px,env(safe-area-inset-bottom))] pt-3" style={{ background: "linear-gradient(to top, var(--sky-100) 65%, transparent)" }}>
+      <div className="fixed inset-x-0 bottom-0 z-30 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 lg:hidden" style={{ background: "linear-gradient(to top, var(--sky-100) 65%, transparent)" }}>
         <div className="mx-auto max-w-[460px] px-5">
           <Link href="/launch" className="press clay heading block bg-sky-500 px-6 py-4 text-center text-[19px] text-white">
             LAUNCH YOUR OWN MOJI

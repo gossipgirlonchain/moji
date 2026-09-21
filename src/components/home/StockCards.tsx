@@ -8,7 +8,8 @@ import { CHAINS } from "@/config/chains";
 import { usd } from "@/lib/format";
 import { Pill } from "@/components/ui";
 import { ChainSelect } from "@/components/ChainSelect";
-import { DropsDot, mojiHref } from "@/components/MojiBits";
+import { CAPTION_GRADIENT, DropsDot, mojiHref } from "@/components/MojiBits";
+import { MojiArt } from "@/components/MojiArt";
 
 export type StockGroup = {
   key: string;
@@ -36,7 +37,7 @@ const mcap = (m: MojiRow) => Number(m.market_cap_usd ?? 0);
 const vol = (m: MojiRow) => Number(m.volume24_usd ?? 0);
 const pct = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}%`;
 
-/** Client half of the "by stock" home view: sort, search, chain pills and the 3-wide card grid. */
+/** Client half of the "by stock" home view: sort, search, chain pills and the 3-wide card grid. Each card leads with the meme of its biggest moji. */
 export function StockCards({ groups }: { groups: StockGroup[] }) {
   const [sort, setSort] = useState<Sort>("mojiMcap");
   const [q, setQ] = useState("");
@@ -147,19 +148,32 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
         </span>
       </header>
       <div className="grid grid-cols-[1.35fr_1fr] gap-3">
-        <Link href={mojiHref(lead)} className="press clay-sm relative flex flex-col items-center justify-center gap-1 bg-sky-50 px-3 py-5 text-center">
-          <DropsDot m={lead} className="absolute right-3 top-3" />
-          <span className="text-[18px] leading-none">👑</span>
-          <span className="text-[60px] leading-none">{lead.display}</span>
-          <span className="num text-[34px] leading-none text-ink">{pct(share(lead))}</span>
-          <span className="text-[11px] text-ink-soft">{mcap(lead) > 0 ? usd(mcap(lead)) : "just launched"}</span>
+        <Link href={mojiHref(lead)} className="press clay-sm relative block overflow-hidden bg-sky-50" title={lead.description ?? undefined}>
+          <MojiArt m={lead} radius={0} badge={false} emojiSize={88} />
+          <span className="absolute left-3 top-3 text-[20px] leading-none drop-shadow" aria-label="biggest moji for this stock">
+            👑
+          </span>
+          <DropsDot m={lead} className="absolute right-3 top-3 drop-shadow" />
+          <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 px-3 pb-2.5 pt-10 text-left text-white" style={{ background: CAPTION_GRADIENT }}>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="heading truncate text-[15px] leading-tight">
+                {lead.display} / {lead.stock_ticker}
+              </span>
+              <span className="text-[11px] leading-tight text-white/85">{mcap(lead) > 0 ? usd(mcap(lead)) : "just launched"}</span>
+            </span>
+            <span className="num shrink-0 text-[30px] leading-none">{pct(share(lead))}</span>
+          </span>
         </Link>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {runners.map((m) => (
-            <Link key={m.id} href={mojiHref(m)} className="press clay-sm relative flex flex-1 flex-col items-center justify-center gap-0.5 bg-sky-50 px-2 py-3 text-center">
-              <DropsDot m={m} className="absolute right-2.5 top-2.5 !text-[16px]" />
-              <span className="text-[30px] leading-none">{m.display}</span>
+            <Link key={m.id} href={mojiHref(m)} className="press clay-sm relative flex flex-1 items-center gap-2.5 bg-sky-50 px-2.5 py-2">
+              <MojiArt m={m} size={44} radius={12} badge={false} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="heading truncate text-[14px] leading-tight text-ink">{m.display}</span>
+                <span className="text-[11px] text-ink-soft">{mcap(m) > 0 ? usd(mcap(m)) : "just launched"}</span>
+              </span>
               <span className="num text-[18px] leading-none text-ink">{pct(share(m))}</span>
+              <DropsDot m={m} className="absolute right-2 top-1.5 !text-[14px]" />
             </Link>
           ))}
           {runners.length === 0 && (
@@ -168,10 +182,17 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
             </Link>
           )}
           {others.length > 0 && (
-            <Link href={explore} className="press flex items-center justify-between px-2 text-[12px] text-ink-soft">
-              <span className="text-sky-600">+{others.length} more ›</span>
-              <span className="num">{pct(otherShare)}</span>
-            </Link>
+            <div className="flex items-center gap-1.5 whitespace-nowrap px-1">
+              {others.slice(0, 3).map((m) => (
+                <Link key={m.id} href={mojiHref(m)} className="press shrink-0" title={`${m.display} / ${m.stock_ticker}`}>
+                  <MojiArt m={m} size={28} radius={8} badge={false} emojiSize={16} />
+                </Link>
+              ))}
+              <Link href={explore} className="press truncate text-[12px] text-sky-600">
+                +{others.length} more ›
+              </Link>
+              <span className="num ml-auto shrink-0 text-[12px] text-ink-soft">{pct(otherShare)}</span>
+            </div>
           )}
         </div>
       </div>

@@ -8,10 +8,11 @@ export type SortKey = "newest" | "mcap" | "fees" | "volume";
 export type Window = "1h" | "6h" | "24h" | "all";
 export const VOLUME_COL: Record<Window, string> = { "1h": "volume1h_usd", "6h": "volume6h_usd", "24h": "volume24_usd", all: "volume_all_usd" };
 
-export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: number; window?: Window } = {}): Promise<MojiRow[]> {
+export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: number; window?: Window; withMeme?: boolean } = {}): Promise<MojiRow[]> {
   if (!hasSupabase()) return [];
   const sb = supabaseServer();
   let query = sb.from("mojis").select("*").eq("network", NETWORK);
+  if (opts.withMeme) query = query.not("meme_url", "is", null);
   if (opts.q) {
     const q = opts.q.trim();
     query = query.or(`display.ilike.%${q}%,stock_ticker.ilike.%${q}%`);

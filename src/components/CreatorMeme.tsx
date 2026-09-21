@@ -5,13 +5,16 @@ import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount, useSignMessage } from "wagmi";
 import { PRIVY_ENABLED } from "@/lib/privy-client";
-import { deleteMeme, uploadMeme, type MemeAuth } from "@/lib/meme-client";
+import { deleteMeme, updateMemeDetails, uploadMeme, type MemeAuth } from "@/lib/meme-client";
+import { cleanMemeDetails, hasDetails, type MemeDetails } from "@/lib/meme-details";
 import { MemePicker } from "./MemePicker";
+import { MemeDetailsFields } from "./MemeDetailsFields";
 
-type Props = { mojiId: string; combo: string; chainId: number; pair: string; creatorDid: string | null; creatorAddress: string | null; memeUrl: string | null };
+type Props = { mojiId: string; combo: string; chainId: number; pair: string; creatorDid: string | null; creatorAddress: string | null; memeUrl: string | null; details: MemeDetails };
 
 /**
- * On a moji page: the creator's "add a meme" / "change meme" / "remove" control. Renders nothing for everyone else.
+ * On a moji page: the creator's "add a meme" / "change meme" / "remove" control, plus the meme's words and links
+ * (description, X, Telegram, website) behind an "edit details" toggle. Renders nothing for everyone else.
  * The creator is the Privy user whose DID launched it (app launches) or the connected wallet that launched it
  * (wallet and agent launches, which sign a message instead).
  */
@@ -20,13 +23,16 @@ export function CreatorMeme(props: Props) {
   return <CreatorMemeInner {...props} />;
 }
 
-function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAddress, memeUrl }: Props) {
+function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAddress, memeUrl, details }: Props) {
   const router = useRouter();
   const { ready, authenticated, user, getAccessToken } = usePrivy();
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<MemeDetails>(details);
+  const [saved, setSaved] = useState(false);
   if (!ready || !authenticated) return null;
   const byDid = Boolean(creatorDid) && user?.id === creatorDid;
   const byWallet = !creatorDid && Boolean(address && creatorAddress) && address!.toLowerCase() === creatorAddress!.toLowerCase();
@@ -69,6 +75,27 @@ function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAdd
     }
   }
 
+  async function onSave() {
+    const clean = cleanMemeDetails(draft);
+    if (!clean.ok) {
+      setError(clean.error);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await updateMemeDetails(target, clean.details, await auth(), mojiId);
+      setDraft(next);
+      setSaved(true);
+      setEditing(false);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mt-3 flex flex-col items-center gap-1.5">
       <div className="flex items-center gap-2">
@@ -78,9 +105,23 @@ function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAdd
             remove
           </button>
         )}
+        {!busy && (
+          <button type="button" onClick={() => setEditing((v) => !v)} className="press clay-pill heading bg-white px-3 py-2 text-[13px] text-ink-soft">
+            {editing ? "close" : hasDetails(details) ? "edit details" : "add details"}
+          </button>
+        )}
       </div>
+      {editing && (
+        <div className="mx-auto mt-1 flex w-full max-w-[400px] flex-col items-center gap-2">
+          <MemeDetailsFields value={draft} onChange={setDraft} disabled={busy} />
+          <button type="button" onClick={() => void onSave()} disabled={busy} className="press clay-pill heading bg-sky-500 px-5 py-2 text-[14px] text-white">
+            {busy ? "…" : "save details"}
+          </button>
+        </div>
+      )}
       {error && <p className="text-[12px] text-coral">{error}</p>}
-      <p className="text-[11px] text-ink-soft">only you see this · png, jpg, gif or webp{byWallet ? " · one wallet signature" : ""}</p>
+      {saved && !error && !editing && <p className="text-[12px] text-mint">saved</p>}
+      <p className="text-[11px] text-ink-soft">only you see this · png, jpg, gif or webp · a description and your X, Telegram and website{byWallet ? " · one wallet signature" : ""}</p>
     </div>
   );
 }

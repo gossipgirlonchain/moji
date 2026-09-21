@@ -8,7 +8,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
   const [{ q }, initial] = await Promise.all([searchParams, listMojis({ sort: "mcap" })]);
   return (
     <main className="flex flex-col gap-4">
-      <h1 className="pop text-center text-[30px] text-sky-600">explore</h1>
+      <h1 className="pop text-center text-[30px] text-sky-600 lg:text-left">explore</h1>
       <ExploreList initial={initial} initialQ={q ?? ""} />
     </main>
   );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { MojiRow } from "@/lib/supabase";
-import { usd } from "@/lib/format";
+import { short, usd } from "@/lib/format";
 import { dropsAllowlisted } from "@/config/drops";
 import { chainById } from "@/config/chains";
 import { MojiArt } from "./MojiArt";
@@ -61,6 +61,43 @@ export function ChainDot({ chainId, className = "" }: { chainId: number; classNa
     <span className={`block text-[16px] leading-[1] ${className}`} title={c.name} aria-label={c.name}>
       {c.emoji}
     </span>
+  );
+}
+
+/** Who launched it, for captions: @handle, or the (🤖-prefixed) short address, or "anon". */
+export function creatorLabel(m: Pick<MojiRow, "creator_handle" | "creator_address" | "creator_kind">): string {
+  if (m.creator_handle) return `@${m.creator_handle}`;
+  if (m.creator_address) return `${m.creator_kind === "agent" ? "🤖 " : ""}${short(m.creator_address)}`;
+  return "anon";
+}
+
+/** Soft ink gradient for captions laid over a picture. */
+export const CAPTION_GRADIENT = "linear-gradient(to top, rgba(18, 64, 92, 0.86) 0%, rgba(18, 64, 92, 0.55) 55%, rgba(18, 64, 92, 0) 100%)";
+
+/**
+ * Desktop picture tile: the art edge to edge, name and mcap over a gradient at the bottom,
+ * volume, fees and holders revealed on hover.
+ */
+export function MojiPicTile({ m, window = "24h", eager }: { m: MojiRow; window?: VolWindow; eager?: boolean }) {
+  const vol = volumeFor(m, window);
+  const fees = Number(m.fees_total_usd ?? 0) || Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
+  const holders = Number(m.holders_count ?? 0);
+  const mcap = Number(m.market_cap_usd ?? 0);
+  return (
+    <Link href={mojiHref(m)} className="press group clay-sm relative block overflow-hidden bg-sky-50" title={m.description ?? undefined}>
+      <MojiArt m={m} radius={0} badge={false} emojiSize={72} eager={eager} />
+      <DropsDot m={m} className="absolute right-2.5 top-2.5 drop-shadow" />
+      <AgentDot m={m} className="absolute left-2.5 top-2.5 drop-shadow" />
+      <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 px-3 pb-2.5 pt-10 text-left text-white" style={{ background: CAPTION_GRADIENT }}>
+        <span className="heading truncate text-[15px] leading-tight">
+          {m.display} / {m.stock_ticker}
+        </span>
+        <span className="heading text-[13px] leading-tight text-white/90">{mcap > 0 ? `mcap ${usd(mcap)}` : "just launched"}</span>
+        <span className="truncate text-[11px] leading-tight text-white/85 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+          vol {window === "all" ? "all time" : window} {usd(vol)} · fees {usd(fees)} · {holders.toLocaleString()} holder{holders === 1 ? "" : "s"}
+        </span>
+      </span>
+    </Link>
   );
 }
 

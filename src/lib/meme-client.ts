@@ -1,5 +1,6 @@
-/** Browser-side helpers for creator memes: shrink before upload, then POST to /api/mojis/[combo]/meme. */
-import { memeRemoveMessage, memeSetMessage } from "./meme-auth";
+/** Browser-side helpers for creator memes: shrink before upload, then POST to /api/mojis/[combo]/meme; PATCH for the words and links. */
+import { memeDetailsMessage, memeRemoveMessage, memeSetMessage } from "./meme-auth";
+import type { MemeDetails } from "./meme-details";
 
 /**
  * How the caller proves it is the creator. App (X) launches send the Privy access token; wallet and agent
@@ -49,8 +50,9 @@ export async function prepareMeme(file: File): Promise<File> {
   return new File([out], name, { type: out.type });
 }
 
-async function sha256Hex(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+async function sha256Hex(data: File | string): Promise<string> {
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : await data.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -86,4 +88,21 @@ export async function deleteMeme(t: MemeTarget, auth: MemeAuth, mojiId?: string 
     const j = (await r.json().catch(() => ({}))) as { error?: string };
     throw new Error(j.error ?? "Could not remove the meme");
   }
+}
+
+/** Description and links. Sent as one JSON string (`details`) so the wallet signature covers exactly those bytes. */
+export async function updateMemeDetails(t: MemeTarget, details: MemeDetails, auth: MemeAuth, mojiId?: string | null): Promise<MemeDetails> {
+  const text = JSON.stringify(details);
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const body: Record<string, string> = { details: text };
+  if (auth && "token" in auth) headers.authorization = `Bearer ${auth.token}`;
+  else if (auth && "signer" in auth) {
+    if (!mojiId) throw new Error("Cannot sign for this moji yet");
+    body.signer = auth.signer;
+    body.signature = await auth.sign(memeDetailsMessage(mojiId, await sha256Hex(text)));
+  }
+  const r = await fetch(memeEndpoint(t), { method: "PATCH", headers, body: JSON.stringify(body) });
+  const j = (await r.json().catch(() => ({}))) as { details?: MemeDetails; error?: string };
+  if (!r.ok || !j.details) throw new Error(j.error ?? "Could not save");
+  return j.details;
 }

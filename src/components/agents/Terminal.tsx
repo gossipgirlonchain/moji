@@ -6,6 +6,7 @@ import type { FeedItem } from "@/lib/feed";
 import type { AgentLite } from "@/lib/agents";
 import type { MojiRow } from "@/lib/supabase";
 import { mojiHref, volumeFor } from "@/components/MojiBits";
+import { MojiArt } from "@/components/MojiArt";
 import { usd, short } from "@/lib/format";
 
 type Who = "all" | "agents" | "humans";
@@ -19,13 +20,11 @@ const ago = (ts: number) => {
   const s = Math.max(0, Date.now() / 1000 - ts);
   return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
 };
-/** The big glyph cell: always one row, glyphs shrink so 1, 2 or 3 emoji fit the same width. */
-const count = (s: string) => Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(s)).length;
-function Face({ s }: { s: string }) {
-  const n = count(s);
+/** The picture cell: the meme when there is one, else the emoji on sky, always the same 40px square. */
+function Face({ m }: { m: Parameters<typeof MojiArt>[0]["m"] }) {
   return (
-    <span className="inline-block w-12 whitespace-nowrap text-center leading-none" style={{ fontSize: n >= 3 ? 14 : n === 2 ? 18 : 24 }}>
-      {s}
+    <span className="flex w-12 justify-center">
+      <MojiArt m={m} size={40} radius={12} badge={false} emojiSize={18} />
     </span>
   );
 }
@@ -126,7 +125,7 @@ function AgentsTable({ agents, who, sort, setSort }: { agents: AgentLite[]; who:
       {rows.map((a, i) => (
         <Link key={a.address} href={`/agents/${a.address}`} className="grid grid-cols-[22px_48px_minmax(0,1fr)_70px] items-center gap-2 border-b border-sky-100 py-1.5 text-[13px] last:border-0 hover:bg-sky-50">
           <span className="num text-ink-soft">{i + 1}</span>
-          <Face s={a.face.display} />
+          <Face m={a.face} />
           <span className="min-w-0">
             <span className="heading block truncate text-ink">
               {a.face.display}
@@ -152,7 +151,7 @@ function Mojis({ mojis, who }: { mojis: MojiRow[]; who: Who }) {
       {rows.map((m, i) => (
         <Link key={m.id} href={mojiHref(m)} className="grid grid-cols-[22px_48px_minmax(0,1fr)_64px_64px] items-center gap-2 border-b border-sky-100 py-1.5 text-[13px] last:border-0 hover:bg-sky-50">
           <span className="num text-ink-soft">{i + 1}</span>
-          <Face s={m.display} />
+          <Face m={m} />
           <span className="heading min-w-0 truncate text-ink">
             {m.display}
             <span className="text-ink-soft">/{m.stock_ticker}</span> {m.creator_kind === "agent" ? "🤖" : ""}

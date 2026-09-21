@@ -4,3 +4,10 @@
 -- image_url goes back to the rendered emoji circle. Uploads and takedowns go through POST/DELETE /api/mojis/[combo]/meme.
 alter table public.mojis add column if not exists image_url text;
 alter table public.mojis add column if not exists meme_url text;
+
+-- A meme can carry words and links. Set with the meme (launch step 4 or the moji page) through
+-- PATCH /api/mojis/[combo]/meme; shown under the hero on the moji page. Same creator-only auth as the picture.
+alter table public.mojis add column if not exists description text;
+alter table public.mojis add column if not exists x_url text;
+alter table public.mojis add column if not exists telegram_url text;
+alter table public.mojis add column if not exists website_url text;

@@ -16,7 +16,7 @@ export type Agent = {
   handle: string | null;
   kind: "x" | "wallet" | "agent";
   /** the identity moji: first launch */
-  face: Pick<MojiRow, "display" | "stock_ticker" | "chain_id" | "token_address">;
+  face: Pick<MojiRow, "display" | "stock_ticker" | "chain_id" | "token_address" | "meme_url">;
   mojis: MojiRow[];
   stats: AgentStats;
   firstLaunch: string;
@@ -41,7 +41,7 @@ export function toLite(a: Agent): AgentLite {
   return { address: a.address, name: a.name, handle: a.handle, kind: a.kind, face: a.face, stats: a.stats, firstLaunch: a.firstLaunch, volume24Usd: a.volume24Usd, mojiCount: a.mojis.length };
 }
 
-type Lite = Pick<MojiRow, "id" | "display" | "combo" | "stock_ticker" | "stock_address" | "chain_id" | "token_address" | "pool_id" | "creator_address" | "creator_handle" | "creator_kind" | "launched_at" | "holders_count" | "volume_all_usd" | "volume24_usd" | "market_cap_usd" | "fees_claimed_usd" | "fees_unclaimed_usd" | "fees_total_usd" | "drops_active" | "rewards_badge">;
+type Lite = Pick<MojiRow, "id" | "display" | "combo" | "stock_ticker" | "stock_address" | "chain_id" | "token_address" | "pool_id" | "creator_address" | "creator_handle" | "creator_kind" | "launched_at" | "holders_count" | "volume_all_usd" | "volume24_usd" | "market_cap_usd" | "fees_claimed_usd" | "fees_unclaimed_usd" | "fees_total_usd" | "drops_active" | "rewards_badge" | "meme_url">;
 
 async function followerCounts(): Promise<Map<string, number>> {
   const { data } = await supabaseServer().from("follows").select("followee").eq("network", NETWORK).limit(20000);
@@ -83,7 +83,7 @@ function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, 
       name: names.get(address) ?? null,
       handle: face.creator_handle ?? null,
       kind: (face.creator_kind as Agent["kind"]) ?? "x",
-      face: { display: face.display, stock_ticker: face.stock_ticker, chain_id: face.chain_id, token_address: face.token_address },
+      face: { display: face.display, stock_ticker: face.stock_ticker, chain_id: face.chain_id, token_address: face.token_address, meme_url: face.meme_url ?? null },
       mojis: list as MojiRow[],
       stats,
       firstLaunch: face.launched_at,
@@ -94,7 +94,7 @@ function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, 
   return out;
 }
 
-const COLS = "id, display, combo, stock_ticker, stock_address, chain_id, token_address, pool_id, creator_address, creator_handle, creator_kind, launched_at, holders_count, volume_all_usd, volume24_usd, market_cap_usd, fees_claimed_usd, fees_unclaimed_usd, fees_total_usd, drops_active, rewards_badge";
+const COLS = "id, display, combo, stock_ticker, stock_address, chain_id, token_address, pool_id, creator_address, creator_handle, creator_kind, launched_at, holders_count, volume_all_usd, volume24_usd, market_cap_usd, fees_claimed_usd, fees_unclaimed_usd, fees_total_usd, drops_active, rewards_badge, meme_url";
 
 /** Every agent (every launcher wallet), unsorted. */
 export async function listAgents(): Promise<Agent[]> {

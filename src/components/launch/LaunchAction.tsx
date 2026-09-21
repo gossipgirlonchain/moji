@@ -18,14 +18,15 @@ import { ensureChain, pickWallet } from "@/lib/wallet";
 import { PostIt } from "@/components/PostIt";
 import Link from "next/link";
 import { SITE_URL } from "@/lib/network";
-import { uploadMeme } from "@/lib/meme-client";
+import { updateMemeDetails, uploadMeme } from "@/lib/meme-client";
+import { cleanMemeDetails, hasDetails, type MemeDetails } from "@/lib/meme-details";
 import { MojiArt } from "@/components/MojiArt";
 
-type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults; meme?: File | null };
+type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults; meme?: File | null; details?: MemeDetails };
 
 type Phase = "idle" | "pricing" | "signing" | "confirming" | "recording" | "done";
 
-export function LaunchAction({ chain, stock, combo, available, curve, meme }: Props) {
+export function LaunchAction({ chain, stock, combo, available, curve, meme, details }: Props) {
   const router = useRouter();
   const { ready, authenticated, user, login, linkTwitter, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
@@ -127,11 +128,22 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
       // The meme rides along after the row exists (creator-only upload). Best effort: the moji page can add it later.
       let memeUrl: string | null = null;
       let memeError: string | null = null;
+      const memeTarget = { combo, chainId: chain.chainId, pair: stock.address };
       if (meme) {
         try {
-          memeUrl = await uploadMeme({ combo, chainId: chain.chainId, pair: stock.address }, meme, token ? { token } : null);
+          memeUrl = await uploadMeme(memeTarget, meme, token ? { token } : null);
         } catch (e) {
           memeError = e instanceof Error ? e.message : "meme upload failed";
+        }
+      }
+      // The words and links ride along the same way; the moji page can fix them later.
+      if (hasDetails(details)) {
+        const clean = cleanMemeDetails(details);
+        try {
+          if (!clean.ok) throw new Error(clean.error);
+          await updateMemeDetails(memeTarget, clean.details, token ? { token } : null);
+        } catch (e) {
+          memeError = memeError ?? (e instanceof Error ? e.message : "details not saved");
         }
       }
       setPhase("done");

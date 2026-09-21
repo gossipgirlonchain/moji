@@ -1,0 +1,58 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import type { MojiRow } from "@/lib/supabase";
+import { Label } from "@/components/ui";
+import { MojiArt } from "@/components/MojiArt";
+import { mojiHref, volumeFor } from "@/components/MojiBits";
+
+/** Pictures on the first paint; "show more" reveals the rest a page at a time. */
+const FIRST = 24;
+/** The newest memes lead the wall, then the rest by 24h volume. */
+const NEWEST = 12;
+
+/**
+ * Desktop home, first thing under the header: a 6-wide wall of memes. Only mojis with a meme appear, the
+ * picture edge to edge, "🍏 / AAPL" on hover, click goes to the moji page.
+ */
+export function MemeWall({ mojis }: { mojis: MojiRow[] }) {
+  const [shown, setShown] = useState(FIRST);
+  const list = useMemo(() => {
+    const memed = mojis.filter((m) => m.meme_url);
+    const newest = [...memed].sort((a, b) => new Date(b.launched_at).getTime() - new Date(a.launched_at).getTime()).slice(0, NEWEST);
+    const seen = new Set(newest.map((m) => m.id));
+    const hot = memed.filter((m) => !seen.has(m.id)).sort((a, b) => volumeFor(b, "24h") - volumeFor(a, "24h") || Number(b.market_cap_usd ?? 0) - Number(a.market_cap_usd ?? 0));
+    return [...newest, ...hot];
+  }, [mojis]);
+  if (list.length === 0) return null;
+  return (
+    <section className="pop pop-1 flex flex-col gap-3">
+      <div className="flex items-baseline justify-between">
+        <Label>Meme wall</Label>
+        <span className="heading text-[13px] text-sky-600">
+          {list.length} meme{list.length === 1 ? "" : "s"} · newest first, then hottest
+        </span>
+      </div>
+      <div className="grid grid-cols-6 gap-3">
+        {list.slice(0, shown).map((m, i) => (
+          <Link key={m.id} href={mojiHref(m)} className="press group clay-sm relative block overflow-hidden bg-sky-50" title={m.description ?? `${m.display} / ${m.stock_ticker}`}>
+            <MojiArt m={m} radius={0} badge={false} eager={i < 6} />
+            <span className="absolute inset-0 flex items-end justify-center p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" style={{ background: "linear-gradient(to top, rgba(18, 64, 92, 0.55), rgba(18, 64, 92, 0) 60%)" }}>
+              <span className="heading max-w-full truncate rounded-full bg-white/92 px-3 py-1.5 text-[15px] leading-none text-ink shadow-sm">
+                {m.display} / {m.stock_ticker}
+              </span>
+            </span>
+          </Link>
+        ))}
+      </div>
+      {list.length > shown && (
+        <div className="flex justify-center">
+          <button type="button" onClick={() => setShown((n) => n + FIRST)} className="press clay-pill heading bg-white px-5 py-2.5 text-[14px] text-ink">
+            show {Math.min(FIRST, list.length - shown)} more
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}

@@ -65,6 +65,10 @@ export type MojiRow = {
   image_url: string | null;
   /** creator-uploaded meme (supabase/memes.sql); image_url mirrors it while set */
   meme_url?: string | null;
+  /** creator's blurb and links (supabase/memes.sql), edited with the meme */
+  description?: string | null;
+  x_url?: string | null;
+  website_url?: string | null;
   metadata_url: string | null;
   /** community link shown on the moji page, set per moji */
   telegram_url?: string | null;

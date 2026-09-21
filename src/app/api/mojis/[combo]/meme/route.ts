@@ -8,7 +8,8 @@ import { isAdmin } from "@/lib/admin";
 import { MEME_MAX_BYTES, processMeme, removeMeme, storeMeme } from "@/lib/memes";
 import { createHash } from "node:crypto";
 import { verifyMessage, type Address, type Hex } from "viem";
-import { memeRemoveMessage, memeSetMessage, MEME_SIGNATURE_TTL_MS } from "@/lib/meme-auth";
+import { memeDetailsMessage, memeRemoveMessage, memeSetMessage, MEME_SIGNATURE_TTL_MS } from "@/lib/meme-auth";
+import { cleanMemeDetails } from "@/lib/meme-details";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,11 +17,14 @@ export const runtime = "nodejs";
 /**
  * The creator's meme for a moji.
  *   POST   /api/mojis/[combo]/meme?chain=&pair=   multipart `file` (png, jpg, gif, webp, ≤ 4 MB) → { meme_url }
+ *   PATCH  /api/mojis/[combo]/meme?chain=&pair=   json { details: "<json>" } → { details }; the words and links
+ *          (description ≤ 280 chars, x_url, telegram_url, website_url; empty string clears a field)
  *   DELETE /api/mojis/[combo]/meme?chain=&pair=   takedown → { ok }
  * Creator only, or the admin cookie for takedowns and fixes. Two creator identities, matching the launch paths:
  *   - app launches: a Privy access token whose DID matches mojis.creator_did
  *   - wallet and agent launches (no DID): `signer` + `signature` from creator_address over the message in
- *     src/lib/meme-auth.ts (POST binds the file's sha256, DELETE binds a fresh timestamp), so nothing replays.
+ *     src/lib/meme-auth.ts (POST binds the file's sha256, PATCH the details string's sha256, DELETE a fresh timestamp),
+ *     so nothing replays.
  * The picture is normalized server-side (src/lib/memes.ts), stored in the moji-images bucket and mirrored into
  * image_url so the on-chain tokenURI, the OG card and every tile show the same file.
  */
@@ -106,6 +110,34 @@ export async function POST(req: Request, ctx: { params: Promise<{ combo: string 
     console.error("meme store failed", e);
     return NextResponse.json({ error: "Could not store the picture, try again" }, { status: 500 });
   }
+}
+
+export async function PATCH(req: Request, ctx: { params: Promise<{ combo: string }> }) {
+  const body = (await req.json().catch(() => ({}))) as { details?: unknown; signer?: string; signature?: string };
+  if (typeof body.details !== "string") return NextResponse.json({ error: "Send the details as a JSON string under `details`" }, { status: 400 });
+  const r = await resolve(req, ctx, body);
+  if ("error" in r) return r.error;
+  const m = r.m;
+  if (!(await checkSignature(r.auth, memeDetailsMessage(m.id, createHash("sha256").update(body.details, "utf8").digest("hex"))))) {
+    return NextResponse.json({ error: "bad signature" }, { status: 403 });
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body.details);
+  } catch {
+    return NextResponse.json({ error: "`details` is not valid JSON" }, { status: 400 });
+  }
+  const clean = cleanMemeDetails(parsed);
+  if (!clean.ok) return NextResponse.json({ error: clean.error }, { status: 400 });
+  const d = clean.details;
+  const patch = { description: d.description || null, x_url: d.x_url || null, telegram_url: d.telegram_url || null, website_url: d.website_url || null };
+  const { error } = await supabaseServer().from("mojis").update(patch).eq("id", m.id);
+  if (error) {
+    console.error("meme details failed", error.message);
+    return NextResponse.json({ error: "Could not save, try again" }, { status: 500 });
+  }
+  revalidate(m);
+  return NextResponse.json({ details: d });
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ combo: string }> }) {
