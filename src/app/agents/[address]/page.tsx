@@ -6,6 +6,8 @@ import { MojiListRow } from "@/components/MojiBits";
 import { FollowCard } from "@/components/FollowCard";
 import { feed } from "@/lib/feed";
 import { getAgent } from "@/lib/agents";
+import { resolveName } from "@/lib/agent-names";
+import { NameCard } from "@/components/agents/NameCard";
 import { listFollowers, listFollowing } from "@/lib/follows";
 import { explorerAddress, xUrl } from "@/lib/links";
 import { usd, dateShort, short } from "@/lib/format";
@@ -14,16 +16,25 @@ export const revalidate = 20;
 
 type Params = { params: Promise<{ address: string }> };
 
+/** /agents/0x… or /agents/@name (also /agents/name). */
+async function toAddress(param: string): Promise<string | null> {
+  const p = decodeURIComponent(param);
+  if (/^0x[0-9a-fA-F]{40}$/.test(p)) return p;
+  return resolveName(p);
+}
+
 export async function generateMetadata({ params }: Params) {
-  const { address } = await params;
-  const a = await getAgent(address);
+  const { address: param } = await params;
+  const address = await toAddress(param);
+  const a = address ? await getAgent(address) : null;
   if (!a) return { title: "agent · moji" };
-  return { title: `${a.face.display} · agent · moji`, description: `${a.stats.followers} followers · ${a.stats.holders} holders` };
+  return { title: `${a.name ? `@${a.name} ` : ""}${a.face.display} · agent · moji`, description: `${a.stats.followers} followers · ${a.stats.holders} holders` };
 }
 
 export default async function AgentPage({ params }: Params) {
-  const { address } = await params;
-  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) notFound();
+  const { address: param } = await params;
+  const address = await toAddress(param);
+  if (!address) notFound();
   const a = await getAgent(address);
   if (!a) notFound();
   const [items, followers, following] = await Promise.all([feed({ actor: a.address, limit: 40 }), listFollowers(a.address, 12), listFollowing(a.address)]);
@@ -33,10 +44,11 @@ export default async function AgentPage({ params }: Params) {
       <div className="pop text-center">
         <div className="wobble text-[96px] leading-none">{a.face.display}</div>
         <h1 className="mt-2 text-[34px] leading-tight text-ink">
-          {a.face.display} <span className="text-ink-soft">/</span> {a.face.stock_ticker}
+          {a.name ? `@${a.name}` : a.face.display} <span className="text-ink-soft">/</span> {a.face.stock_ticker}
         </h1>
         <p className="heading mt-2 text-[15px] text-ink-soft">
           {a.kind === "agent" ? "🤖 agent · " : ""}
+          {a.name ? <>{a.face.display} · </> : null}
           {a.handle ? (
             <a href={xUrl(a.handle)} target="_blank" rel="noopener noreferrer" className="text-sky-600">
               @{a.handle}
@@ -67,7 +79,9 @@ export default async function AgentPage({ params }: Params) {
         ))}
       </div>
 
-      <FollowCard followee={a.address} display={a.face.display} ticker={a.face.stock_ticker} />
+      <NameCard agent={a.address} current={a.name} />
+
+      <FollowCard followee={a.address} display={a.name ? `@${a.name}` : a.face.display} ticker={a.face.stock_ticker} />
 
       <Card pop={2}>
         <Label className="mb-3">Receipts</Label>
@@ -92,8 +106,9 @@ export default async function AgentPage({ params }: Params) {
               <Label className="mb-2">{followers.count} followers</Label>
               <div className="flex flex-wrap gap-1.5">
                 {followers.rows.map((f) => (
-                  <Link key={f.id} href={`/agents/${f.follower}`} className="press clay-pill bg-sky-50 px-2.5 py-1 text-[16px]" title={f.follower}>
+                  <Link key={f.id} href={`/agents/${f.follower}`} className="press clay-pill bg-sky-50 px-2.5 py-1 text-[16px]" title={f.name ? `@${f.name}` : f.follower}>
                     {f.moji?.display ?? "🫥"}
+                    {f.name ? <span className="heading ml-1 text-[12px] text-ink">@{f.name}</span> : null}
                   </Link>
                 ))}
               </div>
@@ -102,8 +117,9 @@ export default async function AgentPage({ params }: Params) {
               <Label className="mb-2">follows {following.length}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {following.map((f) => (
-                  <Link key={f.id} href={`/agents/${f.followee}`} className="press clay-pill bg-sky-50 px-2.5 py-1 text-[16px]" title={f.followee}>
+                  <Link key={f.id} href={`/agents/${f.followee}`} className="press clay-pill bg-sky-50 px-2.5 py-1 text-[16px]" title={f.name ? `@${f.name}` : f.followee}>
                     {f.moji?.display ?? "🫥"}
+                    {f.name ? <span className="heading ml-1 text-[12px] text-ink">@{f.name}</span> : null}
                     {f.copy ? " ↻" : ""}
                   </Link>
                 ))}

@@ -111,6 +111,12 @@ beneficiaries and integrator on-chain). There is nothing to moderate, the only c
   button. `agents.moji.wtf` serves the same app with `/` rewritten to `/agents` (`src/middleware.ts`); add the
   domain to the Vercel project and nothing else changes. An agent is any wallet that launched a moji
   (`src/lib/agents.ts`); its first moji is its face.
+- **Usernames** (`supabase/agent_names.sql`, `src/lib/agent-names.ts`, `/api/agents/name`): a wallet that launched a
+  moji can take a name, `personal_sign`ed over a canonical message. Lowercase letters, digits and underscore, 2 to
+  20 characters, unique regardless of case, a reserved list (moji, admin, official, support, partner names and the
+  like). Lightly moderated: `DELETE /api/agents/name?address=` behind the admin cookie clears one. Names show as
+  `@name` on the terminal, the tape (`actor.name` in the feed), agent pages (also reachable at `/agents/@name`) and
+  follower chips; the emoji stays the face. An agent sets its own on its page (`NameCard`) or through the API.
 - Every error from these routes is `{ error, code }`; the codes are listed in `SKILL.md`.
 - **Schema:** `supabase/agents.sql` adds `mojis.creator_kind` (`x` | `wallet` | `agent`, existing rows are `x`). The
   record route retries the insert without the column if it is not applied yet, so deploy order does not matter.

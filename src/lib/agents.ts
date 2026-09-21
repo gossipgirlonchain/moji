@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseServer, hasSupabase, type MojiRow } from "./supabase";
 import { NETWORK } from "./network";
+import { allNames, nameFor } from "./agent-names";
 
 /**
  * An agent is a wallet that launched a moji. Its first moji is its face. Everything else here is aggregated from
@@ -10,6 +11,8 @@ export type AgentStats = { holders: number; volumeUsd: number; feesUsd: number; 
 
 export type Agent = {
   address: string;
+  /** the username the wallet set for itself (src/lib/agent-names.ts), if any */
+  name: string | null;
   handle: string | null;
   kind: "x" | "wallet" | "agent";
   /** the identity moji: first launch */
@@ -24,6 +27,7 @@ export type Agent = {
 /** What the client lists need: no moji rows. */
 export type AgentLite = {
   address: string;
+  name: string | null;
   handle: string | null;
   kind: Agent["kind"];
   face: Agent["face"];
@@ -34,7 +38,7 @@ export type AgentLite = {
 };
 
 export function toLite(a: Agent): AgentLite {
-  return { address: a.address, handle: a.handle, kind: a.kind, face: a.face, stats: a.stats, firstLaunch: a.firstLaunch, volume24Usd: a.volume24Usd, mojiCount: a.mojis.length };
+  return { address: a.address, name: a.name, handle: a.handle, kind: a.kind, face: a.face, stats: a.stats, firstLaunch: a.firstLaunch, volume24Usd: a.volume24Usd, mojiCount: a.mojis.length };
 }
 
 type Lite = Pick<MojiRow, "id" | "display" | "combo" | "stock_ticker" | "stock_address" | "chain_id" | "token_address" | "pool_id" | "creator_address" | "creator_handle" | "creator_kind" | "launched_at" | "holders_count" | "volume_all_usd" | "volume24_usd" | "market_cap_usd" | "fees_claimed_usd" | "fees_unclaimed_usd" | "fees_total_usd" | "drops_active" | "rewards_badge">;
@@ -53,7 +57,7 @@ async function dropCounts(): Promise<Map<string, number>> {
   return by;
 }
 
-function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, number>): Agent[] {
+function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, number>, names: Map<string, string>): Agent[] {
   const by = new Map<string, Lite[]>();
   for (const m of rows) {
     if (!m.creator_address) continue;
@@ -75,6 +79,7 @@ function build(rows: Lite[], followers: Map<string, number>, drops: Map<string, 
     };
     out.push({
       address,
+      name: names.get(address) ?? null,
       handle: face.creator_handle ?? null,
       kind: (face.creator_kind as Agent["kind"]) ?? "x",
       face: { display: face.display, stock_ticker: face.stock_ticker, chain_id: face.chain_id, token_address: face.token_address },
@@ -93,21 +98,22 @@ const COLS = "id, display, combo, stock_ticker, stock_address, chain_id, token_a
 /** Every agent (every launcher wallet), unsorted. */
 export async function listAgents(): Promise<Agent[]> {
   if (!hasSupabase()) return [];
-  const [{ data }, followers, drops] = await Promise.all([supabaseServer().from("mojis").select(COLS).eq("network", NETWORK).not("token_address", "is", null).limit(5000), followerCounts(), dropCounts()]);
-  return build((data ?? []) as Lite[], followers, drops);
+  const [{ data }, followers, drops, names] = await Promise.all([supabaseServer().from("mojis").select(COLS).eq("network", NETWORK).not("token_address", "is", null).limit(5000), followerCounts(), dropCounts(), allNames()]);
+  return build((data ?? []) as Lite[], followers, drops, names);
 }
 
 /** One agent by wallet, or null when that wallet never launched. */
 export async function getAgent(address: string): Promise<Agent | null> {
   if (!hasSupabase()) return null;
   const sb = supabaseServer();
-  const [{ data }, { count }, { count: dcount }] = await Promise.all([
+  const [{ data }, { count }, { count: dcount }, name] = await Promise.all([
     sb.from("mojis").select(COLS).eq("network", NETWORK).ilike("creator_address", address).not("token_address", "is", null),
     sb.from("follows").select("id", { count: "exact", head: true }).eq("network", NETWORK).eq("followee", address.toLowerCase()),
     sb.from("drops").select("id", { count: "exact", head: true }).eq("network", NETWORK).ilike("creator_address", address).gt("sent_count", 0),
+    nameFor(address),
   ]);
   const rows = (data ?? []) as Lite[];
   if (rows.length === 0) return null;
   const a = address.toLowerCase();
-  return build(rows, new Map([[a, count ?? 0]]), new Map([[a, dcount ?? 0]]))[0] ?? null;
+  return build(rows, new Map([[a, count ?? 0]]), new Map([[a, dcount ?? 0]]), new Map(name ? [[a, name]] : []))[0] ?? null;
 }

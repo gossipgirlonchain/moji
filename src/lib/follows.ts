@@ -2,6 +2,7 @@ import "server-only";
 import { isAddress, verifyMessage, type Address, type Hex } from "viem";
 import { supabaseServer, hasSupabase } from "./supabase";
 import { NETWORK } from "./network";
+import { namesFor } from "./agent-names";
 
 /** The rules a follower sets on one follow. The copy engine (not built yet) enforces them; the API only stores them. */
 export type FollowRules = {
@@ -113,7 +114,7 @@ export async function applyFollow(req: FollowRequest): Promise<{ ok: true; row: 
   return { ok: true, row: data as FollowRow };
 }
 
-export type FollowSide = FollowRow & { moji: { display: string; ticker: string; chainId: number; kind: string | null; handle: string | null } | null };
+export type FollowSide = FollowRow & { name: string | null; moji: { display: string; ticker: string; chainId: number; kind: string | null; handle: string | null } | null };
 
 /** Attach each address's identity moji (its first launch) to the rows. */
 async function withMojis(rows: FollowRow[], side: "follower" | "followee"): Promise<FollowSide[]> {
@@ -125,7 +126,8 @@ async function withMojis(rows: FollowRow[], side: "follower" | "followee"): Prom
     const k = m.creator_address.toLowerCase();
     if (!by.has(k)) by.set(k, { display: m.display, ticker: m.stock_ticker, chainId: m.chain_id, kind: m.creator_kind, handle: m.creator_handle });
   }
-  return rows.map((r) => ({ ...r, moji: by.get(r[side]) ?? null }));
+  const names = await namesFor(addrs);
+  return rows.map((r) => ({ ...r, name: names.get(r[side]) ?? null, moji: by.get(r[side]) ?? null }));
 }
 
 export async function listFollowing(follower: string): Promise<FollowSide[]> {
