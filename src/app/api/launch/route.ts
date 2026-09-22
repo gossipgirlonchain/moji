@@ -9,6 +9,7 @@ import { verifyLaunchTx } from "@/lib/launch-verify";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
 import { recordLaunch } from "@/lib/record-launch";
+import { validateMeme } from "@/lib/meme-coin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,7 +17,11 @@ export const runtime = "nodejs";
 const CLAIM_WINDOW_MS = 15 * 60 * 1000;
 
 type Body = {
-  combo: string;
+  /** 'moji' (default): `combo` is 1 to 3 emoji. 'meme': a traditional memecoin, `name` (title) + `symbol` (ticker) instead. */
+  kind?: "moji" | "meme";
+  combo?: string;
+  name?: string;
+  symbol?: string;
   chainId: number;
   stockAddress: string;
   tokenAddress: string;
@@ -34,7 +39,8 @@ const fail = (error: string, code: string, status: number) => NextResponse.json(
 
 /**
  * POST /api/launch
- * Records a successful on-chain launch. Rules enforced here, not on the client:
+ * Records a successful on-chain launch: a moji (`combo`) or, with `kind: "meme"`, a memecoin (`name` + `symbol`).
+ * Rules enforced here, not on the client:
  *  - chain must be live, pair must be on the curated list
  *  - the tx hash must show the creator sending a moji-shaped Airlock create for this token and pair
  *    (fee beneficiaries carry the treasury and protocol shares, the integrator is ours): verifyLaunchTx
@@ -56,8 +62,19 @@ export async function POST(req: Request) {
     return fail("Body must be JSON", "BAD_JSON", 400);
   }
 
-  const v = validateCombo(body.combo ?? "");
-  if (!v.ok) return fail(v.reason, "BAD_COMBO", 400);
+  // What was launched: an emoji combo, or a meme whose ticker is the claim (`$pepe`, src/lib/meme-coin.ts).
+  let v: Extract<ReturnType<typeof validateCombo>, { ok: true }>;
+  let meme: { name: string; symbol: string } | null = null;
+  if (body.kind === "meme") {
+    const mv = validateMeme(body);
+    if (!mv.ok) return fail(mv.reason, "BAD_MEME", 400);
+    meme = { name: mv.name, symbol: mv.symbol };
+    v = { ok: true, emoji: [], display: mv.display, normalized: mv.normalized };
+  } else {
+    const cv = validateCombo(body.combo ?? "");
+    if (!cv.ok) return fail(cv.reason, "BAD_COMBO", 400);
+    v = cv;
+  }
 
   const chain = chainById(Number(body.chainId));
   if (!chain || !chainLaunchable(chain)) return fail("That chain is not live yet", "CHAIN_NOT_LIVE", 400);
@@ -111,7 +128,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const rec = await recordLaunch({ v, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
+  const rec = await recordLaunch({ v, meme, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
   if (!rec.ok) return fail(rec.error, rec.code, rec.status);
   return NextResponse.json({ moji: rec.moji, href: rec.href, url: rec.url, handle: who.handle, creatorKind: who.kind });
 }

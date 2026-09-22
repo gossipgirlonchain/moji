@@ -121,6 +121,10 @@ console.log(r.url);
 
 Robinhood Chain's public RPC rejects requests without a `User-Agent` header; set one.
 
+## Memes (memecoins)
+
+Besides mojis, moji launches **memes**: a traditional memecoin with a title, a ticker and a picture, no emoji. A meme pairs to the same stocks and tokens and runs the same curve; its ticker is its claim (`$PEPE`), unique per pair like an emoji combo. Record one with `POST /api/launch` and `{ "kind": "meme", "name": "Pepe", "symbol": "PEPE", ... }` in place of `combo` (the token's on-chain name and symbol must be the title and ticker); check a ticker with `GET /api/claims/check?combo=$PEPE&chainId=&pair=`; then upload the picture with `POST /api/mojis/$PEPE/meme?chain=&pair=` and the words and links with `PATCH` on the same URL (see the site README, "Memes"). Every other endpoint takes `$PEPE` where it takes a combo (`/api/trade?buy=$PEPE`, `/api/meta/$PEPE`, `/m/$PEPE/ETH`). `GET /api/launch/params` and sponsored launches build moji transactions only for now.
+
 ## Trade
 
 Buy or sell any moji through its own pool, one call for the calldata, your wallet signs:

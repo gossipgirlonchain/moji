@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { hasSupabase, supabaseServer, type MojiRow, type ClaimRow } from "./supabase";
 import { normalizeCombo } from "./emoji";
+import { normalizeAny } from "./meme-coin";
 import { NETWORK } from "./network";
 
 export type SortKey = "newest" | "mcap" | "fees" | "volume";
@@ -45,7 +46,7 @@ export async function listMojis(opts: { sort?: SortKey; q?: string; limit?: numb
  */
 export const getMoji = cache(async (comboInput: string, pair: string | null = null, chainId: number | null = null): Promise<MojiRow | null> => {
   if (!hasSupabase()) return null;
-  const combo = normalizeCombo(comboInput);
+  const combo = normalizeAny(comboInput);
   const sb = supabaseServer();
   let q = sb.from("mojis").select("*").eq("combo", combo).eq("network", NETWORK);
   if (pair) q = /^0x[0-9a-fA-F]{40}$/.test(pair) ? q.ilike("stock_address", pair) : q.ilike("stock_ticker", pair);

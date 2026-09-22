@@ -10,6 +10,7 @@ import { Pill } from "@/components/ui";
 import { ChainSelect } from "@/components/ChainSelect";
 import { CAPTION_GRADIENT, DropsDot, mojiHref } from "@/components/MojiBits";
 import { MojiArt } from "@/components/MojiArt";
+import { mojiTitle } from "@/lib/meme-coin";
 
 export type StockGroup = {
   key: string;
@@ -52,7 +53,7 @@ export function StockCards({ groups }: { groups: StockGroup[] }) {
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     let rows = groups.map((g) => (chain ? { ...g, mojis: g.mojis.filter((m) => m.chain_id === chain) } : g)).filter((g) => g.mojis.length > 0);
-    if (t) rows = rows.filter((g) => g.ticker.toLowerCase().includes(t) || g.name.toLowerCase().includes(t) || g.mojis.some((m) => m.display.includes(t)));
+    if (t) rows = rows.filter((g) => g.ticker.toLowerCase().includes(t) || g.name.toLowerCase().includes(t) || g.mojis.some((m) => m.display.toLowerCase().includes(t) || (m.name ?? "").toLowerCase().includes(t)));
     const by: Record<Sort, (g: StockGroup) => number | string> = {
       stockMcap: (g) => g.stockMcap,
       stockVol: (g) => g.stockVol,
@@ -156,9 +157,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
           <DropsDot m={lead} className="absolute right-3 top-3 drop-shadow" />
           <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 px-3 pb-2.5 pt-10 text-left text-white" style={{ background: CAPTION_GRADIENT }}>
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="heading truncate text-[15px] leading-tight">
-                {lead.display} / {lead.stock_ticker}
-              </span>
+              <span className="heading truncate text-[15px] leading-tight">{mojiTitle(lead)}</span>
               <span className="text-[11px] leading-tight text-white/85">{mcap(lead) > 0 ? usd(mcap(lead)) : "just launched"}</span>
             </span>
             <span className="num shrink-0 text-[30px] leading-none">{pct(share(lead))}</span>
@@ -169,7 +168,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
             <Link key={m.id} href={mojiHref(m)} className="press clay-sm relative flex flex-1 items-center gap-2.5 bg-sky-50 px-2.5 py-2">
               <MojiArt m={m} size={44} radius={12} badge={false} />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="heading truncate text-[14px] leading-tight text-ink">{m.display}</span>
+                <span className="heading truncate text-[14px] leading-tight text-ink">{m.kind === "meme" && m.name ? m.name : m.display}</span>
                 <span className="text-[11px] text-ink-soft">{mcap(m) > 0 ? usd(mcap(m)) : "just launched"}</span>
               </span>
               <span className="num text-[18px] leading-none text-ink">{pct(share(m))}</span>

@@ -19,6 +19,7 @@ import { findNumeraire } from "@/lib/numeraire";
 import { CreatorMeme } from "@/components/CreatorMeme";
 import { MemeHero } from "@/components/MemeHero";
 import { detailsOf } from "@/lib/meme-details";
+import { isMeme } from "@/lib/meme-coin";
 
 export const revalidate = 15;
 
@@ -33,8 +34,9 @@ export async function generateMetadata({ params }: { params: Params }) {
   const { combo, pair } = await params;
   const d = decodeCombo(combo);
   const m = await getMoji(d, ...pairOpts(pair));
-  const title = m ? `${m.display} / ${m.stock_ticker} · moji` : `${d} · moji`;
-  const description = m ? `${m.display} is a moji, paired to $${m.stock_ticker}.` : `${d} is a moji.`;
+  const meme = m ? isMeme(m) : false;
+  const title = m ? `${meme && m.name ? `${m.name} ` : ""}${m.display} / ${m.stock_ticker} · moji` : `${d} · moji`;
+  const description = m ? m.description || (meme ? `${m.name ?? m.display} (${m.display}) is a meme on moji, paired to $${m.stock_ticker}.` : `${m.display} is a moji, paired to $${m.stock_ticker}.`) : `${d} is a moji.`;
   const url = m ? `${SITE_URL}${mojiHref(m)}` : `${SITE_URL}/m/${encodeURIComponent(d)}`;
   const image = m
     ? `${SITE_URL}/api/og/${encodeURIComponent(m.display)}?chain=${m.chain_id}&pair=${m.stock_address}`
@@ -74,6 +76,7 @@ export default async function MojiPage({ params }: { params: Params }) {
       : null;
 
   const details = detailsOf(m);
+  const meme = isMeme(m);
   const links: [string, string][] = [
     ["X ↗", details.x_url],
     ["Telegram ↗", details.telegram_url],
@@ -87,8 +90,9 @@ export default async function MojiPage({ params }: { params: Params }) {
     <main className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
       <div className="contents lg:flex lg:flex-col lg:gap-4">
         <div className="pop text-center">
-          {m.meme_url ? <MemeHero src={m.meme_url} display={m.display} /> : <div className="wobble text-[96px] leading-none">{m.display}</div>}
-          <h1 className="mt-2 text-[34px] leading-tight text-ink">
+          {m.meme_url ? <MemeHero src={m.meme_url} display={m.display} /> : meme ? <div className="heading text-[56px] leading-none text-sky-600">{m.display}</div> : <div className="wobble text-[96px] leading-none">{m.display}</div>}
+          {meme && m.name && <h1 className="mt-2 text-[34px] leading-tight text-ink">{m.name}</h1>}
+          <h1 className={meme && m.name ? "heading mt-1 text-[20px] leading-tight text-ink-soft" : "mt-2 text-[34px] leading-tight text-ink"}>
             {m.display} <span className="text-ink-soft">/</span> {m.stock_ticker}
           </h1>
           <p className="heading mt-3 text-[17px] text-ink-soft">

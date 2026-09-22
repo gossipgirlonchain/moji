@@ -10,8 +10,11 @@ import { FEE_DECAY_SECONDS, FEE_END, FEE_START, FEE_TICK_SPACING, MOJI_INTEGRATO
 export type LaunchInput = {
   chain: MojiChain;
   stock: Stock;
-  /** Display combo, becomes the token symbol and name */
+  /** Display combo, becomes the token symbol and name (a meme's `$PEPE`; its title and ticker override below) */
   combo: string;
+  /** memes: token name (the title) and symbol (the ticker); mojis leave these out */
+  name?: string;
+  symbol?: string;
   creator: Address;
   provider: EIP1193Provider;
   curve?: CurveDefaults;
@@ -56,8 +59,8 @@ export async function buildParams(input: Omit<LaunchInput, "provider">) {
   return MulticurveBuilder.forChain(chainId)
     .tokenConfig({
       type: "dopplerERC20V1", // 4663 has no standard TokenFactory, only DopplerERC20V1Factory
-      name: input.combo,
-      symbol: input.combo,
+      name: input.name ?? input.combo,
+      symbol: input.symbol ?? input.combo,
       tokenURI: `${SITE_URL}/api/meta/${encodeURIComponent(input.combo)}?chain=${input.chain.chainId}&pair=${input.stock.address}`,
     })
     .saleConfig({

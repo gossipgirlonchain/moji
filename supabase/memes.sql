@@ -11,3 +11,11 @@ alter table public.mojis add column if not exists description text;
 alter table public.mojis add column if not exists x_url text;
 alter table public.mojis add column if not exists telegram_url text;
 alter table public.mojis add column if not exists website_url text;
+
+-- Memes: traditional memecoin launches (title + ticker, no emoji) share the table. kind = 'meme', name is the
+-- title, symbol the ticker; display is `$PEPE` and combo (the claim key) `$pepe`, so the claims index keeps a
+-- ticker unique the way it keeps an emoji combo unique. See src/lib/meme-coin.ts.
+alter table public.mojis add column if not exists kind text not null default 'moji';
+alter table public.mojis add column if not exists name text;
+alter table public.mojis add column if not exists symbol text;
+create index if not exists mojis_kind_idx on public.mojis (kind);

@@ -40,7 +40,7 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     const byChain = chain ? rows.filter((m) => m.chain_id === chain) : rows;
-    const base = t ? byChain.filter((m) => m.display.includes(t) || m.stock_ticker.toLowerCase().includes(t)) : byChain;
+    const base = t ? byChain.filter((m) => m.display.toLowerCase().includes(t) || m.stock_ticker.toLowerCase().includes(t) || (m.name ?? "").toLowerCase().includes(t)) : byChain;
     return sort === "volume" ? [...base].sort((a, b) => volumeFor(b, window) - volumeFor(a, window)) : base;
   }, [rows, q, sort, window, chain]);
 

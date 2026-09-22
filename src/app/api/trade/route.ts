@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { getMoji } from "@/lib/data";
 import { validateCombo } from "@/lib/emoji";
+import { isMemeCombo, validateMeme } from "@/lib/meme-coin";
 import { chainById } from "@/config/chains";
 import { findNumeraire } from "@/lib/numeraire";
 import { SITE_URL } from "@/lib/network";
@@ -31,7 +32,9 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
   const side = q.has("buy") ? "buy" : q.has("sell") ? "sell" : null;
   if (!side) return fail("Pass buy=<combo> or sell=<combo>", "BAD_INPUT", 400);
-  const v = validateCombo(q.get(side) ?? "");
+  const what = q.get(side) ?? "";
+  // `$PEPE` trades a meme; anything else is an emoji combo.
+  const v = isMemeCombo(what) ? validateMeme({ name: "meme", symbol: what }) : validateCombo(what);
   if (!v.ok) return fail(v.reason, "BAD_COMBO", 400);
   const chainId = Number(q.get("chainId") ?? 4663);
   const chain = chainById(chainId);

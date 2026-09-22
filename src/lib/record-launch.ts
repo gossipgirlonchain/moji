@@ -12,6 +12,8 @@ export type LaunchIdentity = { kind: "x" | "wallet" | "agent"; did: string | nul
 
 export type RecordInput = {
   v: Extract<ComboValidation, { ok: true }>;
+  /** a meme (title + ticker) instead of an emoji combo: stored as kind = 'meme', no rendered emoji image */
+  meme?: { name: string; symbol: string } | null;
   chain: MojiChain;
   stock: Stock;
   tokenAddress: string;
@@ -55,18 +57,22 @@ export async function recordLaunch(input: RecordInput): Promise<RecordResult> {
     creator_handle: who.handle,
     creator_address: input.creatorAddress,
     metadata_url: metadataUrl,
+    ...(input.meme ? { kind: "meme", name: input.meme.name, symbol: input.meme.symbol } : {}),
   };
   let { data, error } = await sb.from("mojis").insert({ ...row, creator_kind: who.kind }).select("*").single();
   // Before supabase/agents.sql is applied the column does not exist (PGRST204): record the launch without it.
   if (error?.code === "PGRST204") ({ data, error } = await sb.from("mojis").insert(row).select("*").single());
   if (error || !data) return { ok: false, error: error?.message ?? "insert failed", code: "DB_ERROR", status: 500 };
 
+  // A moji's token image is its rendered emoji. A meme's is the picture the creator uploads right after this.
   let imageUrl: string | null = null;
-  try {
-    imageUrl = await storeMojiImage(v.display, v.normalized);
-    if (imageUrl) await sb.from("mojis").update({ image_url: imageUrl }).eq("id", data.id);
-  } catch (e) {
-    console.error("image store failed", e);
+  if (!input.meme) {
+    try {
+      imageUrl = await storeMojiImage(v.display, v.normalized);
+      if (imageUrl) await sb.from("mojis").update({ image_url: imageUrl }).eq("id", data.id);
+    } catch (e) {
+      console.error("image store failed", e);
+    }
   }
   try {
     await refreshOne(data as never);

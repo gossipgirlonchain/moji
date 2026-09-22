@@ -45,13 +45,19 @@ export function AvailabilityLine({
   loading,
   result,
   onPick,
+  empty = "pick 1 to 3 emoji",
+  taken = "taken on this pair",
 }: {
   combo: string;
   loading: boolean;
   result: CheckResult | null;
   onPick: (combo: string) => void;
+  /** copy while nothing is typed yet */
+  empty?: string;
+  /** copy when the claim exists */
+  taken?: string;
 }) {
-  if (!combo) return <p className="heading text-center text-[15px] text-ink-soft">pick 1 to 3 emoji</p>;
+  if (!combo) return <p className="heading text-center text-[15px] text-ink-soft">{empty}</p>;
   if (loading || !result) return <p className="heading text-center text-[15px] text-ink-soft">checking…</p>;
   if (!result.valid) return <p className="heading text-center text-[15px] text-coral">{result.reason}</p>;
   if (result.needsPair) return <p className="heading text-center text-[15px] text-ink-soft">pick a stock or token to check</p>;
@@ -65,7 +71,7 @@ export function AvailabilityLine({
   return (
     <div className="text-center">
       <p className="heading text-[18px] uppercase tracking-[0.12em] text-coral">
-        <span className="mr-1">●</span> taken on this pair
+        <span className="mr-1">●</span> {taken}
       </p>
       {result.owner && (
         <Link href={result.owner.href} className="heading text-[13px] text-sky-600 underline underline-offset-4">

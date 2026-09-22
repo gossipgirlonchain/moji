@@ -4,6 +4,18 @@ import { short, usd } from "@/lib/format";
 import { dropsAllowlisted } from "@/config/drops";
 import { chainById } from "@/config/chains";
 import { MojiArt } from "./MojiArt";
+import { mojiSub, mojiTitle } from "@/lib/meme-coin";
+
+/** Headline plus, for a meme, its `$PEPE / ETH` line under the title. */
+export function MojiName({ m, className = "", subClassName = "" }: { m: Parameters<typeof mojiTitle>[0]; className?: string; subClassName?: string }) {
+  const sub = mojiSub(m);
+  return (
+    <>
+      <span className={className}>{mojiTitle(m)}</span>
+      {sub && <span className={subClassName}>{sub}</span>}
+    </>
+  );
+}
 
 /** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
 export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
@@ -89,9 +101,7 @@ export function MojiPicTile({ m, window = "24h", eager }: { m: MojiRow; window?:
       <DropsDot m={m} className="absolute right-2.5 top-2.5 drop-shadow" />
       <AgentDot m={m} className="absolute left-2.5 top-2.5 drop-shadow" />
       <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 px-3 pb-2.5 pt-10 text-left text-white" style={{ background: CAPTION_GRADIENT }}>
-        <span className="heading truncate text-[15px] leading-tight">
-          {m.display} / {m.stock_ticker}
-        </span>
+        <MojiName m={m} className="heading truncate text-[15px] leading-tight" subClassName="truncate text-[11px] leading-tight text-white/85" />
         <span className="heading text-[13px] leading-tight text-white/90">{mcap > 0 ? `mcap ${usd(mcap)}` : "just launched"}</span>
         <span className="truncate text-[11px] leading-tight text-white/85 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
           vol {window === "all" ? "all time" : window} {usd(vol)} · fees {usd(fees)} · {holders.toLocaleString()} holder{holders === 1 ? "" : "s"}
@@ -114,9 +124,8 @@ export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number
       <DropsDot m={m} className="absolute right-2.5 top-2.5 drop-shadow" />
       <AgentDot m={m} className="absolute left-2.5 top-2.5 drop-shadow" />
       <span className={`flex flex-col items-center gap-0.5 ${compact ? "px-2 pb-3 pt-2" : "px-3 pb-3.5 pt-2.5"}`}>
-        <span className={`heading max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>
-          {m.display} / {m.stock_ticker}
-        </span>
+        <span className={`heading max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>{mojiTitle(m)}</span>
+        {mojiSub(m) && <span className="max-w-full truncate text-[11px] text-ink-soft">{mojiSub(m)}</span>}
         <span className={`heading text-ink-soft ${compact ? "text-[12px]" : "text-[13px]"}`}>{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
         {(window || compact) && vol > 0 && (
           <span className="text-[11px] text-ink-soft">
@@ -140,7 +149,8 @@ export function McapRow({ m, rank }: { m: MojiRow; rank: number }) {
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
       <MojiArt m={m} size={44} radius={14} />
       <span className="heading flex-1 text-[15px] text-ink">
-        {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
+        {mojiTitle(m)} <DropsPill m={m} className="ml-1 align-middle" />
+        {mojiSub(m) && <span className="block text-[12px] text-ink-soft">{mojiSub(m)}</span>}
       </span>
       <span className="heading text-[17px] text-ink">{usd(m.market_cap_usd)}</span>
     </Link>
@@ -154,7 +164,8 @@ export function EarnerRow({ m, rank }: { m: MojiRow & { earnedUsd?: number }; ra
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
       <MojiArt m={m} size={44} radius={14} />
       <span className="heading flex-1 text-[15px] text-ink">
-        {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
+        {mojiTitle(m)} <DropsPill m={m} className="ml-1 align-middle" />
+        {mojiSub(m) && <span className="block text-[12px] text-ink-soft">{mojiSub(m)}</span>}
       </span>
       <span className="heading text-[17px] text-mint">{usd(total)}</span>
     </Link>
@@ -174,8 +185,9 @@ export function MojiListRow({ m, window = "24h" }: { m: MojiRow; window?: VolWin
       <MojiArt m={m} size={48} radius={14} />
       <span className="flex-1">
         <span className="heading block text-[15px] text-ink">
-          {m.display} / {m.stock_ticker} <DropsPill m={m} className="ml-1 align-middle" />
+          {mojiTitle(m)} <DropsPill m={m} className="ml-1 align-middle" />
         </span>
+        {mojiSub(m) && <span className="heading block text-[12px] text-ink-soft">{mojiSub(m)}</span>}
         <span className="heading block text-[12px] text-ink-soft">
           {vol > 0 ? `vol ${window} ${usd(vol)} · ` : ""}fees <span className="text-mint">{usd(total)}</span>
         </span>

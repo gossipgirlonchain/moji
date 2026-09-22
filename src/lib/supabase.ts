@@ -65,6 +65,12 @@ export type MojiRow = {
   image_url: string | null;
   /** creator-uploaded meme (supabase/memes.sql); image_url mirrors it while set */
   meme_url?: string | null;
+  /** 'moji' (emoji combo, the default) or 'meme' (title + ticker, src/lib/meme-coin.ts); supabase/memes.sql */
+  kind?: "moji" | "meme" | null;
+  /** meme title */
+  name?: string | null;
+  /** meme ticker without the $ */
+  symbol?: string | null;
   /** creator's blurb and links (supabase/memes.sql), edited with the meme */
   description?: string | null;
   x_url?: string | null;

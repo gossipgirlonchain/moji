@@ -7,6 +7,7 @@ import type { AgentLite } from "@/lib/agents";
 import type { MojiRow } from "@/lib/supabase";
 import { mojiHref, volumeFor } from "@/components/MojiBits";
 import { MojiArt } from "@/components/MojiArt";
+import { mojiTitle } from "@/lib/meme-coin";
 import { usd, short } from "@/lib/format";
 
 type Who = "all" | "agents" | "humans";
@@ -153,8 +154,7 @@ function Mojis({ mojis, who }: { mojis: MojiRow[]; who: Who }) {
           <span className="num text-ink-soft">{i + 1}</span>
           <Face m={m} />
           <span className="heading min-w-0 truncate text-ink">
-            {m.display}
-            <span className="text-ink-soft">/{m.stock_ticker}</span> {m.creator_kind === "agent" ? "🤖" : ""}
+            {m.kind === "meme" && m.name ? <>{m.name} <span className="text-ink-soft">{m.display}/{m.stock_ticker}</span></> : <>{m.display}<span className="text-ink-soft">/{m.stock_ticker}</span></>} {m.creator_kind === "agent" ? "🤖" : ""}
             {m.drops_active || m.rewards_badge ? "🪂" : ""}
           </span>
           <span className="num text-right text-ink">{usd(volumeFor(m, "24h"))}</span>

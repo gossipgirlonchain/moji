@@ -5,6 +5,7 @@ import { chainById } from "@/config/chains";
 import { Label } from "@/components/ui";
 import { CAPTION_GRADIENT, DropsDot, creatorLabel, mojiHref } from "@/components/MojiBits";
 import { MojiArt } from "@/components/MojiArt";
+import { mojiSub, mojiTitle } from "@/lib/meme-coin";
 
 /** Desktop row: the five biggest mojis as big picture cards, mcap and creator over a gradient at the bottom. */
 export function TopMojis({ mojis }: { mojis: MojiRow[] }) {
@@ -26,9 +27,8 @@ export function TopMojis({ mojis }: { mojis: MojiRow[] }) {
               <span className="heading absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[12px] leading-none text-ink shadow-sm">#{i + 1}</span>
               <DropsDot m={m} className="absolute right-3 top-3 drop-shadow" />
               <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 px-4 pb-3.5 pt-12 text-left text-white" style={{ background: CAPTION_GRADIENT }}>
-                <span className="heading truncate text-[17px] leading-tight">
-                  {m.display} / {m.stock_ticker}
-                </span>
+                <span className="heading truncate text-[17px] leading-tight">{mojiTitle(m)}</span>
+                {mojiSub(m) && <span className="truncate text-[12px] leading-tight text-white/85">{mojiSub(m)}</span>}
                 <span className="num text-[24px] leading-tight">{Number(m.market_cap_usd ?? 0) > 0 ? usd(m.market_cap_usd) : "just launched"}</span>
                 <span className="truncate text-[12px] leading-tight text-white/85">
                   {creatorLabel(m)}

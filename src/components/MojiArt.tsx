@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { MojiRow } from "@/lib/supabase";
 import { MemeFace } from "./MemeFace";
+import { isMemeCombo } from "@/lib/meme-coin";
 
 type Art = Pick<MojiRow, "display"> & { meme_url?: string | null };
 
@@ -31,11 +32,14 @@ export function MojiArt({
 }) {
   const box: CSSProperties = size ? { width: size, height: size, borderRadius: radius } : { borderRadius: radius };
   const fluid = size ? "shrink-0" : "aspect-square w-full";
-  const font = emojiSize ?? (size ? Math.round(size * 0.52) : 64);
+  // A meme's display is its `$TICKER`: text, so it gets the heading face at a third of the emoji size.
+  const meme = isMemeCombo(m.display);
+  const emojiFont = emojiSize ?? (size ? Math.round(size * 0.52) : 64);
+  const font = meme ? Math.max(11, Math.round(emojiFont * 0.34)) : emojiFont;
   const fallback = (
     <span
-      className={`flex items-center justify-center overflow-hidden ${fluid} ${className}`}
-      style={{ ...box, background: "linear-gradient(145deg, var(--sky-50) 0%, var(--sky-200) 55%, var(--sky-300) 100%)", fontSize: font, lineHeight: 1 }}
+      className={`flex items-center justify-center overflow-hidden ${meme ? "heading px-1 text-center text-sky-600" : ""} ${fluid} ${className}`}
+      style={{ ...box, background: "linear-gradient(145deg, var(--sky-50) 0%, var(--sky-200) 55%, var(--sky-300) 100%)", fontSize: font, lineHeight: 1, ...(meme ? { overflowWrap: "anywhere" } : {}) }}
     >
       {m.display}
     </span>

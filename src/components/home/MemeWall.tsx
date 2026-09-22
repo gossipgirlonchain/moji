@@ -6,6 +6,7 @@ import type { MojiRow } from "@/lib/supabase";
 import { Label } from "@/components/ui";
 import { MojiArt } from "@/components/MojiArt";
 import { mojiHref, volumeFor } from "@/components/MojiBits";
+import { mojiTitle } from "@/lib/meme-coin";
 
 /** Pictures on the first paint; "show more" reveals the rest a page at a time. */
 const FIRST = 24;
@@ -13,8 +14,9 @@ const FIRST = 24;
 const NEWEST = 12;
 
 /**
- * Desktop home, first thing under the header: a 6-wide wall of memes. Only mojis with a meme appear, the
- * picture edge to edge, "🍏 / AAPL" on hover, click goes to the moji page.
+ * Desktop home, first thing under the header: a 6-wide wall of memes: memecoins (always pictured) and mojis
+ * that carry a picture. The picture edge to edge, the name ("🍏 / AAPL", or a meme's title) on hover, click
+ * goes to the token page.
  */
 export function MemeWall({ mojis }: { mojis: MojiRow[] }) {
   const [shown, setShown] = useState(FIRST);
@@ -39,9 +41,7 @@ export function MemeWall({ mojis }: { mojis: MojiRow[] }) {
           <Link key={m.id} href={mojiHref(m)} className="press group clay-sm relative block overflow-hidden bg-sky-50" title={m.description ?? `${m.display} / ${m.stock_ticker}`}>
             <MojiArt m={m} radius={0} badge={false} eager={i < 6} />
             <span className="absolute inset-0 flex items-end justify-center p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" style={{ background: "linear-gradient(to top, rgba(18, 64, 92, 0.55), rgba(18, 64, 92, 0) 60%)" }}>
-              <span className="heading max-w-full truncate rounded-full bg-white/92 px-3 py-1.5 text-[15px] leading-none text-ink shadow-sm">
-                {m.display} / {m.stock_ticker}
-              </span>
+              <span className="heading max-w-full truncate rounded-full bg-white/92 px-3 py-1.5 text-[15px] leading-none text-ink shadow-sm">{mojiTitle(m)}</span>
             </span>
           </Link>
         ))}

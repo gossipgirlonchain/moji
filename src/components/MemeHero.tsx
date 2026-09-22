@@ -31,7 +31,7 @@ export function MemeHero({ src, display }: { src: string; display: string }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={`${display} meme`} className="block h-full w-full object-cover" />
-        <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 text-[40px] leading-none shadow-sm" aria-hidden>
+        <span className={`absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 leading-none shadow-sm ${display.startsWith("$") ? "heading text-[20px] text-ink" : "text-[40px]"}`} aria-hidden>
           {display}
         </span>
       </button>
