@@ -6,6 +6,19 @@ import { chainById } from "@/config/chains";
 import { MojiArt } from "./MojiArt";
 import { mojiSub, mojiTitle } from "@/lib/meme-coin";
 
+/**
+ * The face of a token in a row or tile: its picture when it has one (MojiArt), else the bare emoji at `emoji` px,
+ * exactly as rows looked before pictures existed. A meme with no picture yet shows its ticker on the sky gradient.
+ */
+export function Face({ m, size, radius = 14, emoji, className = "" }: { m: Pick<MojiRow, "display"> & { meme_url?: string | null }; size: number; radius?: number; emoji: number; className?: string }) {
+  if (m.meme_url || m.display.startsWith("$")) return <MojiArt m={m} size={size} radius={radius} badge={false} className={className} />;
+  return (
+    <span className={`shrink-0 leading-none ${className}`} style={{ fontSize: emoji }}>
+      {m.display}
+    </span>
+  );
+}
+
 /** Headline plus, for a meme, its `$PEPE / ETH` line under the title. */
 export function MojiName({ m, className = "", subClassName = "" }: { m: Parameters<typeof mojiTitle>[0]; className?: string; subClassName?: string }) {
   const sub = mojiSub(m);
@@ -87,34 +100,45 @@ export function creatorLabel(m: Pick<MojiRow, "creator_handle" | "creator_addres
 export const CAPTION_GRADIENT = "linear-gradient(to top, rgba(18, 64, 92, 0.86) 0%, rgba(18, 64, 92, 0.55) 55%, rgba(18, 64, 92, 0) 100%)";
 
 /**
- * Desktop picture tile: the art edge to edge, name and mcap over a gradient at the bottom,
- * volume, fees and holders revealed on hover.
+ * Tile: with a picture, the picture as a square with the name and numbers under it; without one, the original
+ * tile, the emoji large over the name. `window` adds the volume and fees line.
  */
-export function MojiPicTile({ m, window = "24h", eager }: { m: MojiRow; window?: VolWindow; eager?: boolean }) {
-  const vol = volumeFor(m, window);
-  const fees = Number(m.fees_total_usd ?? 0) || Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
-  const holders = Number(m.holders_count ?? 0);
-  const mcap = Number(m.market_cap_usd ?? 0);
-  return (
-    <Link href={mojiHref(m)} className="press group clay-sm relative block overflow-hidden bg-sky-50" title={m.description ?? undefined}>
-      <MojiArt m={m} radius={0} badge={false} emojiSize={72} eager={eager} />
-      <DropsDot m={m} className="absolute right-2.5 top-2.5 drop-shadow" />
-      <AgentDot m={m} className="absolute left-2.5 top-2.5 drop-shadow" />
-      <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 px-3 pb-2.5 pt-10 text-left text-white" style={{ background: CAPTION_GRADIENT }}>
-        <MojiName m={m} className="heading truncate text-[15px] leading-tight" subClassName="truncate text-[11px] leading-tight text-white/85" />
-        <span className="heading text-[13px] leading-tight text-white/90">{mcap > 0 ? `mcap ${usd(mcap)}` : "just launched"}</span>
-        <span className="truncate text-[11px] leading-tight text-white/85 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-          vol {window === "all" ? "all time" : window} {usd(vol)} · fees {usd(fees)} · {holders.toLocaleString()} holder{holders === 1 ? "" : "s"}
-        </span>
-      </span>
-    </Link>
-  );
-}
-
-/** Picture-first tile: the meme (or the emoji on sky) as a square, name and numbers under it. */
 export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number; compact?: boolean; window?: VolWindow }) {
   const vol = window ? volumeFor(m, window) : Number(m.volume24_usd ?? 0);
   const fees = Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
+  const pictured = Boolean(m.meme_url) || m.display.startsWith("$");
+  const numbers = (
+    <>
+      <span className={`heading text-ink-soft ${compact ? "text-[12px]" : "text-[13px]"}`}>{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
+      {(window || compact) && vol > 0 && (
+        <span className="text-[11px] text-ink-soft">
+          vol{window ? ` ${window}` : ""} {usd(vol)}
+          {window && fees > 0 ? (
+            <>
+              {" · "}
+              <span className="text-mint">{usd(fees)} fees</span>
+            </>
+          ) : null}
+        </span>
+      )}
+    </>
+  );
+  if (!pictured) {
+    return (
+      <Link
+        href={mojiHref(m)}
+        className={`press relative flex flex-col items-center gap-1 text-center ${compact ? "clay-sm bg-sky-50 px-2 pb-4 pt-5" : "clay bg-white px-3 py-5"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
+      >
+        <DropsDot m={m} className="absolute right-3 top-3" />
+        <AgentDot m={m} className="absolute left-3 top-3" />
+        <span className="text-[44px] leading-none">{m.display}</span>
+        <span className={`heading mt-2 max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>
+          {m.display} / {m.stock_ticker}
+        </span>
+        {numbers}
+      </Link>
+    );
+  }
   return (
     <Link
       href={mojiHref(m)}
@@ -126,18 +150,7 @@ export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number
       <span className={`flex flex-col items-center gap-0.5 ${compact ? "px-2 pb-3 pt-2" : "px-3 pb-3.5 pt-2.5"}`}>
         <span className={`heading max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>{mojiTitle(m)}</span>
         {mojiSub(m) && <span className="max-w-full truncate text-[11px] text-ink-soft">{mojiSub(m)}</span>}
-        <span className={`heading text-ink-soft ${compact ? "text-[12px]" : "text-[13px]"}`}>{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
-        {(window || compact) && vol > 0 && (
-          <span className="text-[11px] text-ink-soft">
-            vol{window ? ` ${window}` : ""} {usd(vol)}
-            {window && fees > 0 ? (
-              <>
-                {" · "}
-                <span className="text-mint">{usd(fees)} fees</span>
-              </>
-            ) : null}
-          </span>
-        )}
+        {numbers}
       </span>
     </Link>
   );
@@ -147,7 +160,7 @@ export function McapRow({ m, rank }: { m: MojiRow; rank: number }) {
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-sky-50 px-4 py-3">
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
-      <MojiArt m={m} size={44} radius={14} />
+      <Face m={m} size={44} radius={14} emoji={30} />
       <span className="heading flex-1 text-[15px] text-ink">
         {mojiTitle(m)} <DropsPill m={m} className="ml-1 align-middle" />
         {mojiSub(m) && <span className="block text-[12px] text-ink-soft">{mojiSub(m)}</span>}
@@ -162,7 +175,7 @@ export function EarnerRow({ m, rank }: { m: MojiRow & { earnedUsd?: number }; ra
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-sky-50 px-4 py-3">
       <span className="heading w-5 text-[14px] text-ink-soft">{rank}</span>
-      <MojiArt m={m} size={44} radius={14} />
+      <Face m={m} size={44} radius={14} emoji={30} />
       <span className="heading flex-1 text-[15px] text-ink">
         {mojiTitle(m)} <DropsPill m={m} className="ml-1 align-middle" />
         {mojiSub(m) && <span className="block text-[12px] text-ink-soft">{mojiSub(m)}</span>}
@@ -182,7 +195,7 @@ export function MojiListRow({ m, window = "24h" }: { m: MojiRow; window?: VolWin
   const vol = volumeFor(m, window);
   return (
     <Link href={mojiHref(m)} className="press clay-sm flex items-center gap-3 bg-white px-4 py-3">
-      <MojiArt m={m} size={48} radius={14} />
+      <Face m={m} size={48} radius={14} emoji={32} />
       <span className="flex-1">
         <span className="heading block text-[15px] text-ink">
           {mojiTitle(m)} <DropsPill m={m} className="ml-1 align-middle" />

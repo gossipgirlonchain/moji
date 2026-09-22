@@ -8,7 +8,7 @@ import { CHAINS } from "@/config/chains";
 import { usd } from "@/lib/format";
 import { Pill } from "@/components/ui";
 import { ChainSelect } from "@/components/ChainSelect";
-import { CAPTION_GRADIENT, DropsDot, mojiHref } from "@/components/MojiBits";
+import { CAPTION_GRADIENT, DropsDot, Face, mojiHref } from "@/components/MojiBits";
 import { MojiArt } from "@/components/MojiArt";
 import { mojiTitle } from "@/lib/meme-coin";
 
@@ -149,6 +149,15 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
         </span>
       </header>
       <div className="grid grid-cols-[1.35fr_1fr] gap-3">
+        {!lead.meme_url && !lead.display.startsWith("$") ? (
+          <Link href={mojiHref(lead)} className="press clay-sm relative flex flex-col items-center justify-center gap-1 bg-sky-50 px-3 py-5 text-center">
+            <DropsDot m={lead} className="absolute right-3 top-3" />
+            <span className="text-[18px] leading-none">👑</span>
+            <span className="text-[60px] leading-none">{lead.display}</span>
+            <span className="num text-[34px] leading-none text-ink">{pct(share(lead))}</span>
+            <span className="text-[11px] text-ink-soft">{mcap(lead) > 0 ? usd(mcap(lead)) : "just launched"}</span>
+          </Link>
+        ) : (
         <Link href={mojiHref(lead)} className="press clay-sm relative block overflow-hidden bg-sky-50" title={lead.description ?? undefined}>
           <MojiArt m={lead} radius={0} badge={false} emojiSize={64} aspect="5 / 3" />
           <span className="absolute left-3 top-3 text-[20px] leading-none drop-shadow" aria-label="biggest moji for this stock">
@@ -163,10 +172,11 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
             <span className="num shrink-0 text-[26px] leading-none">{pct(share(lead))}</span>
           </span>
         </Link>
+        )}
         <div className="flex flex-col gap-2.5">
           {runners.map((m) => (
             <Link key={m.id} href={mojiHref(m)} className="press clay-sm relative flex flex-1 items-center gap-2.5 bg-sky-50 px-2.5 py-2">
-              <MojiArt m={m} size={44} radius={12} badge={false} />
+              <Face m={m} size={44} radius={12} emoji={30} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="heading truncate text-[14px] leading-tight text-ink">{m.kind === "meme" && m.name ? m.name : m.display}</span>
                 <span className="text-[11px] text-ink-soft">{mcap(m) > 0 ? usd(mcap(m)) : "just launched"}</span>
@@ -184,7 +194,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
             <div className="flex items-center gap-1.5 whitespace-nowrap px-1">
               {others.slice(0, 3).map((m) => (
                 <Link key={m.id} href={mojiHref(m)} className="press shrink-0" title={`${m.display} / ${m.stock_ticker}`}>
-                  <MojiArt m={m} size={28} radius={8} badge={false} emojiSize={16} />
+                  <Face m={m} size={28} radius={8} emoji={20} />
                 </Link>
               ))}
               <Link href={explore} className="press truncate text-[12px] text-sky-600">

@@ -21,11 +21,20 @@ const ago = (ts: number) => {
   const s = Math.max(0, Date.now() / 1000 - ts);
   return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
 };
-/** The picture cell: the meme when there is one, else the emoji on sky, always the same 40px square. */
+/** The face cell: the picture when there is one (40px square); else the bare glyphs, shrunk so 1, 2 or 3 emoji fit the same width. */
+const count = (s: string) => Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(s)).length;
 function Face({ m }: { m: Parameters<typeof MojiArt>[0]["m"] }) {
+  if (m.meme_url || m.display.startsWith("$")) {
+    return (
+      <span className="flex w-12 justify-center">
+        <MojiArt m={m} size={40} radius={12} badge={false} emojiSize={18} />
+      </span>
+    );
+  }
+  const n = count(m.display);
   return (
-    <span className="flex w-12 justify-center">
-      <MojiArt m={m} size={40} radius={12} badge={false} emojiSize={18} />
+    <span className="inline-block w-12 whitespace-nowrap text-center leading-none" style={{ fontSize: n >= 3 ? 14 : n === 2 ? 18 : 24 }}>
+      {m.display}
     </span>
   );
 }

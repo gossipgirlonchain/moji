@@ -3,8 +3,7 @@ import type { MojiRow } from "@/lib/supabase";
 import { usd } from "@/lib/format";
 import { chainById } from "@/config/chains";
 import { Label } from "@/components/ui";
-import { DropsDot, creatorLabel, mojiHref } from "@/components/MojiBits";
-import { MojiArt } from "@/components/MojiArt";
+import { DropsDot, Face, creatorLabel, mojiHref } from "@/components/MojiBits";
 import { mojiSub, mojiTitle } from "@/lib/meme-coin";
 
 /** Desktop row: the five biggest tokens as compact wide cards, the picture beside the numbers. */
@@ -24,7 +23,7 @@ export function TopMojis({ mojis }: { mojis: MojiRow[] }) {
           return (
             <Link key={m.id} href={mojiHref(m)} className={`press clay pop pop-${Math.min(5, i + 1)} relative flex items-center gap-4 bg-white px-5 py-4`} title={m.description ?? undefined}>
               <DropsDot m={m} className="absolute right-3 top-3" />
-              <MojiArt m={m} size={76} radius={18} eager />
+              <Face m={m} size={76} radius={18} emoji={52} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="heading truncate text-[17px] text-ink">{mojiTitle(m)}</span>
                 {mojiSub(m) && <span className="truncate text-[12px] text-ink-soft">{mojiSub(m)}</span>}
