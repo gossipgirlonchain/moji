@@ -16,14 +16,16 @@ import { Advanced } from "./Advanced";
 import { LaunchAction, LaunchActionDisabled } from "./LaunchAction";
 import { SolanaTease } from "./SolanaTease";
 import { Button } from "@/components/ui";
-import { MemePicker } from "@/components/MemePicker";
+import { MemeFields, memeReady, useMemeAvailability, type MemeDraft } from "./MemeFields";
+import { memeDisplay } from "@/lib/memecoin";
 
 export function LaunchFlow() {
   const [chain, setChain] = useState<MojiChain>(DEFAULT_CHAIN);
   const [stock, setStock] = useState<Stock | undefined>(undefined);
   const [emoji, setEmoji] = useState<string[]>([]);
   const [curve, setCurve] = useState<CurveDefaults>(CURVE_DEFAULTS);
-  const [meme, setMeme] = useState<File | null>(null);
+  const [kind, setKind] = useState<"moji" | "meme">("moji");
+  const [meme, setMeme] = useState<MemeDraft>({ name: "", symbol: "", file: null });
 
   // Easter egg: BNB turns the page gold. The palette is CSS variables on <html>, so one attribute retints
   // everything; `theme-fade` eases the colors and a soft gold gradient behind the page fades in with them.
@@ -43,13 +45,30 @@ export function LaunchFlow() {
   const tokens = useMemo(() => tokenNumeraires(chain), [chain]);
   const [tab, setTab] = useState<"stock" | "token">(stocks.length ? "stock" : "token");
   const combo = emoji.join("");
-  const { loading, result } = useAvailability(combo, chain.chainId, stock?.address);
-  const available = Boolean(combo && !loading && result?.valid && !result.claimed);
+  const { loading, result } = useAvailability(kind === "moji" ? combo : "", chain.chainId, stock?.address);
+  const memeCheck = useMemeAvailability(kind === "meme" ? meme.symbol : "", chain.chainId, stock?.address);
+  const available = kind === "meme" ? memeReady(meme, memeCheck.result, memeCheck.loading) : Boolean(combo && !loading && result?.valid && !result.claimed);
 
   return (
     <main className="flex flex-col gap-4">
       <div className="gold-sheen" aria-hidden />
-      <h1 className="pop text-center text-[30px] text-sky-600">launch a moji</h1>
+      <h1 className="pop text-center text-[30px] text-sky-600">launch a {kind}</h1>
+
+      {/* What you are launching: a moji (an emoji combo, claimed forever) or a meme (a regular memecoin: name, ticker, picture). */}
+      <div className="pop grid grid-cols-2 gap-2">
+        {(["moji", "meme"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKind(k)}
+            data-pressed={kind === k ? "true" : undefined}
+            className={`press clay heading flex flex-col items-center gap-0.5 px-4 py-3 ${kind === k ? "bg-sky-500 text-white" : "bg-white text-ink"}`}
+          >
+            <span className="text-[22px] uppercase tracking-[0.08em]">{k === "moji" ? "moji 🍏" : "meme 🐸"}</span>
+            <span className={`text-[12px] normal-case tracking-normal ${kind === k ? "text-white/85" : "text-ink-soft"}`}>{k === "moji" ? "1 to 3 emoji, claimed forever" : "name · ticker · picture"}</span>
+          </button>
+        ))}
+      </div>
 
       <Card pop={1}>
         <Label className="mb-3">1 · Chain</Label>
@@ -98,17 +117,20 @@ export function LaunchFlow() {
       </Card>
 
       <Card pop={3}>
-        <Label className="mb-3">3 · Your moji</Label>
-        <EmojiSlots emoji={emoji} onChange={setEmoji} chainId={chain.chainId} pair={stock?.address} ticker={stock?.ticker} />
-        <div className="mt-4">
-          <AvailabilityLine combo={combo} loading={loading} result={result} onPick={(c) => setEmoji(graphemes(c))} />
-        </div>
-      </Card>
-
-      <Card pop={4}>
-        <Label className="mb-1">4 · Meme <span className="normal-case tracking-normal text-ink-soft">· optional</span></Label>
-        <p className="mb-3 text-[13px] text-ink-soft">a picture for your moji. it becomes the token image, the share card and the tile everywhere. you can add or change it later.</p>
-        <MemePicker value={meme} onChange={setMeme} />
+        {kind === "moji" ? (
+          <>
+            <Label className="mb-3">3 · Your moji</Label>
+            <EmojiSlots emoji={emoji} onChange={setEmoji} chainId={chain.chainId} pair={stock?.address} ticker={stock?.ticker} />
+            <div className="mt-4">
+              <AvailabilityLine combo={combo} loading={loading} result={result} onPick={(c) => setEmoji(graphemes(c))} />
+            </div>
+          </>
+        ) : (
+          <>
+            <Label className="mb-3">3 · Your meme</Label>
+            <MemeFields value={meme} onChange={setMeme} chainId={chain.chainId} pair={stock?.address} />
+          </>
+        )}
       </Card>
 
       {chain.key === "solana" ? (
@@ -116,9 +138,9 @@ export function LaunchFlow() {
           Solana soon
         </Button>
       ) : PRIVY_ENABLED ? (
-        <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} meme={meme} />
+        <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} kind={kind} meme={kind === "meme" ? meme : null} />
       ) : (
-        <LaunchActionDisabled combo={combo} stock={stock} available={available} />
+        <LaunchActionDisabled combo={kind === "meme" ? memeDisplay(meme.symbol) : combo} stock={stock} available={available} />
       )}
 
       <Advanced value={curve} onChange={setCurve} />

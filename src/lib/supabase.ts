@@ -63,8 +63,13 @@ export type MojiRow = {
   fee_current: number | null;
   snapshot_at: string | null;
   image_url: string | null;
-  /** creator-uploaded meme (supabase/memes.sql); image_url mirrors it while set */
+  /** the picture (supabase/memes.sql): required for memes; image_url mirrors it while set */
   meme_url?: string | null;
+  /** "moji" (emoji combo) or "meme" (name + ticker + picture), supabase/memecoins.sql */
+  kind?: "moji" | "meme" | null;
+  /** memes only */
+  name?: string | null;
+  symbol?: string | null;
   metadata_url: string | null;
   /** community link shown on the moji page, set per moji */
   telegram_url?: string | null;

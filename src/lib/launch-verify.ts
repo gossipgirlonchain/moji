@@ -1,5 +1,5 @@
 import "server-only";
-import { decodeAbiParameters, decodeFunctionData, type Address, type Hex } from "viem";
+import { decodeAbiParameters, decodeFunctionData, erc20Abi, type Address, type Hex } from "viem";
 import { airlockAbi, getAddresses, parseAirlockCreateReceipt } from "@whetstone-research/doppler-sdk/evm";
 import { chainById } from "@/config/chains";
 import { MOJI_INTEGRATOR, MOJI_TREASURY, SHARE_PROTOCOL, SHARE_TREASURY } from "@/config/fees";
@@ -89,4 +89,22 @@ export async function verifyLaunchTx(input: { chainId: number; txHash: Hex; toke
   if (creatorShare === 0n) return { ok: false, reason: "creator is not a fee beneficiary" };
 
   return { ok: true, poolOrHook: created.poolOrHookAddress as Address, blockNumber: receipt.blockNumber };
+}
+
+/** MEME launches: the token on chain must carry exactly the name and ticker the creator submitted. */
+export async function verifyTokenIdentity(input: { chainId: number; tokenAddress: Address; name: string; symbol: string }): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const chain = chainById(input.chainId);
+  if (!chain?.viem) return { ok: false, reason: "unsupported chain" };
+  const pc = publicClientFor(chain.viem);
+  try {
+    const [name, symbol] = await Promise.all([
+      pc.readContract({ address: input.tokenAddress, abi: erc20Abi, functionName: "name" }),
+      pc.readContract({ address: input.tokenAddress, abi: erc20Abi, functionName: "symbol" }),
+    ]);
+    if (symbol !== input.symbol) return { ok: false, reason: `token symbol on chain is ${symbol}, not ${input.symbol}` };
+    if (name !== input.name) return { ok: false, reason: `token name on chain is "${name}", not "${input.name}"` };
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "could not read the token's name and symbol" };
+  }
 }

@@ -19,13 +19,22 @@ import { PostIt } from "@/components/PostIt";
 import Link from "next/link";
 import { SITE_URL } from "@/lib/network";
 import { uploadMeme } from "@/lib/meme-client";
+import { memeCombo, memeDisplay, memeMetaUrl } from "@/lib/memecoin";
+import type { MemeDraft } from "./MemeFields";
 import { MojiArt } from "@/components/MojiArt";
 
-type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults; meme?: File | null };
+type Props = { chain: MojiChain; stock?: Stock; combo: string; available: boolean; curve: CurveDefaults; kind?: "moji" | "meme"; meme?: MemeDraft | null };
 
 type Phase = "idle" | "pricing" | "signing" | "confirming" | "recording" | "done";
 
-export function LaunchAction({ chain, stock, combo, available, curve, meme }: Props) {
+export function LaunchAction({ chain, stock, combo: comboProp, available, curve, kind = "moji", meme }: Props) {
+  // What goes on chain as name/symbol: the combo for a moji, the ticker (and title) for a meme.
+  const isMeme = kind === "meme" && Boolean(meme);
+  const combo = isMeme ? memeDisplay(meme!.symbol) : comboProp;
+  const token = useMemo(
+    () => (isMeme && stock ? { name: meme!.name.trim(), symbol: meme!.symbol, tokenURI: memeMetaUrl(SITE_URL, meme!.symbol, chain.chainId, stock.address) } : undefined),
+    [isMeme, meme, stock, chain.chainId],
+  );
   const router = useRouter();
   const { ready, authenticated, user, login, linkTwitter, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
@@ -84,16 +93,16 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
       try {
         const provider = (await wallet.getEthereumProvider()) as EIP1193Provider;
         const price = await stockPriceUsd(stock);
-        const g = await estimateLaunchGasWei({ chain, stock, combo, creator: address as Address, provider, curve, stockPriceUsd: price });
+        const g = await estimateLaunchGasWei({ chain, stock, combo, token, creator: address as Address, provider, curve, stockPriceUsd: price });
         if (alive) setGasEstimate(g);
       } catch {}
     })();
     return () => {
       alive = false;
     };
-  }, [address, stock, available, wallet, chain, combo, curve]);
+  }, [address, stock, available, wallet, chain, combo, token, curve]);
 
-  const ok = Boolean(stock && available && combo);
+  const ok = Boolean(stock && available && combo && (!isMeme || (meme?.file && token)));
 
   async function onLaunch() {
     if (!wallet || !address || !stock || !chain.viem) return;
@@ -104,15 +113,16 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
       const price = await stockPriceUsd(stock);
 
       setPhase("signing");
-      const res = await launchMoji({ chain, stock, combo, creator: address as Address, provider, curve, stockPriceUsd: price });
+      const res = await launchMoji({ chain, stock, combo, token, creator: address as Address, provider, curve, stockPriceUsd: price });
 
       setPhase("recording");
-      const token = await getAccessToken();
+      const accessToken = await getAccessToken();
       const r = await fetch("/api/launch", {
         method: "POST",
-        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        headers: { "content-type": "application/json", ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify({
           combo,
+          ...(token ? { kind: "meme", name: token.name, symbol: token.symbol } : {}),
           chainId: chain.chainId,
           stockAddress: stock.address,
           tokenAddress: res.tokenAddress,
@@ -124,14 +134,14 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
       });
       const j = (await r.json()) as { href?: string; url?: string; error?: string };
       if (!r.ok) throw new Error(j.error ?? "Could not record launch");
-      // The meme rides along after the row exists (creator-only upload). Best effort: the moji page can add it later.
+      // A meme's picture rides along after the row exists (creator-only upload). Best effort: the meme page can add it later.
       let memeUrl: string | null = null;
       let memeError: string | null = null;
-      if (meme) {
+      if (isMeme && meme?.file) {
         try {
-          memeUrl = await uploadMeme({ combo, chainId: chain.chainId, pair: stock.address }, meme, token ? { token } : null);
+          memeUrl = await uploadMeme({ combo: memeCombo(chain.chainId, stock.address, meme.symbol), chainId: chain.chainId, pair: stock.address }, meme.file, accessToken ? { token: accessToken } : null);
         } catch (e) {
-          memeError = e instanceof Error ? e.message : "meme upload failed";
+          memeError = e instanceof Error ? e.message : "picture upload failed";
         }
       }
       setPhase("done");
@@ -169,11 +179,11 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
   if (done) {
     return (
       <div className="clay pop flex flex-col items-center gap-3 bg-white p-5 text-center">
-        {done.memeUrl ? <MojiArt m={{ display: done.combo, meme_url: done.memeUrl }} size={200} radius={24} /> : <div className="wobble text-[64px] leading-none">{done.combo}</div>}
+        {done.memeUrl ? <MojiArt m={{ display: done.combo, meme_url: done.memeUrl, kind: "meme" }} size={200} radius={24} /> : <div className="wobble text-[64px] leading-none">{done.combo}</div>}
         <p className="heading text-[22px] text-ink">
           {done.combo} / {done.ticker} is live.
         </p>
-        {done.memeError && <p className="text-[12px] text-coral">meme not saved ({done.memeError}). add it from your moji page.</p>}
+        {done.memeError && <p className="text-[12px] text-coral">picture not saved ({done.memeError}). add it from your meme page.</p>}
         <PostIt combo={done.combo} ticker={done.ticker} url={done.url} ca={done.ca} size="lg" />
         <Link href={done.href} className="press clay heading block w-full bg-sky-500 px-6 py-3.5 text-[17px] text-white">
           view your moji
@@ -207,7 +217,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme }: Pr
 
   const busy = phase !== "idle";
   const label = busy
-    ? { pricing: "Pricing…", signing: "Sign in your wallet…", confirming: "Confirming…", recording: "Claiming combo…", done: "Launched!" }[phase]
+    ? { pricing: "Pricing…", signing: "Sign in your wallet…", confirming: "Confirming…", recording: isMeme ? "Recording…" : "Claiming combo…", done: "Launched!" }[phase]
     : !hasGas && address
       ? "Not enough gas"
       : `LAUNCH ${preview}`;
@@ -238,7 +248,7 @@ export function LaunchActionDisabled({ combo, stock, available }: { combo: strin
   return (
     <div className="flex flex-col gap-2">
       <Button size="lg" disabled className="pop pop-4">
-        {combo && stock && available ? `LAUNCH ${combo} / ${stock.ticker}` : combo && !available ? "that combo is taken" : "pick a stock and an emoji"}
+        {combo && stock && available ? `LAUNCH ${combo} / ${stock.ticker}` : combo && !available ? "not ready yet" : "pick a stock and an emoji"}
       </Button>
       <p className="text-center text-[12px] text-ink-soft">login is off until NEXT_PUBLIC_PRIVY_APP_ID is set.</p>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { MojiArt } from "@/components/MojiArt";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -150,7 +151,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
         <Link href={mojiHref(lead)} className="press clay-sm relative flex flex-col items-center justify-center gap-1 bg-sky-50 px-3 py-5 text-center">
           <DropsDot m={lead} className="absolute right-3 top-3" />
           <span className="text-[18px] leading-none">👑</span>
-          <span className="text-[60px] leading-none">{lead.display}</span>
+          <MojiArt m={lead} size={60} radius={18} badge={false} />
           <span className="num text-[34px] leading-none text-ink">{pct(share(lead))}</span>
           <span className="text-[11px] text-ink-soft">{mcap(lead) > 0 ? usd(mcap(lead)) : "just launched"}</span>
         </Link>
@@ -158,7 +159,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
           {runners.map((m) => (
             <Link key={m.id} href={mojiHref(m)} className="press clay-sm relative flex flex-1 flex-col items-center justify-center gap-0.5 bg-sky-50 px-2 py-3 text-center">
               <DropsDot m={m} className="absolute right-2.5 top-2.5 !text-[16px]" />
-              <span className="text-[30px] leading-none">{m.display}</span>
+              <MojiArt m={m} size={30} radius={9} badge={false} />
               <span className="num text-[18px] leading-none text-ink">{pct(share(m))}</span>
             </Link>
           ))}

@@ -56,7 +56,7 @@ function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAdd
   }
 
   async function onRemove() {
-    if (!confirm("Remove the meme? The moji goes back to its emoji picture.")) return;
+    if (!confirm("Remove the picture? The meme shows its ticker until you add another.")) return;
     setBusy(true);
     setError(null);
     try {
@@ -72,7 +72,7 @@ function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAdd
   return (
     <div className="mt-3 flex flex-col items-center gap-1.5">
       <div className="flex items-center gap-2">
-        <MemePicker value={null} onChange={onPick} busy={busy} label={memeUrl ? "change meme" : "add a meme"} />
+        <MemePicker value={null} onChange={onPick} busy={busy} label={memeUrl ? "change picture" : "add a picture"} />
         {memeUrl && !busy && (
           <button type="button" onClick={() => void onRemove()} className="press clay-pill heading bg-white px-3 py-2 text-[13px] text-ink-soft">
             remove
