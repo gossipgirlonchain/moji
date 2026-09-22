@@ -13,7 +13,7 @@ import { MemeDetailsFields } from "./MemeDetailsFields";
 type Props = { mojiId: string; combo: string; chainId: number; pair: string; creatorDid: string | null; creatorAddress: string | null; memeUrl: string | null; details: MemeDetails };
 
 /**
- * On a moji page: the creator's "add a meme" / "change meme" / "remove" control, plus the meme's words and links
+ * On a token page: the creator's "add a picture" / "change picture" / "remove" control, plus the words and links
  * (description, X, Telegram, website) behind an "edit details" toggle. Renders nothing for everyone else.
  * The creator is the Privy user whose DID launched it (app launches) or the connected wallet that launched it
  * (wallet and agent launches, which sign a message instead).
@@ -62,14 +62,14 @@ function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAdd
   }
 
   async function onRemove() {
-    if (!confirm("Remove the meme? The moji goes back to its emoji picture.")) return;
+    if (!confirm("Remove the picture? The token goes back to its emoji picture.")) return;
     setBusy(true);
     setError(null);
     try {
       await deleteMeme(target, await auth(), mojiId);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not remove the meme");
+      setError(e instanceof Error ? e.message : "Could not remove the picture");
     } finally {
       setBusy(false);
     }
@@ -99,7 +99,7 @@ function CreatorMemeInner({ mojiId, combo, chainId, pair, creatorDid, creatorAdd
   return (
     <div className="mt-3 flex flex-col items-center gap-1.5">
       <div className="flex items-center gap-2">
-        <MemePicker value={null} onChange={onPick} busy={busy} label={memeUrl ? "change meme" : "add a meme"} />
+        <MemePicker value={null} onChange={onPick} busy={busy} label={memeUrl ? "change picture" : "add a picture"} />
         {memeUrl && !busy && (
           <button type="button" onClick={() => void onRemove()} className="press clay-pill heading bg-white px-3 py-2 text-[13px] text-ink-soft">
             remove

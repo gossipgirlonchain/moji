@@ -5,14 +5,16 @@ import { useMemo, useState } from "react";
 import type { MojiRow } from "@/lib/supabase";
 import { CHAINS } from "@/config/chains";
 import { MojiPicTile, hasHolderRewards, isAgentLaunch, volumeFor, type VolWindow } from "@/components/MojiBits";
+import { isMeme } from "@/lib/meme-coin";
 import { Pill } from "@/components/ui";
 import { ChainSelect } from "@/components/ChainSelect";
 import { ClaimsCounter } from "@/components/ClaimsCounter";
 
-type Sort = "trending" | "new" | "rewards" | "agents" | "mcap" | "fees";
+type Sort = "trending" | "new" | "memes" | "rewards" | "agents" | "mcap" | "fees";
 const SORTS: [Sort, string][] = [
   ["trending", "trending"],
   ["new", "just launched"],
+  ["memes", "🐸 memes"],
   ["rewards", "🪂 rewards"],
   ["agents", "🤖 agents"],
   ["mcap", "market cap"],
@@ -35,6 +37,7 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
   const list = useMemo(() => {
     let rows = chain ? mojis.filter((m) => m.chain_id === chain) : mojis.slice();
     if (sort === "rewards") rows = rows.filter((m) => hasHolderRewards(m));
+    if (sort === "memes") rows = rows.filter((m) => isMeme(m)).sort((a, b) => volumeFor(b, window) - volumeFor(a, window));
     if (sort === "agents") rows = rows.filter((m) => isAgentLaunch(m)).sort((a, b) => volumeFor(b, window) - volumeFor(a, window));
     const fees = (m: MojiRow) => Number(m.fees_total_usd ?? 0) || Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
     switch (sort) {
@@ -66,7 +69,7 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
           ))}
         </div>
         <div className="flex items-center gap-1.5">
-          {sort === "trending" &&
+          {(sort === "trending" || sort === "memes") &&
             (["1h", "6h", "24h", "all"] as VolWindow[]).map((w) => (
               <button key={w} type="button" onClick={() => setWindow(w)} data-pressed={window === w ? "true" : undefined} className={`press clay-pill heading px-3 py-1.5 text-[12px] ${window === w ? "bg-sky-500 text-white" : "bg-sky-50 text-ink"}`}>
                 {w === "all" ? "all time" : w}
@@ -80,7 +83,7 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
       ) : (
         <div className="grid grid-cols-4 gap-4">
           {list.slice(0, shown).map((m) => (
-            <MojiPicTile key={m.id} m={m} window={sort === "trending" || sort === "agents" ? window : "24h"} />
+            <MojiPicTile key={m.id} m={m} window={sort === "trending" || sort === "agents" || sort === "memes" ? window : "24h"} />
           ))}
         </div>
       )}

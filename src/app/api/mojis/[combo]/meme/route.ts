@@ -41,16 +41,16 @@ async function resolve(req: Request, ctx: { params: Promise<{ combo: string }> }
 
   const bearer = req.headers.get("authorization");
   if (bearer) {
-    if (!PRIVY_SERVER_CONFIGURED) return { error: NextResponse.json({ error: "Privy app secret not configured; memes need a verified creator" }, { status: 500 }) };
+    if (!PRIVY_SERVER_CONFIGURED) return { error: NextResponse.json({ error: "Privy app secret not configured; pictures need a verified creator" }, { status: 500 }) };
     const verified = await verifyPrivyToken(bearer);
     if (!verified || verified === "unconfigured") return { error: NextResponse.json({ error: "Not logged in" }, { status: 401 }) };
-    if (!m.creator_did || m.creator_did !== verified.did) return { error: NextResponse.json({ error: "Only the creator can change this moji's meme" }, { status: 403 }) };
+    if (!m.creator_did || m.creator_did !== verified.did) return { error: NextResponse.json({ error: "Only the creator can change this token's picture" }, { status: 403 }) };
     return { m, auth: { kind: "did", did: verified.did } as Auth };
   }
 
   const signer = sig.signer?.toLowerCase();
   if (signer && sig.signature) {
-    if (!m.creator_address || signer !== m.creator_address.toLowerCase()) return { error: NextResponse.json({ error: "Only the creator can change this moji's meme" }, { status: 403 }) };
+    if (!m.creator_address || signer !== m.creator_address.toLowerCase()) return { error: NextResponse.json({ error: "Only the creator can change this token's picture" }, { status: 403 }) };
     return { m, auth: { kind: "wallet", signer: sig.signer as Address, signature: sig.signature as Hex } as Auth };
   }
   return { error: NextResponse.json({ error: "Not logged in" }, { status: 401 }) };

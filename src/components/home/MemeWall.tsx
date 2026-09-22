@@ -6,7 +6,7 @@ import type { MojiRow } from "@/lib/supabase";
 import { Label } from "@/components/ui";
 import { MojiArt } from "@/components/MojiArt";
 import { mojiHref, volumeFor } from "@/components/MojiBits";
-import { mojiTitle } from "@/lib/meme-coin";
+import { isMeme, mojiTitle } from "@/lib/meme-coin";
 
 /** Pictures on the first paint; "show more" reveals the rest a page at a time. */
 const FIRST = 24;
@@ -21,11 +21,15 @@ const NEWEST = 12;
 export function MemeWall({ mojis }: { mojis: MojiRow[] }) {
   const [shown, setShown] = useState(FIRST);
   const list = useMemo(() => {
-    const memed = mojis.filter((m) => m.meme_url);
-    const newest = [...memed].sort((a, b) => new Date(b.launched_at).getTime() - new Date(a.launched_at).getTime()).slice(0, NEWEST);
-    const seen = new Set(newest.map((m) => m.id));
-    const hot = memed.filter((m) => !seen.has(m.id)).sort((a, b) => volumeFor(b, "24h") - volumeFor(a, "24h") || Number(b.market_cap_usd ?? 0) - Number(a.market_cap_usd ?? 0));
-    return [...newest, ...hot];
+    const pictured = mojis.filter((m) => m.meme_url);
+    const byNewest = (a: MojiRow, b: MojiRow) => new Date(b.launched_at).getTime() - new Date(a.launched_at).getTime();
+    // Memecoins lead, newest first; then the newest pictured mojis; then everything else by 24h volume.
+    const memes = pictured.filter((m) => isMeme(m)).sort(byNewest);
+    const seen = new Set(memes.map((m) => m.id));
+    const newest = pictured.filter((m) => !seen.has(m.id)).sort(byNewest).slice(0, NEWEST);
+    for (const m of newest) seen.add(m.id);
+    const hot = pictured.filter((m) => !seen.has(m.id)).sort((a, b) => volumeFor(b, "24h") - volumeFor(a, "24h") || Number(b.market_cap_usd ?? 0) - Number(a.market_cap_usd ?? 0));
+    return [...memes, ...newest, ...hot];
   }, [mojis]);
   if (list.length === 0) return null;
   return (
@@ -33,7 +37,7 @@ export function MemeWall({ mojis }: { mojis: MojiRow[] }) {
       <div className="flex items-baseline justify-between">
         <Label>Meme wall</Label>
         <span className="heading text-[13px] text-sky-600">
-          {list.length} meme{list.length === 1 ? "" : "s"} · newest first, then hottest
+          {list.length} picture{list.length === 1 ? "" : "s"} · memecoins first, then the newest mojis, then the hottest
         </span>
       </div>
       <div className="grid grid-cols-6 gap-3">

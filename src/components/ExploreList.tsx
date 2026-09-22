@@ -6,6 +6,7 @@ import { MojiTile, volumeFor, type VolWindow } from "./MojiBits";
 import { Pill } from "./ui";
 import { CHAINS } from "@/config/chains";
 import { ChainSelect } from "./ChainSelect";
+import { isMeme } from "@/lib/meme-coin";
 
 const SORTS = [
   ["mcap", "market cap"],
@@ -21,6 +22,7 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
   const [window, setWindow] = useState<VolWindow>("24h");
   const [q, setQ] = useState(initialQ);
   const [chain, setChain] = useState<number | null>(null);
+  const [kind, setKind] = useState<"all" | "memes" | "mojis">("all");
   const chains = useMemo(() => {
     const present = new Set(rows.map((m) => m.chain_id));
     return CHAINS.filter((c) => present.has(c.chainId));
@@ -39,10 +41,11 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
 
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
-    const byChain = chain ? rows.filter((m) => m.chain_id === chain) : rows;
+    const byKind = kind === "all" ? rows : rows.filter((m) => (kind === "memes") === isMeme(m));
+    const byChain = chain ? byKind.filter((m) => m.chain_id === chain) : byKind;
     const base = t ? byChain.filter((m) => m.display.toLowerCase().includes(t) || m.stock_ticker.toLowerCase().includes(t) || (m.name ?? "").toLowerCase().includes(t)) : byChain;
     return sort === "volume" ? [...base].sort((a, b) => volumeFor(b, window) - volumeFor(a, window)) : base;
-  }, [rows, q, sort, window, chain]);
+  }, [rows, q, sort, window, chain, kind]);
 
   return (
     // Phone: stacked controls and a 2-wide grid. Desktop: the controls share one row and the pictures run 5 wide.
@@ -65,6 +68,13 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
             className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${window === w ? "bg-sky-500 text-white" : "bg-white text-ink"}`}
           >
             {w === "all" ? "all time" : w}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        {(["all", "memes", "mojis"] as const).map((k) => (
+          <button key={k} type="button" onClick={() => setKind(k)} data-pressed={kind === k ? "true" : undefined} className={`press clay-pill heading px-3.5 py-1.5 text-[13px] ${kind === k ? "bg-sky-500 text-white" : "bg-white text-ink"}`}>
+            {k === "all" ? "all" : k === "memes" ? "🐸 memes" : "🍏 mojis"}
           </button>
         ))}
       </div>

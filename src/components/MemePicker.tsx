@@ -12,8 +12,8 @@ export function MemePicker({
   previewUrl,
   onChange,
   busy,
-  label = "add a meme",
-  changeLabel = "change meme",
+  label = "add a picture",
+  changeLabel = "change picture",
   className = "",
 }: {
   value: File | null;

@@ -541,14 +541,14 @@ function TreasuryWallet() {
 /** Admin takedown for a creator meme (DELETE /api/mojis/[combo]/meme with the admin cookie). */
 function MemeTakedown({ m }: { m: Pick<MojiRow, "display" | "chain_id" | "stock_address" | "meme_url"> }) {
   const [state, setState] = useState<"idle" | "busy" | "gone" | "error">("idle");
-  if (state === "gone") return <span className="ml-2 text-[11px] text-ink-soft">meme removed</span>;
+  if (state === "gone") return <span className="ml-2 text-[11px] text-ink-soft">picture removed</span>;
   return (
     <button
       type="button"
       disabled={state === "busy"}
-      title="remove the creator's meme"
+      title="remove the creator's picture"
       onClick={async () => {
-        if (!confirm(`Remove the meme on ${m.display}?`)) return;
+        if (!confirm(`Remove the picture on ${m.display}?`)) return;
         setState("busy");
         try {
           await deleteMeme({ combo: m.display, chainId: m.chain_id, pair: m.stock_address }, null);
@@ -559,7 +559,7 @@ function MemeTakedown({ m }: { m: Pick<MojiRow, "display" | "chain_id" | "stock_
       }}
       className="press clay-pill heading ml-2 bg-coral px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-white disabled:opacity-60"
     >
-      {state === "error" ? "retry meme ✕" : "meme ✕"}
+      {state === "error" ? "retry picture ✕" : "picture ✕"}
     </button>
   );
 }

@@ -133,7 +133,7 @@ export function LaunchFlow() {
 
           <Card pop={4}>
             <Label className="mb-1">4 · Picture <span className="normal-case tracking-normal text-ink-soft">· optional</span></Label>
-            <p className="mb-3 text-[13px] text-ink-soft">a picture for your moji. it becomes the token image, the share card and the tile everywhere. a line about it and your links show on the moji page. you can add or change all of it later.</p>
+            <p className="mb-3 text-[13px] text-ink-soft">a picture for your moji. it becomes the token image, the share card and the tile everywhere. a line about it and your links show on its page. you can add or change all of it later.</p>
             <MemePicker value={meme} onChange={setMeme} />
             <MemeDetailsFields value={details} onChange={setDetails} className="mt-3" />
           </Card>
@@ -145,7 +145,7 @@ export function LaunchFlow() {
           <div className="mt-3">
             <AvailabilityLine combo={combo} loading={loading} result={result} onPick={() => {}} empty={memeHint && !combo ? memeHint : "pick a ticker"} taken="ticker taken on this pair" />
           </div>
-          <p className="mb-3 mt-4 text-[13px] text-ink-soft">the picture is the token image, the share card and the tile everywhere. a line about it and your links show on the meme page.</p>
+          <p className="mb-3 mt-4 text-[13px] text-ink-soft">the picture is the token image, the share card and the tile everywhere. a line about it and your links show on its page.</p>
           <MemePicker value={meme} onChange={setMeme} label="add the picture" />
           {combo && memeHint && <p className="heading mt-2 text-center text-[13px] text-ink-soft">{memeHint}</p>}
           <MemeDetailsFields value={details} onChange={setDetails} className="mt-3" />

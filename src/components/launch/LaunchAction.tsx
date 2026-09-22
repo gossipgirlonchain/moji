@@ -143,7 +143,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
       });
       const j = (await r.json()) as { href?: string; url?: string; error?: string };
       if (!r.ok) throw new Error(j.error ?? "Could not record launch");
-      // The meme rides along after the row exists (creator-only upload). Best effort: the moji page can add it later.
+      // The picture rides along after the row exists (creator-only upload). Best effort: the token page can add it later.
       let memeUrl: string | null = null;
       let memeError: string | null = null;
       const memeTarget = { combo, chainId: chain.chainId, pair: stock.address };
