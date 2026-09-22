@@ -4,7 +4,6 @@ import { Wordmark } from "@/components/Wordmark";
 import { McapRow } from "@/components/MojiBits";
 import { HomeTiles } from "@/components/HomeTiles";
 import { claimsCount, listMojis } from "@/lib/data";
-import { MemeWall } from "@/components/home/MemeWall";
 import { StockTicker } from "@/components/home/StockTicker";
 import { TopMojis } from "@/components/home/TopMojis";
 import { HomeExplore } from "@/components/home/HomeExplore";
@@ -14,13 +13,7 @@ import { HomeViews } from "@/components/home/HomeViews";
 export const revalidate = 30;
 
 export default async function Home() {
-  const [count, top, recent, all, memes] = await Promise.all([
-    claimsCount(),
-    listMojis({ sort: "mcap", limit: 16 }),
-    listMojis({ sort: "newest", limit: 16 }),
-    listMojis({ sort: "mcap", limit: 500 }),
-    listMojis({ sort: "newest", limit: 120, withMeme: true }),
-  ]);
+  const [count, top, recent, all] = await Promise.all([claimsCount(), listMojis({ sort: "mcap", limit: 16 }), listMojis({ sort: "newest", limit: 16 }), listMojis({ sort: "mcap", limit: 500 })]);
 
   return (
     <>
@@ -35,7 +28,6 @@ export default async function Home() {
             LAUNCH A MOJI 🚀
           </Link>
         </div>
-        <MemeWall mojis={memes} />
         <StockTicker mojis={all} />
         <HomeViews
           stocks={<StockEcosystem mojis={all} />}
