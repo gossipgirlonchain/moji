@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { MojiRow } from "@/lib/supabase";
 
-type Art = Pick<MojiRow, "display"> & { meme_url?: string | null };
+type Art = Pick<MojiRow, "display"> & { meme_url?: string | null; kind?: string | null };
 
 /**
  * The picture of a moji: the creator's meme when there is one, else the emoji on the sky gradient.
@@ -41,6 +41,18 @@ export function MojiArt({
             {m.display}
           </span>
         )}
+      </span>
+    );
+  }
+  if (m.kind === "meme") {
+    // A MEME launch with no picture yet: its ticker on the sky tile, in the heading face.
+    const font = size ? Math.max(10, Math.round(size * 0.26)) : 28;
+    return (
+      <span
+        className={`heading flex items-center justify-center overflow-hidden px-1 text-ink ${fluid} ${className}`}
+        style={{ ...box, background: "linear-gradient(145deg, var(--sky-50) 0%, var(--sky-200) 55%, var(--sky-300) 100%)", fontSize: font, lineHeight: 1 }}
+      >
+        <span className="max-w-full truncate">{m.display}</span>
       </span>
     );
   }

@@ -47,3 +47,9 @@ returns bigint language sql stable as $$ select count(*) from public.claims $$;
 -- Creator memes (supabase/memes.sql)
 alter table public.mojis add column if not exists image_url text;
 alter table public.mojis add column if not exists meme_url text;
+
+-- MEME launches (supabase/memecoins.sql)
+alter table public.mojis add column if not exists kind text not null default 'moji';
+alter table public.mojis add column if not exists name text;
+alter table public.mojis add column if not exists symbol text;
+alter table public.mojis add constraint mojis_kind_check check (kind in ('moji', 'meme'));

@@ -9,6 +9,8 @@ import { verifyLaunchTx } from "@/lib/launch-verify";
 import { findNumeraire, chainLaunchable } from "@/lib/numeraire";
 import { chainById } from "@/config/chains";
 import { recordLaunch } from "@/lib/record-launch";
+import { verifyTokenIdentity } from "@/lib/launch-verify";
+import { validateMemeName, validateMemeSymbol } from "@/lib/memecoin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,6 +28,10 @@ type Body = {
   creatorAddress: string;
   /** Wallet path only: the launcher says it is an autonomous agent. Shown as 🤖 on the moji. */
   agent?: boolean;
+  /** MEME launch: a traditional memecoin. `combo` is ignored; name + symbol are checked against the token on chain. */
+  kind?: "moji" | "meme";
+  name?: string;
+  symbol?: string;
 };
 
 type Identity = { kind: "x"; did: string; handle: string | null } | { kind: "wallet" | "agent"; did: null; handle: null };
@@ -56,8 +62,19 @@ export async function POST(req: Request) {
     return fail("Body must be JSON", "BAD_JSON", 400);
   }
 
-  const v = validateCombo(body.combo ?? "");
-  if (!v.ok) return fail(v.reason, "BAD_COMBO", 400);
+  const isMeme = body.kind === "meme";
+  let meme: { name: string; symbol: string } | undefined;
+  let v: ReturnType<typeof validateCombo> | undefined;
+  if (isMeme) {
+    const n = validateMemeName(body.name ?? "");
+    if (!n.ok) return fail(n.reason, "BAD_NAME", 400);
+    const sy = validateMemeSymbol(body.symbol ?? "");
+    if (!sy.ok) return fail(sy.reason, "BAD_SYMBOL", 400);
+    meme = { name: n.name, symbol: sy.symbol };
+  } else {
+    v = validateCombo(body.combo ?? "");
+    if (!v.ok) return fail(v.reason, "BAD_COMBO", 400);
+  }
 
   const chain = chainById(Number(body.chainId));
   if (!chain || !chainLaunchable(chain)) return fail("That chain is not live yet", "CHAIN_NOT_LIVE", 400);
@@ -97,6 +114,10 @@ export async function POST(req: Request) {
   // The chain is the source of truth for what was launched: creator, token, pair, fee beneficiaries, integrator.
   const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash: body.txHash as `0x${string}`, tokenAddress: body.tokenAddress as `0x${string}`, creatorAddress: body.creatorAddress as `0x${string}`, numeraire: stock.address });
   if (!proof.ok) return fail(`Launch not verified on-chain: ${proof.reason}`, proof.reason.includes("not found") ? "TX_NOT_FOUND" : "TX_NOT_VERIFIED", 422);
+  if (meme) {
+    const id = await verifyTokenIdentity({ chainId: chain.chainId, tokenAddress: body.tokenAddress as `0x${string}`, name: meme.name, symbol: meme.symbol });
+    if (!id.ok) return fail(`Launch not verified on-chain: ${id.reason}`, "TX_NOT_VERIFIED", 422);
+  }
 
   const sb = supabaseServer();
 
@@ -111,7 +132,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const rec = await recordLaunch({ v, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
+  const rec = await recordLaunch({ v: v && v.ok ? v : undefined, meme, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
   if (!rec.ok) return fail(rec.error, rec.code, rec.status);
   return NextResponse.json({ moji: rec.moji, href: rec.href, url: rec.url, handle: who.handle, creatorKind: who.kind });
 }

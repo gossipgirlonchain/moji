@@ -50,8 +50,23 @@ export function renderTokenImage(combo: string, size = 512): ImageResponse {
   );
 }
 
-/** 1200x630 Open Graph card: the meme (or the emoji circle), "🍏 / AAPL", wordmark. */
-export async function renderOgImage(combo: string, ticker: string, memeUrl?: string | null): Promise<ImageResponse> {
+/** 512x512 placeholder for a MEME launch with no picture yet: the ticker on the sky clay circle. */
+export function renderMemePlaceholder(display: string, size = 512): ImageResponse {
+  const fontSize = Math.min(size * 0.28, (size * 0.78) / Math.max(3, display.length) * 1.7);
+  return new ImageResponse(
+    (
+      <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent" }}>
+        <div style={{ width: size * 0.9, height: size * 0.9, borderRadius: 9999, background: SKY_GRADIENT, boxShadow: CLAY_SHADOW, display: "flex", alignItems: "center", justifyContent: "center", fontSize, fontWeight: 700, color: INK, letterSpacing: "-0.02em" }}>
+          {display}
+        </div>
+      </div>
+    ),
+    { width: size, height: size },
+  );
+}
+
+/** 1200x630 Open Graph card: the meme (or the emoji circle), "🍏 / AAPL", wordmark. `name` is a MEME launch's title. */
+export async function renderOgImage(combo: string, ticker: string, memeUrl?: string | null, name?: string | null): Promise<ImageResponse> {
   const wordmark = await wordmarkDataUrl();
   const art = memeUrl ? (
     <div style={{ width: 360, height: 360, borderRadius: 48, overflow: "hidden", boxShadow: CLAY_SHADOW, display: "flex", position: "relative", background: SKY[100] }}>
@@ -108,11 +123,12 @@ export async function renderOgImage(combo: string, ticker: string, memeUrl?: str
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 18 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={wordmark} width={300} height={155} alt="moji" style={{ objectFit: "contain" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 84, fontWeight: 700, color: INK }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: combo.length > 6 ? 64 : 84, fontWeight: 700, color: INK }}>
               <span>{combo}</span>
               <span style={{ color: INK_SOFT }}>/</span>
               <span>{ticker}</span>
             </div>
+            {name ? <div style={{ color: INK, fontSize: 30, fontWeight: 700 }}>{name}</div> : null}
             <div style={{ color: INK_SOFT, fontSize: 26, fontWeight: 700 }}>moji.wtf</div>
           </div>
         </div>

@@ -5,11 +5,8 @@ import { dropsAllowlisted } from "@/config/drops";
 import { chainById } from "@/config/chains";
 import { MojiArt } from "./MojiArt";
 
-/** Same ticker can exist on several chains (AAPL on Robinhood, Ethereum, Arbitrum), so non-Robinhood links carry the chain id. */
-export function mojiHref(m: Pick<MojiRow, "display" | "stock_ticker"> & { chain_id?: number }) {
-  const base = `/m/${encodeURIComponent(m.display)}/${encodeURIComponent(m.stock_ticker)}`;
-  return m.chain_id && m.chain_id !== 4663 ? `${base}/${m.chain_id}` : base;
-}
+import { mojiHref } from "@/lib/hrefs";
+export { mojiHref };
 
 type RewardsKey = Pick<MojiRow, "combo" | "stock_ticker" | "chain_id" | "drops_active" | "rewards_badge">;
 

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { hasSupabase, supabaseServer, type MojiRow, type ClaimRow } from "./supabase";
 import { normalizeCombo } from "./emoji";
 import { NETWORK } from "./network";
+import { memeCombo, normalizeSymbol } from "./memecoin";
 
 export type SortKey = "newest" | "mcap" | "fees" | "volume";
 export type Window = "1h" | "6h" | "24h" | "all";
@@ -105,3 +106,20 @@ export async function topEarnersFast(limit = 3): Promise<(MojiRow & { earnedUsd:
     .sort((a, b) => b.earnedUsd - a.earnedUsd)
     .slice(0, limit);
 }
+
+/** A MEME launch by ticker on a pair (address or listed ticker) and chain. Without a pair, the earliest launch of that ticker. */
+export const getMeme = cache(async (symbolInput: string, pair: string | null = null, chainId: number | null = null): Promise<MojiRow | null> => {
+  if (!hasSupabase()) return null;
+  const symbol = normalizeSymbol(symbolInput);
+  if (!symbol) return null;
+  const sb = supabaseServer();
+  if (pair && chainId && /^0x[0-9a-fA-F]{40}$/.test(pair)) {
+    const { data } = await sb.from("mojis").select("*").eq("combo", memeCombo(chainId, pair, symbol)).eq("network", NETWORK).limit(1);
+    return ((data ?? [])[0] as MojiRow) ?? null;
+  }
+  let q = sb.from("mojis").select("*").eq("kind", "meme").eq("symbol", symbol).eq("network", NETWORK);
+  if (pair) q = /^0x[0-9a-fA-F]{40}$/.test(pair) ? q.ilike("stock_address", pair) : q.ilike("stock_ticker", pair);
+  if (chainId) q = q.eq("chain_id", chainId);
+  const { data } = await q.order("launched_at", { ascending: true }).limit(1);
+  return ((data ?? [])[0] as MojiRow) ?? null;
+});

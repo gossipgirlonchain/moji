@@ -21,6 +21,7 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
   const [window, setWindow] = useState<VolWindow>("24h");
   const [q, setQ] = useState(initialQ);
   const [chain, setChain] = useState<number | null>(null);
+  const [kind, setKind] = useState<"all" | "moji" | "meme">("all");
   const chains = useMemo(() => {
     const present = new Set(rows.map((m) => m.chain_id));
     return CHAINS.filter((c) => present.has(c.chainId));
@@ -39,10 +40,11 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
 
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
-    const byChain = chain ? rows.filter((m) => m.chain_id === chain) : rows;
+    const byKind = kind === "all" ? rows : rows.filter((m) => (m.kind ?? "moji") === kind);
+    const byChain = chain ? byKind.filter((m) => m.chain_id === chain) : byKind;
     const base = t ? byChain.filter((m) => m.display.includes(t) || m.stock_ticker.toLowerCase().includes(t)) : byChain;
     return sort === "volume" ? [...base].sort((a, b) => volumeFor(b, window) - volumeFor(a, window)) : base;
-  }, [rows, q, sort, window, chain]);
+  }, [rows, q, sort, window, chain, kind]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -67,7 +69,14 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
           </button>
         ))}
       </div>
-      <ChainSelect chains={chains} value={chain} onChange={setChain} className="self-start" />
+      <div className="flex items-center gap-2">
+        {(["all", "moji", "meme"] as const).map((k) => (
+          <Pill key={k} active={kind === k} onClick={() => setKind(k)} className="px-3.5 py-1.5 text-[13px]">
+            {k === "all" ? "all" : k === "moji" ? "mojis" : "memes"}
+          </Pill>
+        ))}
+        <ChainSelect chains={chains} value={chain} onChange={setChain} className="ml-auto" />
+      </div>
       {list.length === 0 ? (
         <p className="py-6 text-center text-[14px] text-ink-soft">No mojis match.</p>
       ) : (

@@ -81,6 +81,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ combo: string 
   const r = await resolve(req, ctx, sig);
   if ("error" in r) return r.error;
   const m = r.m;
+  if (m.kind !== "meme") return NextResponse.json({ error: "Only MEME launches carry a picture; a moji is its emoji" }, { status: 400 });
 
   if (!file || file.size === 0) return NextResponse.json({ error: "No picture attached" }, { status: 400 });
   if (file.size > MEME_MAX_BYTES) return NextResponse.json({ error: "Pictures are capped at 4 MB" }, { status: 413 });
