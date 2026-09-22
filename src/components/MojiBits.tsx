@@ -100,23 +100,24 @@ export function creatorLabel(m: Pick<MojiRow, "creator_handle" | "creator_addres
 export const CAPTION_GRADIENT = "linear-gradient(to top, rgba(18, 64, 92, 0.86) 0%, rgba(18, 64, 92, 0.55) 55%, rgba(18, 64, 92, 0) 100%)";
 
 /**
- * Tile: with a picture, the picture as a square with the name and numbers under it; without one, the original
- * tile, the emoji large over the name. `window` adds the volume and fees line.
+ * Tile: always a square. With a picture, the picture fills it and the name and numbers sit over the bottom;
+ * without one, the emoji large over the name, as before. Same footprint either way, so grids stay even.
  */
 export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number; compact?: boolean; window?: VolWindow }) {
   const vol = window ? volumeFor(m, window) : Number(m.volume24_usd ?? 0);
   const fees = Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
   const pictured = Boolean(m.meme_url) || m.display.startsWith("$");
-  const numbers = (
+  const box = `press relative flex aspect-square flex-col items-center justify-center overflow-hidden text-center ${compact ? "clay-sm bg-sky-50" : "clay bg-white"} ${pop !== undefined ? `pop pop-${pop}` : ""}`;
+  const numbers = (over: boolean) => (
     <>
-      <span className={`heading text-ink-soft ${compact ? "text-[12px]" : "text-[13px]"}`}>{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
+      <span className={`heading ${over ? "text-white/90" : "text-ink-soft"} ${compact ? "text-[12px]" : "text-[13px]"}`}>{Number(m.market_cap_usd ?? 0) > 0 ? `mcap ${usd(m.market_cap_usd)}` : "just launched"}</span>
       {(window || compact) && vol > 0 && (
-        <span className="text-[11px] text-ink-soft">
+        <span className={`text-[11px] ${over ? "text-white/85" : "text-ink-soft"}`}>
           vol{window ? ` ${window}` : ""} {usd(vol)}
           {window && fees > 0 ? (
             <>
               {" · "}
-              <span className="text-mint">{usd(fees)} fees</span>
+              <span className={over ? "text-white" : "text-mint"}>{usd(fees)} fees</span>
             </>
           ) : null}
         </span>
@@ -125,32 +126,26 @@ export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number
   );
   if (!pictured) {
     return (
-      <Link
-        href={mojiHref(m)}
-        className={`press relative flex flex-col items-center gap-1 text-center ${compact ? "clay-sm bg-sky-50 px-2 pb-4 pt-5" : "clay bg-white px-3 py-5"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
-      >
+      <Link href={mojiHref(m)} className={`${box} gap-1 px-2`}>
         <DropsDot m={m} className="absolute right-3 top-3" />
         <AgentDot m={m} className="absolute left-3 top-3" />
         <span className="text-[44px] leading-none">{m.display}</span>
         <span className={`heading mt-2 max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>
           {m.display} / {m.stock_ticker}
         </span>
-        {numbers}
+        {numbers(false)}
       </Link>
     );
   }
   return (
-    <Link
-      href={mojiHref(m)}
-      className={`press relative flex flex-col overflow-hidden text-center ${compact ? "clay-sm bg-sky-50" : "clay bg-white"} ${pop !== undefined ? `pop pop-${pop}` : ""}`}
-    >
-      <MojiArt m={m} radius={0} emojiSize={compact ? 56 : 72} />
+    <Link href={mojiHref(m)} className={box} title={m.description ?? undefined}>
+      <MojiArt m={m} radius={0} badge={false} emojiSize={compact ? 56 : 72} />
       <DropsDot m={m} className="absolute right-2.5 top-2.5 drop-shadow" />
       <AgentDot m={m} className="absolute left-2.5 top-2.5 drop-shadow" />
-      <span className={`flex flex-col items-center gap-0.5 ${compact ? "px-2 pb-3 pt-2" : "px-3 pb-3.5 pt-2.5"}`}>
-        <span className={`heading max-w-full truncate text-ink ${compact ? "text-[13px]" : "text-[15px]"}`}>{mojiTitle(m)}</span>
-        {mojiSub(m) && <span className="max-w-full truncate text-[11px] text-ink-soft">{mojiSub(m)}</span>}
-        {numbers}
+      <span className={`absolute inset-x-0 bottom-0 flex flex-col items-center gap-0.5 text-white ${compact ? "px-2 pb-2.5 pt-8" : "px-3 pb-3 pt-10"}`} style={{ background: CAPTION_GRADIENT }}>
+        <span className={`heading max-w-full truncate leading-tight ${compact ? "text-[13px]" : "text-[15px]"}`}>{mojiTitle(m)}</span>
+        {mojiSub(m) && <span className="max-w-full truncate text-[11px] leading-tight text-white/85">{mojiSub(m)}</span>}
+        {numbers(true)}
       </span>
     </Link>
   );
