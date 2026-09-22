@@ -87,7 +87,7 @@ export default async function MojiPage({ params }: { params: Params }) {
     // Phone: one column, top to bottom. Desktop (≥1024px): two columns, meme hero and chart on the left,
     // trade, fees, drops, post-it and details on the right. The column wrappers are `contents` below lg,
     // so the phone flow is exactly the single column it was.
-    <main className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+    <main className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
       <div className="contents lg:flex lg:flex-col lg:gap-4">
         <div className="pop text-center">
           {m.meme_url ? <MemeHero src={m.meme_url} display={m.display} /> : meme ? <div className="heading text-[56px] leading-none text-sky-600">{m.display}</div> : <div className="wobble text-[96px] leading-none">{m.display}</div>}

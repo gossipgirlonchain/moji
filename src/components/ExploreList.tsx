@@ -48,7 +48,7 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
   }, [rows, q, sort, window, chain, kind]);
 
   return (
-    // Phone: stacked controls and a 2-wide grid. Desktop: the controls share one row and the pictures run 5 wide.
+    // Phone: stacked controls and a 2-wide grid. Desktop: the controls share one row and the pictures run 6 wide.
     <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
       <input className="clay-input lg:max-w-[300px]" placeholder="Search emoji or ticker" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex gap-2">
@@ -82,7 +82,7 @@ export function ExploreList({ initial, initialQ = "" }: { initial: MojiRow[]; in
       {list.length === 0 ? (
         <p className="py-6 text-center text-[14px] text-ink-soft lg:basis-full">No mojis match.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 lg:basis-full lg:grid-cols-5 lg:gap-4">
+        <div className="grid grid-cols-2 gap-3 lg:basis-full lg:grid-cols-6 lg:gap-3.5">
           {list.map((m) => (
             <MojiTile key={m.id} m={m} window={window} />
           ))}

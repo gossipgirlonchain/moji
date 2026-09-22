@@ -150,7 +150,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
       </header>
       <div className="grid grid-cols-[1.35fr_1fr] gap-3">
         <Link href={mojiHref(lead)} className="press clay-sm relative block overflow-hidden bg-sky-50" title={lead.description ?? undefined}>
-          <MojiArt m={lead} radius={0} badge={false} emojiSize={88} />
+          <MojiArt m={lead} radius={0} badge={false} emojiSize={64} aspect="5 / 3" />
           <span className="absolute left-3 top-3 text-[20px] leading-none drop-shadow" aria-label="biggest moji for this stock">
             👑
           </span>
@@ -160,7 +160,7 @@ function StockCard({ g, pop }: { g: StockGroup; pop: number }) {
               <span className="heading truncate text-[15px] leading-tight">{mojiTitle(lead)}</span>
               <span className="text-[11px] leading-tight text-white/85">{mcap(lead) > 0 ? usd(mcap(lead)) : "just launched"}</span>
             </span>
-            <span className="num shrink-0 text-[30px] leading-none">{pct(share(lead))}</span>
+            <span className="num shrink-0 text-[26px] leading-none">{pct(share(lead))}</span>
           </span>
         </Link>
         <div className="flex flex-col gap-2.5">

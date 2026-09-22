@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { MojiRow } from "@/lib/supabase";
 import { CHAINS } from "@/config/chains";
-import { MojiPicTile, hasHolderRewards, isAgentLaunch, volumeFor, type VolWindow } from "@/components/MojiBits";
+import { MojiTile, hasHolderRewards, isAgentLaunch, volumeFor, type VolWindow } from "@/components/MojiBits";
 import { isMeme } from "@/lib/meme-coin";
 import { Pill } from "@/components/ui";
 import { ChainSelect } from "@/components/ChainSelect";
@@ -20,9 +20,9 @@ const SORTS: [Sort, string][] = [
   ["mcap", "market cap"],
   ["fees", "fees"],
 ];
-const PAGE = 16;
+const PAGE = 18;
 
-/** Desktop explore block on the home page: filters, chain pills, 4-wide picture grid (vol, fees and holders on hover). */
+/** Desktop explore block on the home page: filters, chain pills, 6-wide grid of compact picture tiles. */
 export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number }) {
   const [sort, setSort] = useState<Sort>("trending");
   const [window, setWindow] = useState<VolWindow>("24h");
@@ -81,9 +81,9 @@ export function HomeExplore({ mojis, count }: { mojis: MojiRow[]; count: number 
       {list.length === 0 ? (
         <p className="py-6 text-center text-[14px] text-ink-soft">No mojis match.</p>
       ) : (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-6 gap-3.5">
           {list.slice(0, shown).map((m) => (
-            <MojiPicTile key={m.id} m={m} window={sort === "trending" || sort === "agents" || sort === "memes" ? window : "24h"} />
+            <MojiTile key={m.id} m={m} compact window={sort === "trending" || sort === "agents" || sort === "memes" ? window : "24h"} />
           ))}
         </div>
       )}

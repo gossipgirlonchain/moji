@@ -17,6 +17,7 @@ export function MojiArt({
   emojiSize,
   badge = true,
   eager = false,
+  aspect,
   className = "",
 }: {
   m: Art;
@@ -28,10 +29,12 @@ export function MojiArt({
   badge?: boolean;
   /** above the fold: load the picture right away instead of lazily */
   eager?: boolean;
+  /** fluid art only: a CSS aspect ratio other than the square, like "5 / 3" */
+  aspect?: string;
   className?: string;
 }) {
-  const box: CSSProperties = size ? { width: size, height: size, borderRadius: radius } : { borderRadius: radius };
-  const fluid = size ? "shrink-0" : "aspect-square w-full";
+  const box: CSSProperties = size ? { width: size, height: size, borderRadius: radius } : { borderRadius: radius, ...(aspect ? { aspectRatio: aspect } : {}) };
+  const fluid = size ? "shrink-0" : aspect ? "w-full" : "aspect-square w-full";
   // A meme's display is its `$TICKER`: text, so it gets the heading face at a third of the emoji size.
   const meme = isMemeCombo(m.display);
   const emojiFont = emojiSize ?? (size ? Math.round(size * 0.52) : 64);

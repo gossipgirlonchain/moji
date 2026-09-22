@@ -27,7 +27,7 @@ export function MemeHero({ src, display }: { src: string; display: string }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="open the meme full size"
-        className="clay relative mx-auto block aspect-square w-full max-w-[400px] cursor-zoom-in overflow-hidden bg-white lg:max-w-[560px]"
+        className="clay relative mx-auto block aspect-square w-full max-w-[400px] cursor-zoom-in overflow-hidden bg-white"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={`${display} meme`} className="block h-full w-full object-cover" />
