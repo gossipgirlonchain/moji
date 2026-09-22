@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createPublicClient, formatEther, type Address } from "viem";
 import { DopplerSDK } from "@whetstone-research/doppler-sdk/evm";
 import { validateCombo } from "@/lib/emoji";
+import { validateMeme } from "@/lib/meme-coin";
 import { chainById } from "@/config/chains";
 import { chainLaunchable, findNumeraire } from "@/lib/numeraire";
 import { isClaimed } from "@/lib/data";
@@ -27,6 +28,7 @@ const fail = (error: string, code: string, status: number, extra: Record<string,
 
 /**
  * GET /api/launch/params?combo=🍏&pair=AAPL&creator=0x…[&chainId=4663][&mcap=5000]
+ * GET /api/launch/params?kind=meme&name=Pepe&symbol=PEPE&pair=ETH&creator=0x…   (a memecoin: title + ticker)
  *
  * The launch, assembled server-side for a wallet that is not in a browser: the exact Airlock `create` calldata the
  * app would sign, ready to send from `creator`. Refuses (with a code) before any gas is spent when the combo is
@@ -39,8 +41,19 @@ const fail = (error: string, code: string, status: number, extra: Record<string,
 export async function GET(req: Request) {
   if (!WALLET_CLAIMS_OPEN) return fail("Wallet launches are closed; launch from the app with an X account", "WALLET_CLAIMS_CLOSED", 403);
   const q = new URL(req.url).searchParams;
-  const v = validateCombo(q.get("combo") ?? "");
-  if (!v.ok) return fail(v.reason, "BAD_COMBO", 400);
+  // A moji (emoji combo) or, with kind=meme, a memecoin whose ticker is the claim (`$PEPE`, src/lib/meme-coin.ts).
+  let v: Extract<ReturnType<typeof validateCombo>, { ok: true }>;
+  let meme: { name: string; symbol: string } | null = null;
+  if (q.get("kind") === "meme") {
+    const mv = validateMeme({ name: q.get("name"), symbol: q.get("symbol") });
+    if (!mv.ok) return fail(mv.reason, "BAD_MEME", 400);
+    meme = { name: mv.name, symbol: mv.symbol };
+    v = { ok: true, emoji: [], display: mv.display, normalized: mv.normalized };
+  } else {
+    const cv = validateCombo(q.get("combo") ?? "");
+    if (!cv.ok) return fail(cv.reason, "BAD_COMBO", 400);
+    v = cv;
+  }
 
   const chain = chainById(Number(q.get("chainId") ?? 4663));
   if (!chain || !chainLaunchable(chain) || !chain.viem) return fail("That chain is not live yet", "CHAIN_NOT_LIVE", 400);
@@ -67,7 +80,7 @@ export async function GET(req: Request) {
 
   const curve = { ...CURVE_DEFAULTS, mcapStart };
   try {
-    const params = await buildParams({ chain, stock, combo: v.display, creator, curve, stockPriceUsd });
+    const params = await buildParams({ chain, stock, combo: v.display, ...(meme ?? {}), creator, curve, stockPriceUsd });
     const publicClient = createPublicClient({ chain: chain.viem, transport: transportFor(chain.viem) });
     const sdk = new DopplerSDK({ publicClient, chainId: chain.chainId });
     const [prepared, gasPrice] = await Promise.all([sdk.factory.prepareCreateMulticurve(params, { account: creator }), publicClient.getGasPrice()]);
@@ -78,7 +91,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         ok: true,
-        combo: { display: v.display, normalized: v.normalized, emoji: v.emoji },
+        combo: { display: v.display, normalized: v.normalized, emoji: v.emoji, kind: meme ? "meme" : "moji", ...(meme ?? {}) },
         chain: { id: chain.chainId, name: chain.name, gasSymbol: chain.gasSymbol, explorer: chain.viem.blockExplorers?.default.url ?? null },
         pair: { ticker: stock.ticker, name: stock.name, address: stock.address, decimals: stock.decimals, priceUsd: stockPriceUsd },
         creator,
@@ -95,8 +108,10 @@ export async function GET(req: Request) {
           record: {
             method: "POST",
             url: `${SITE_URL}/api/launch`,
-            body: { combo: v.display, chainId: chain.chainId, stockAddress: stock.address, tokenAddress: prepared.prediction.tokenAddress, poolId: prepared.prediction.poolId, txHash: "<hash of the sent tx>", supply: String(curve.supply), creatorAddress: creator, agent: true },
+            body: { combo: v.display, ...(meme ? { kind: "meme", name: meme.name, symbol: meme.symbol } : {}), chainId: chain.chainId, stockAddress: stock.address, tokenAddress: prepared.prediction.tokenAddress, poolId: prepared.prediction.poolId, txHash: "<hash of the sent tx>", supply: String(curve.supply), creatorAddress: creator, agent: true },
           },
+          // A meme needs its picture: upload it right after recording (multipart `file` + `signer` + `signature`, see SKILL.md "Memes").
+          ...(meme ? { picture: { method: "POST", url: `${SITE_URL}/api/mojis/${encodeURIComponent(v.display)}/meme?chain=${chain.chainId}&pair=${stock.address}`, sign: `moji meme <moji.id from the record response> set <sha256 hex of the file>` } } : {}),
           page: pageFor(v.display, stock.ticker, chain.chainId),
         },
       },

@@ -9,6 +9,8 @@ export const maxDuration = 300;
  * GET /api/launch/sponsored → { enabled, open, chainIds, budgetUsd, spentUsd, remainingUsd, today, dailyMax }
  *
  * POST /api/launch/sponsored { combo, pair, creator, ts, signature[, chainId][, mcap] }
+ *   or, for a memecoin, { kind: "meme", name, symbol, pair, creator, ts, signature } with `combo` = `$SYMBOL` and
+ *   `name` in the signed message (keys in order: chainId, combo, creator, name, pair, ts).
  * moji pays the gas for an agent's launch. Sign, with personal_sign from `creator`, the message
  *   "moji sponsored launch v1\n" + JSON.stringify({ chainId, combo, creator, pair, ts })   (creator and pair
  * lowercased, pair as the address from /api/pairs, ts now in ms). The sponsor wallet sends the Airlock create

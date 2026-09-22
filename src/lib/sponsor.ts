@@ -14,6 +14,7 @@ import { publicClientFor, transportFor } from "./rpc";
 import { verifyLaunchTx } from "./launch-verify";
 import { recordLaunch } from "./record-launch";
 import { validateCombo } from "./emoji";
+import { validateMeme } from "./meme-coin";
 import { CURVE_DEFAULTS } from "@/config/curve";
 import { WALLET_CLAIMS_OPEN } from "@/config/limits";
 
@@ -39,8 +40,9 @@ export function sponsorAddress(): Address | null {
   return SPONSOR_ENABLED ? privateKeyToAccount(KEY as Hex).address : null;
 }
 
-export function canonicalSponsorMessage(p: { creator: string; combo: string; pair: string; chainId: number; ts: number }): string {
-  return `moji sponsored launch v1\n${JSON.stringify({ chainId: p.chainId, combo: p.combo, creator: p.creator.toLowerCase(), pair: p.pair.toLowerCase(), ts: p.ts })}`;
+/** For a meme, `combo` is `$PEPE` and `name` (the title) is part of the signed message, so the sponsor cannot retitle it. */
+export function canonicalSponsorMessage(p: { creator: string; combo: string; pair: string; chainId: number; ts: number; name?: string | null }): string {
+  return `moji sponsored launch v1\n${JSON.stringify({ chainId: p.chainId, combo: p.combo, creator: p.creator.toLowerCase(), ...(p.name ? { name: p.name } : {}), pair: p.pair.toLowerCase(), ts: p.ts })}`;
 }
 
 export type SponsorStatus = { enabled: boolean; sponsor: string | null; chainIds: number[]; budgetUsd: number; spentUsd: number; remainingUsd: number; today: number; dailyMax: number; balanceNative: string | null; open: boolean };
@@ -70,15 +72,25 @@ export async function sponsorStatus(): Promise<SponsorStatus> {
   return { enabled: SPONSOR_ENABLED, sponsor, chainIds: [...SPONSOR_CHAINS], budgetUsd: SPONSOR_BUDGET_USD, spentUsd, remainingUsd, today, dailyMax: SPONSOR_DAILY_MAX, balanceNative, open: SPONSOR_ENABLED && WALLET_CLAIMS_OPEN && remainingUsd > 0 && today < SPONSOR_DAILY_MAX };
 }
 
-export type SponsorRequest = { combo: string; pair: string; chainId?: number; creator: string; ts: number; signature: string; mcap?: number };
+export type SponsorRequest = { combo?: string; kind?: "moji" | "meme"; name?: string; symbol?: string; pair: string; chainId?: number; creator: string; ts: number; signature: string; mcap?: number };
 export type SponsorResult = { ok: true; txHash: Hex; gasUsd: number; moji: Record<string, unknown>; href: string; url: string } | { ok: false; error: string; code: string; status: number };
 
 /** Verify, check budget and slots, send the launch from the sponsor wallet, wait, record. */
 export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult> {
   if (!SPONSOR_ENABLED) return { ok: false, error: "Sponsored launches are not configured", code: "SPONSOR_CLOSED", status: 403 };
   if (!WALLET_CLAIMS_OPEN) return { ok: false, error: "Wallet launches are closed", code: "WALLET_CLAIMS_CLOSED", status: 403 };
-  const v = validateCombo(req.combo ?? "");
-  if (!v.ok) return { ok: false, error: v.reason, code: "BAD_COMBO", status: 400 };
+  let v: Extract<ReturnType<typeof validateCombo>, { ok: true }>;
+  let meme: { name: string; symbol: string } | null = null;
+  if (req.kind === "meme") {
+    const mv = validateMeme(req);
+    if (!mv.ok) return { ok: false, error: mv.reason, code: "BAD_MEME", status: 400 };
+    meme = { name: mv.name, symbol: mv.symbol };
+    v = { ok: true, emoji: [], display: mv.display, normalized: mv.normalized };
+  } else {
+    const cv = validateCombo(req.combo ?? "");
+    if (!cv.ok) return { ok: false, error: cv.reason, code: "BAD_COMBO", status: 400 };
+    v = cv;
+  }
   const chain = chainById(Number(req.chainId ?? 4663));
   if (!chain || !chain.viem || !chainLaunchable(chain)) return { ok: false, error: "That chain is not live yet", code: "CHAIN_NOT_LIVE", status: 400 };
   if (!SPONSOR_CHAINS.has(chain.chainId)) return { ok: false, error: `Sponsored launches run on chain ${[...SPONSOR_CHAINS].join(", ")} only`, code: "SPONSOR_CHAIN", status: 400 };
@@ -88,7 +100,7 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
   const creator = req.creator as Address;
   const ts = Number(req.ts);
   if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > SIGNATURE_WINDOW_MS) return { ok: false, error: "ts must be the current time in ms (signature is good for 10 minutes)", code: "STALE_SIGNATURE", status: 400 };
-  const message = canonicalSponsorMessage({ creator, combo: v.display, pair: stock.address, chainId: chain.chainId, ts });
+  const message = canonicalSponsorMessage({ creator, combo: v.display, pair: stock.address, chainId: chain.chainId, ts, name: meme?.name });
   const good = await verifyMessage({ address: creator, message, signature: (req.signature ?? "0x") as Hex }).catch(() => false);
   if (!good) return { ok: false, error: "signature does not match the sponsored launch message", code: "BAD_SIGNATURE", status: 403 };
   const mcapStart = req.mcap ? Number(req.mcap) : CURVE_DEFAULTS.mcapStart;
@@ -115,7 +127,7 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
   let gasUsd = 0;
   let rowId: string | null = null;
   try {
-    const params = await buildParams({ chain, stock, combo: v.display, creator, curve: { ...CURVE_DEFAULTS, mcapStart }, stockPriceUsd });
+    const params = await buildParams({ chain, stock, combo: v.display, ...(meme ?? {}), creator, curve: { ...CURVE_DEFAULTS, mcapStart }, stockPriceUsd });
     const sdk = new DopplerSDK({ publicClient, chainId: chain.chainId });
     const [prepared, gasPrice] = await Promise.all([sdk.factory.prepareCreateMulticurve(params, { account: account.address }), publicClient.getGasPrice()]);
     const gas = prepared.gasEstimate.status === "estimated" ? prepared.gasEstimate.gas : 3_500_000n;
@@ -140,7 +152,7 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
 
     const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash, tokenAddress: prepared.prediction.tokenAddress, creatorAddress: creator, numeraire: stock.address, sender: account.address });
     if (!proof.ok) return { ok: false, error: `Launch not verified on-chain: ${proof.reason}`, code: "TX_NOT_VERIFIED", status: 422 };
-    const rec = await recordLaunch({ v, chain, stock, tokenAddress: prepared.prediction.tokenAddress, poolId: prepared.prediction.poolId, txHash, supply: String(CURVE_DEFAULTS.supply), creatorAddress: creator, who: { kind: "agent", did: null, handle: null }, sponsor: account.address });
+    const rec = await recordLaunch({ v, meme, chain, stock, tokenAddress: prepared.prediction.tokenAddress, poolId: prepared.prediction.poolId, txHash, supply: String(CURVE_DEFAULTS.supply), creatorAddress: creator, who: { kind: "agent", did: null, handle: null }, sponsor: account.address });
     if (!rec.ok) return rec;
     return { ok: true, txHash, gasUsd, moji: rec.moji, href: rec.href, url: rec.url };
   } catch (e) {

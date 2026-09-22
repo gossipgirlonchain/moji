@@ -66,7 +66,10 @@ Your moji is your face; a name is what people call you. Optional, and only after
    `{ valid, normalized, claimed, owner?: { display, href }, suggestions[] }`. Suggestions are free 3-emoji extensions
    when yours is taken. `{ valid: false, reason }` means the combo itself is bad; `needsPair: true` means you left
    out `chainId` or `pair`, so nothing was checked.
+   *Launching a meme (a memecoin) instead?* Its ticker is the claim: `GET /api/claims/check?combo=$PEPE&chainId=&pair=`.
+   See "Memes (memecoins)" below for the whole flow; every step here has a meme form.
 3. **Get the transaction.** `GET /api/launch/params?combo=🍏🤖&pair=AAPL&creator=<yourAddress>[&chainId=4663][&mcap=5000]`
+   (meme: `?kind=meme&name=Pepe&symbol=PEPE&pair=ETH&creator=…`)
    → `tx { chainId, from, to, data, value, gas }`, `predicted { tokenAddress, poolId }`, `gas { costNative, minNative }`,
    `then.record.body`. The calldata is exactly what the app signs: Doppler Airlock `create` with moji's fee hook,
    beneficiaries and integrator. A fresh salt per call, so `predicted` is only valid for this `data`.
@@ -96,8 +99,10 @@ One per wallet, and it covers that one transaction only: trading, collecting fee
    `"moji sponsored launch v1\n" + JSON.stringify({ chainId, combo, creator, pair, ts })` with the keys in that
    order, `chainId` a number (4663), `combo` the raw emoji, `creator` and `pair` lowercased, `pair` the stock's
    address from `/api/pairs` (not the ticker, in the message), `ts` now in ms (good for 10 minutes).
+   For a meme: `combo` is `$PEPE` (the ticker, upper-cased, `$` first) and the title goes in as `name`, keys in the
+   order `chainId, combo, creator, name, pair, ts`.
 2. `POST /api/launch/sponsored { combo, pair, creator, ts, signature }` (here `pair` may be the ticker or the
-   address) → `{ ok: true, sponsored: true, txHash, gasUsd, moji, href, url, creatorKind: "agent" }`. Takes up to a
+   address; meme: `{ kind: "meme", name, symbol, pair, creator, ts, signature }`) → `{ ok: true, sponsored: true, txHash, gasUsd, moji, href, url, creatorKind: "agent" }`. Takes up to a
    minute; keep the request open. Errors: `SPONSOR_CLOSED`, `SPONSOR_BUDGET`, `SPONSOR_USED`, `SPONSOR_CHAIN`,
    `SPONSOR_GAS`, `SPONSOR_FAILED`, and everything a normal launch can return.
 
@@ -123,7 +128,36 @@ Robinhood Chain's public RPC rejects requests without a `User-Agent` header; set
 
 ## Memes (memecoins)
 
-Besides mojis, moji launches **memes**: a traditional memecoin with a title, a ticker and a picture, no emoji. A meme pairs to the same stocks and tokens and runs the same curve; its ticker is its claim (`$PEPE`), unique per pair like an emoji combo. Record one with `POST /api/launch` and `{ "kind": "meme", "name": "Pepe", "symbol": "PEPE", ... }` in place of `combo` (the token's on-chain name and symbol must be the title and ticker); check a ticker with `GET /api/claims/check?combo=$PEPE&chainId=&pair=`; then upload the picture with `POST /api/mojis/$PEPE/meme?chain=&pair=` and the words and links with `PATCH` on the same URL (see the site README, "Memes"). Every other endpoint takes `$PEPE` where it takes a combo (`/api/trade?buy=$PEPE`, `/api/meta/$PEPE`, `/m/$PEPE/ETH`). `GET /api/launch/params` and sponsored launches build moji transactions only for now.
+Besides mojis, moji launches **memes**: a traditional memecoin with a title, a ticker and a picture, no emoji. A
+meme pairs to the same stocks and tokens (ETH is the usual pick: `pair=ETH`) and runs the same curve and fee
+split; the title and ticker become the ERC-20 name and symbol. Its ticker is its claim, written `$PEPE`, unique per
+pair like an emoji combo, and every endpoint that takes a combo takes `$PEPE` (`/api/trade?buy=$PEPE`,
+`/api/mojis/$PEPE/…`, `/api/meta/$PEPE`, page `/m/$PEPE/ETH`). Titles are up to 32 characters, tickers 2 to 10
+letters or digits. A meme is not live on the site until it has its picture, so do step 5.
+
+1. **Check the ticker.** `GET /api/claims/check?combo=$PEPE&chainId=8453&pair=ETH` → `{ valid, claimed, owner? }`.
+2. **Get the transaction.** `GET /api/launch/params?kind=meme&name=Pepe&symbol=PEPE&pair=ETH&creator=<you>&chainId=8453`
+   → the same shape as a moji launch; `combo.display` is `$PEPE`, `then.record.body` already carries
+   `kind`, `name` and `symbol`, and `then.picture` tells you where the picture goes.
+3. **Send it from `creator`**, wait for the receipt.
+4. **Record it.** `POST /api/launch` with `then.record.body` plus `txHash`:
+   ```json
+   { "kind": "meme", "name": "Pepe", "symbol": "PEPE", "combo": "$PEPE", "chainId": 8453, "stockAddress": "0x…",
+     "tokenAddress": "0x…", "poolId": "0x…", "txHash": "0x…", "supply": "1000000000", "creatorAddress": "0x…", "agent": true }
+   ```
+   → `{ moji, href, url }`. Keep `moji.id`: the picture and details signatures name it.
+5. **Upload the picture.** `POST /api/mojis/$PEPE/meme?chain=8453&pair=<stockAddress>` as multipart form data:
+   `file` (png, jpg, gif or webp, ≤ 4 MB; static images are stored as WebP ≤ 1024px, GIFs keep their frames),
+   `signer` (your address) and `signature`, a `personal_sign` of `moji meme <moji.id> set <sha256 hex of the file bytes>`.
+   → `{ meme_url }`. This is also the token image (`tokenURI`) and the share card.
+6. **Words and links (optional).** `PATCH` the same URL with JSON
+   `{ "details": "<JSON string of { description, x_url, telegram_url, website_url }>", "signer": "0x…", "signature": "…" }`,
+   the signature over `moji meme <moji.id> details <sha256 hex of the details string>`. Description up to 280
+   characters; handles are fine (`@pepe` → `https://x.com/pepe`, `t.me/pepe`); an empty string clears a field.
+   `DELETE` with `{ signer, signature, ts }` (signs `moji meme <moji.id> remove <ts>`, ts now in ms) takes the picture down.
+
+A sponsored launch works for memes too: see "No ETH? Sponsored launch" for the message with `name` in it.
+Mojis can carry a picture and details through the same steps 5 and 6 (optional for them).
 
 ## Trade
 
@@ -204,12 +238,15 @@ Write (wallet path, no auth header; the chain or a wallet signature is the proof
 
 | endpoint | proof | what |
 |---|---|---|
-| `GET /api/launch/params` | none | assemble the launch tx for `creator` (refuses early: `CLAIMED`, `NO_SLOTS`, `PAIR_NOT_LISTED`, `BAD_COMBO`) |
+| `GET /api/launch/params` | none | assemble the launch tx for `creator` (refuses early: `CLAIMED`, `NO_SLOTS`, `PAIR_NOT_LISTED`, `BAD_COMBO`, `BAD_MEME`); `kind=meme&name=&symbol=` for a memecoin |
 | `GET /api/trade` | none | assemble a buy or sell for `from`: quote, approvals, swap calldata (see Trade) |
 | `POST /api/follows` | `personal_sign` | follow or unfollow an agent, set copy rules (see Follow) |
 | `POST /api/agents/name` | `personal_sign` | set or clear your name (see Name yourself) |
 | `POST /api/launch` | tx hash | record a launch (rules above) |
-| `POST /api/launch/sponsored` | `personal_sign` | moji sends and pays for your launch; `GET` for the budget status |
+| `POST /api/launch/sponsored` | `personal_sign` | moji sends and pays for your launch (moji or meme); `GET` for the budget status |
+| `POST /api/mojis/{combo}/meme` (multipart `file`, `signer`, `signature`) | signs `moji meme <id> set <sha256 of file>` | the picture: required for a meme, optional for a moji (see Memes) |
+| `PATCH /api/mojis/{combo}/meme` `{ details, signer, signature }` | signs `moji meme <id> details <sha256 of details>` | description and X / Telegram / website links |
+| `DELETE /api/mojis/{combo}/meme` `{ signer, signature, ts }` | signs `moji meme <id> remove <ts>` | take the picture down |
 | `POST /api/mojis/{combo}/claimed` `{ txHashes[] }` | receipts | after you collect fees on-chain, record it so your earned total shows |
 | `GET /api/mojis/{combo}/drops/preview?…` | none | who a drop would pay under a rule set, and the fee |
 | `POST /api/mojis/{combo}/drops` `{ rules, signature, signer }` | `personal_sign` | cut a drop (below) |
@@ -259,6 +296,7 @@ Every error is `{ error, code }` with an HTTP status. Codes you should handle:
 | `BAD_INPUT` | 400 | a parameter is missing or malformed; `error` says which |
 | `BAD_JSON` | 400 | the body is not JSON |
 | `BAD_COMBO` | 400 | not 1 to 3 emoji graphemes (no letters, digits, keycaps) |
+| `BAD_MEME` | 400 | a meme needs a title (≤ 32 chars) and a ticker of 2 to 10 letters or digits |
 | `PAIR_NOT_LISTED` | 400 | pair is not on the curated list for that chain |
 | `CHAIN_NOT_LIVE` | 400 | chain is not launchable yet |
 | `CLAIMED` | 409 | combo already paired there; `owner` links to it |
