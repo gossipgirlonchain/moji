@@ -10,7 +10,7 @@ export const TEMPLATE_LABEL: Record<Template, string> = {
   pair: "pair card",
   leaderboard: "leaderboard",
   open: "still open",
-  claimed: "claimed this week",
+  claimed: "launched this week",
   bignumber: "big number",
   token: "token stats",
   airdrop: "airdrop",
@@ -27,20 +27,24 @@ export function isSupportedSize(w: number, h: number): boolean {
   return SIZES.some((s) => s.w === w && s.h === h);
 }
 
-export type EmojiItem = { emoji: string; ticker: string };
-export type LeaderboardRow = { emoji: string; pair: string; figure: string };
+/**
+ * Every place a card shows "who": `emoji` is an emoji combo, or a meme's `$TICKER` (drawn as text), and `img`
+ * is an optional picture URL (a meme's upload) drawn instead of the emoji when present.
+ */
+export type EmojiItem = { emoji: string; ticker: string; img?: string };
+export type LeaderboardRow = { emoji: string; pair: string; figure: string; img?: string };
 export type Stat = { label: string; value: string };
-export type AirdropItem = { emoji: string; ticker: string; figure: string; holders: string };
+export type AirdropItem = { emoji: string; ticker: string; figure: string; holders: string; img?: string };
 
 export type Fields = {
   announcement: { headline: string; subline: string };
-  pair: { combo: string; ticker: string; label: string };
+  pair: { combo: string; ticker: string; label: string; img?: string };
   leaderboard: { title: string; rows: LeaderboardRow[] };
   open: { title: string; items: EmojiItem[] };
   claimed: { title: string; tiles: EmojiItem[]; count: string };
   bignumber: { pair: string; figure: string; label: string };
-  token: { combo: string; ticker: string; creator: string; stats: Stat[] };
-  airdrop: { combo: string; ticker: string; label: string; figure: string; sub: string; stats: Stat[] };
+  token: { combo: string; ticker: string; creator: string; stats: Stat[]; img?: string };
+  airdrop: { combo: string; ticker: string; label: string; figure: string; sub: string; stats: Stat[]; img?: string };
   airdrops: { title: string; items: AirdropItem[]; count: string };
 };
 
@@ -93,7 +97,7 @@ export const SAMPLE: { [T in Template]: Fields[T] } = {
     ],
   },
   claimed: {
-    title: "claimed this week",
+    title: "launched this week",
     tiles: [
       { emoji: "🪙", ticker: "$GLD" },
       { emoji: "☕", ticker: "$SBUX" },
@@ -106,7 +110,7 @@ export const SAMPLE: { [T in Template]: Fields[T] } = {
       { emoji: "💻", ticker: "$DELL" },
       { emoji: "🚀", ticker: "$RKLB" },
     ],
-    count: "1,842 claimed",
+    count: "1,842 launched",
   },
   bignumber: { pair: "🧇 / $TSM", figure: "+340%", label: "this week" },
   token: {
@@ -156,7 +160,21 @@ export function isTemplate(s: string | null | undefined): s is Template {
 }
 
 const SEP = "|";
-const joinItem = (parts: string[]) => parts.map((p) => p.replaceAll(SEP, "/")).join(SEP);
+/** Join item parts; trailing empty parts (an absent picture) are dropped to keep URLs short. */
+const joinItem = (parts: (string | undefined)[]) => {
+  const p = parts.map((x) => (x ?? "").replaceAll(SEP, "/"));
+  while (p.length > 1 && !p[p.length - 1]) p.pop();
+  return p.join(SEP);
+};
+const IMG_MAX = 400;
+const img = (v: string | null | undefined): string | undefined => {
+  const s = (v ?? "").trim().slice(0, IMG_MAX);
+  return s.startsWith("https://") || s.startsWith("data:image/") ? s : undefined;
+};
+const withImg = <T extends object>(o: T, url: string | null | undefined): T & { img?: string } => {
+  const u = img(url);
+  return u ? { ...o, img: u } : o;
+};
 const splitItem = (s: string, n: number): string[] => {
   const parts = s.split(SEP);
   while (parts.length < n) parts.push("");
@@ -183,24 +201,25 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
       sp.set("combo", f.combo);
       sp.set("ticker", f.ticker);
       if (f.label) sp.set("label", f.label);
+      if (f.img) sp.set("img", f.img);
       break;
     }
     case "leaderboard": {
       const f = spec.fields as Fields["leaderboard"];
       sp.set("title", f.title);
-      for (const r of f.rows) sp.append("row", joinItem([r.emoji, r.pair, r.figure]));
+      for (const r of f.rows) sp.append("row", joinItem([r.emoji, r.pair, r.figure, r.img]));
       break;
     }
     case "open": {
       const f = spec.fields as Fields["open"];
       sp.set("title", f.title);
-      for (const i of f.items) sp.append("item", joinItem([i.emoji, i.ticker]));
+      for (const i of f.items) sp.append("item", joinItem([i.emoji, i.ticker, i.img]));
       break;
     }
     case "claimed": {
       const f = spec.fields as Fields["claimed"];
       sp.set("title", f.title);
-      for (const t of f.tiles) sp.append("tile", joinItem([t.emoji, t.ticker]));
+      for (const t of f.tiles) sp.append("tile", joinItem([t.emoji, t.ticker, t.img]));
       sp.set("count", f.count);
       break;
     }
@@ -217,6 +236,7 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
       sp.set("ticker", f.ticker);
       if (f.creator) sp.set("creator", f.creator);
       for (const st of f.stats) sp.append("stat", joinItem([st.label, st.value]));
+      if (f.img) sp.set("img", f.img);
       break;
     }
     case "airdrop": {
@@ -227,12 +247,13 @@ export function toSearchParams(spec: CardSpec): URLSearchParams {
       sp.set("figure", f.figure);
       if (f.sub) sp.set("sub", f.sub);
       for (const st of f.stats) sp.append("stat", joinItem([st.label, st.value]));
+      if (f.img) sp.set("img", f.img);
       break;
     }
     case "airdrops": {
       const f = spec.fields as Fields["airdrops"];
       sp.set("title", f.title);
-      for (const it of f.items) sp.append("item", joinItem([it.emoji, it.ticker, it.figure, it.holders]));
+      for (const it of f.items) sp.append("item", joinItem([it.emoji, it.ticker, it.figure, it.holders, it.img]));
       sp.set("count", f.count);
       break;
     }
@@ -263,24 +284,27 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
       fields = { headline: has("headline") ? clean(sp.get("headline")) : sample.announcement.headline, subline: clean(sp.get("subline"), 80) };
       break;
     case "pair":
-      fields = {
-        combo: has("combo") ? clean(sp.get("combo"), 24) : sample.pair.combo,
-        ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.pair.ticker,
-        label: clean(sp.get("label"), 32),
-      };
+      fields = withImg(
+        {
+          combo: has("combo") ? clean(sp.get("combo"), 24) : sample.pair.combo,
+          ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.pair.ticker,
+          label: clean(sp.get("label"), 32),
+        },
+        sp.get("img"),
+      );
       break;
     case "leaderboard": {
-      const rows = sp.getAll("row").map((r) => splitItem(r, 3)).map(([emoji, pair, figure]) => ({ emoji: clean(emoji, 24), pair: clean(pair, 24), figure: clean(figure, 24) }));
+      const rows = sp.getAll("row").map((r) => splitItem(r, 4)).map(([emoji, pair, figure, im]) => withImg({ emoji: clean(emoji, 24), pair: clean(pair, 24), figure: clean(figure, 24) }, im));
       fields = { title: has("title") ? clean(sp.get("title"), 40) : sample.leaderboard.title, rows: (rows.length ? rows : sample.leaderboard.rows).slice(0, LIMITS.leaderboardRows) };
       break;
     }
     case "open": {
-      const items = sp.getAll("item").map((r) => splitItem(r, 2)).map(([emoji, ticker]) => ({ emoji: clean(emoji, 24), ticker: clean(ticker, 16) }));
+      const items = sp.getAll("item").map((r) => splitItem(r, 3)).map(([emoji, ticker, im]) => withImg({ emoji: clean(emoji, 24), ticker: clean(ticker, 16) }, im));
       fields = { title: has("title") ? clean(sp.get("title"), 40) : sample.open.title, items: (items.length ? items : sample.open.items).slice(0, LIMITS.openMax) };
       break;
     }
     case "claimed": {
-      const tiles = sp.getAll("tile").map((r) => splitItem(r, 2)).map(([emoji, ticker]) => ({ emoji: clean(emoji, 24), ticker: clean(ticker, 16) }));
+      const tiles = sp.getAll("tile").map((r) => splitItem(r, 3)).map(([emoji, ticker, im]) => withImg({ emoji: clean(emoji, 24), ticker: clean(ticker, 16) }, im));
       fields = {
         title: has("title") ? clean(sp.get("title"), 40) : sample.claimed.title,
         tiles: (tiles.length ? tiles : sample.claimed.tiles).slice(0, LIMITS.claimedMax),
@@ -297,28 +321,34 @@ export function parseCardParams(sp: URLSearchParams): { ok: true; spec: CardSpec
       break;
     case "token": {
       const stats = sp.getAll("stat").map((r) => splitItem(r, 2)).map(([label, value]) => ({ label: clean(label, 24), value: clean(value, 24) }));
-      fields = {
-        combo: has("combo") ? clean(sp.get("combo"), 24) : sample.token.combo,
-        ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.token.ticker,
-        creator: has("creator") ? clean(sp.get("creator"), 80) : "",
-        stats: (stats.length ? stats : sample.token.stats).slice(0, LIMITS.statsMax),
-      };
+      fields = withImg(
+        {
+          combo: has("combo") ? clean(sp.get("combo"), 24) : sample.token.combo,
+          ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.token.ticker,
+          creator: has("creator") ? clean(sp.get("creator"), 80) : "",
+          stats: (stats.length ? stats : sample.token.stats).slice(0, LIMITS.statsMax),
+        },
+        sp.get("img"),
+      );
       break;
     }
     case "airdrop": {
       const stats = sp.getAll("stat").map((r) => splitItem(r, 2)).map(([label, value]) => ({ label: clean(label, 24), value: clean(value, 24) }));
-      fields = {
-        combo: has("combo") ? clean(sp.get("combo"), 24) : sample.airdrop.combo,
-        ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.airdrop.ticker,
-        label: has("label") ? clean(sp.get("label"), 32) : "",
-        figure: has("figure") ? clean(sp.get("figure"), 24) : sample.airdrop.figure,
-        sub: has("sub") ? clean(sp.get("sub"), 100) : "",
-        stats: (stats.length ? stats : sample.airdrop.stats).slice(0, LIMITS.statsMax),
-      };
+      fields = withImg(
+        {
+          combo: has("combo") ? clean(sp.get("combo"), 24) : sample.airdrop.combo,
+          ticker: has("ticker") ? clean(sp.get("ticker"), 16) : sample.airdrop.ticker,
+          label: has("label") ? clean(sp.get("label"), 32) : "",
+          figure: has("figure") ? clean(sp.get("figure"), 24) : sample.airdrop.figure,
+          sub: has("sub") ? clean(sp.get("sub"), 100) : "",
+          stats: (stats.length ? stats : sample.airdrop.stats).slice(0, LIMITS.statsMax),
+        },
+        sp.get("img"),
+      );
       break;
     }
     case "airdrops": {
-      const items = sp.getAll("item").map((r) => splitItem(r, 4)).map(([emoji, ticker, figure, holders]) => ({ emoji: clean(emoji, 24), ticker: clean(ticker, 16), figure: clean(figure, 24), holders: clean(holders, 24) }));
+      const items = sp.getAll("item").map((r) => splitItem(r, 5)).map(([emoji, ticker, figure, holders, im]) => withImg({ emoji: clean(emoji, 24), ticker: clean(ticker, 16), figure: clean(figure, 24), holders: clean(holders, 24) }, im));
       fields = {
         title: has("title") ? clean(sp.get("title"), 40) : sample.airdrops.title,
         items: (items.length ? items : sample.airdrops.items).slice(0, LIMITS.airdropsMax),

@@ -1,9 +1,10 @@
 import "server-only";
 import type { CSSProperties, ReactNode } from "react";
-import { FONT } from "@/config/design";
+import { FONT, INK } from "@/config/design";
 import { graphemes, isEmoji } from "@/lib/emoji";
 import { FREDOKA_600, NUNITO_800, measure, type FontMetrics } from "./metrics";
 import { Emoji, type Shadow, type Sprites } from "./emoji";
+import type { Pictures } from "./picture";
 
 /**
  * Text helpers for the card templates. Copy can contain emoji (a pair like "🧇 / $TSM"), which satori
@@ -141,9 +142,32 @@ export function Rich({ text, sprites, size, color, font = FONT.heading, lineHeig
   );
 }
 
-/** A combo (1 to 3 emoji) as a row of sprites that fits a `width` px cell. */
-export function ComboEmoji({ sprites, combo, width, size, shadow, overlap = 0 }: { sprites: Sprites; combo: string; width?: number; size: number; shadow?: Shadow; overlap?: number }) {
+/**
+ * The subject of a tile or row: a picture when `img` resolved (a meme's upload), else the emoji combo as
+ * sprites, else the text itself (a meme without a picture shows its `$TICKER`). Fits a `width` px cell.
+ */
+export function ComboEmoji({ sprites, pictures, combo, img, width, size, shadow, overlap = 0 }: { sprites: Sprites; pictures?: Pictures; combo: string; img?: string; width?: number; size: number; shadow?: Shadow; overlap?: number }) {
+  const picture = img && pictures?.get(img);
+  if (picture) {
+    return (
+      <div style={css({ display: "flex", alignItems: "center", justifyContent: "center", width, height: size, flexShrink: 0 })}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={picture} width={size} height={size} alt="" style={{ width: size, height: size, borderRadius: Math.round(size * 0.22) }} />
+      </div>
+    );
+  }
   const parts = graphemes(combo).filter((g) => g.trim());
+  if (parts.length && !parts.every(isEmoji)) {
+    // Plain text (a meme's $TICKER): Fredoka, sized to the cell.
+    const text = combo.trim();
+    const maxW = width ?? size * 3;
+    const fs = fitLine(text, [Math.round(size * 0.6), Math.round(size * 0.5), Math.round(size * 0.4), Math.round(size * 0.32)], maxW, FREDOKA_600, 0, 12);
+    return (
+      <div style={css({ display: "flex", alignItems: "center", justifyContent: "center", width, height: size, flexShrink: 0 })}>
+        <Rich text={text} sprites={sprites} size={fs} color={INK} lineHeight={1} />
+      </div>
+    );
+  }
   const n = Math.max(1, parts.length);
   const each = width ? Math.min(size, Math.floor((width + overlap * (n - 1)) / n)) : size;
   return (

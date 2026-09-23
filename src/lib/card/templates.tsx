@@ -5,6 +5,7 @@ import { graphemes } from "@/lib/emoji";
 import { ARTBOARD_INSET, CARD_PADDING, type Placement } from "./scatter";
 import { Emoji, SHADOW, type Sprites } from "./emoji";
 import { ClayBox, ClayCard, type ClayBg, type ClaySet } from "./clay";
+import type { Pictures } from "./picture";
 import { dollar, type CardSpec, type Fields } from "./params";
 import { ComboEmoji, Rich, fitBlock, fitLine, lineWidth } from "./text";
 import { FREDOKA_600, NUNITO_800 } from "./metrics";
@@ -25,11 +26,11 @@ const WORDMARK_W = Math.round((FOOTER_H * 689) / 347);
 /** Clear space kept between the content and the footer row so copy never kisses the wordmarks. */
 const BREATH = 40;
 
-export type Ctx = { w: number; h: number; contentW: number; contentH: number; wide: boolean; sprites: Sprites; clay: ClaySet; wordmark: string };
+export type Ctx = { w: number; h: number; contentW: number; contentH: number; wide: boolean; sprites: Sprites; pictures: Pictures; clay: ClaySet; wordmark: string };
 
-export function makeCtx(w: number, h: number, sprites: Sprites, clay: ClaySet, wordmark: string): Ctx {
+export function makeCtx(w: number, h: number, sprites: Sprites, pictures: Pictures, clay: ClaySet, wordmark: string): Ctx {
   const inset = ARTBOARD_INSET + CARD_PADDING;
-  return { w, h, contentW: w - 2 * inset, contentH: h - 2 * inset - FOOTER_H - BREATH, wide: w / h > 1.3, sprites, clay, wordmark };
+  return { w, h, contentW: w - 2 * inset, contentH: h - 2 * inset - FOOTER_H - BREATH, wide: w / h > 1.3, sprites, pictures, clay, wordmark };
 }
 
 /** Card background per template: white for structured layouts, --sky-50 for the two single-subject cards. */
@@ -102,7 +103,8 @@ export function Announcement({ ctx, f }: { ctx: Ctx; f: Fields["announcement"] }
 export function Pair({ ctx, f }: { ctx: Ctx; f: Fields["pair"] }) {
   const label = f.label.trim().toUpperCase();
   const pillH = label ? 28 * 1.2 + 40 : 0;
-  const pairText = `${f.combo.trim()} / ${dollar(f.ticker) || "$"}`;
+  // "🍎 / $AAPL" for a moji; a meme reads "$MUMU / MUSEBOOK" (its own ticker carries the dollar sign).
+  const pairText = f.combo.trim().startsWith("$") ? `${f.combo.trim()} / ${f.ticker.trim().replace(/^\$/, "").toUpperCase()}` : `${f.combo.trim()} / ${dollar(f.ticker) || "$"}`;
   const pairSize = fitLine(pairText, [92, 84, 76, 68, 60, 52, 44], ctx.contentW);
   const hero = Math.max(160, Math.min(300, ctx.contentH - (label ? pillH + 44 : 0) - pairSize * 1.08 - 44));
   return (
@@ -112,7 +114,7 @@ export function Pair({ ctx, f }: { ctx: Ctx; f: Fields["pair"] }) {
           <div style={{ display: "flex", fontFamily: FONT.body, fontWeight: 800, fontSize: 28, lineHeight: 1.2, letterSpacing: `${0.16 * 28}px`, color: MINT, whiteSpace: "nowrap" }}>{label}</div>
         </ClayBox>
       ) : null}
-      <ComboEmoji sprites={ctx.sprites} combo={f.combo} width={ctx.contentW} size={hero} shadow={SHADOW.hero} />
+      <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={f.combo} img={f.img} width={ctx.contentW} size={hero} shadow={SHADOW.hero} />
       <Rich text={pairText} sprites={ctx.sprites} size={pairSize} color={INK} lineHeight={1} />
     </div>
   );
@@ -138,7 +140,7 @@ export function Leaderboard({ ctx, f }: { ctx: Ctx; f: Fields["leaderboard"] }) 
           <div key={i} style={{ display: "flex", flexDirection: "column" }}>
             {i > 0 ? <div style={{ height: 10, borderRadius: RADIUS.sm, background: SKY[100] }} /> : null}
             <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 32, padding: `${rowPad}px 0` }}>
-              <ComboEmoji sprites={ctx.sprites} combo={r.emoji} width={cell} size={emojiSize} shadow={SHADOW.row} overlap={8} />
+              <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={r.emoji} img={r.img} width={cell} size={emojiSize} shadow={SHADOW.row} overlap={8} />
               <div style={{ flex: 1, display: "flex" }}>
                 <Rich text={r.pair} sprites={ctx.sprites} size={pairSize} color={INK} lineHeight={1.1} />
               </div>
@@ -167,7 +169,7 @@ export function Open({ ctx, f }: { ctx: Ctx; f: Fields["open"] }) {
         {items.map((it, i) => (
           <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 22, width: circle }}>
             <ClayBox clay={ctx.clay} kind="circle" w={circle} h={circle}>
-              <ComboEmoji sprites={ctx.sprites} combo={it.emoji} width={Math.round(circle * 0.8)} size={emojiSize} overlap={6} />
+              <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={it.emoji} img={it.img} width={Math.round(circle * 0.8)} size={emojiSize} overlap={6} />
             </ClayBox>
             {anyTicker ? <Rich text={it.ticker || " "} sprites={ctx.sprites} size={tickerSize} color={INK} lineHeight={1} /> : null}
           </div>
@@ -201,7 +203,7 @@ export function Claimed({ ctx, f }: { ctx: Ctx; f: Fields["claimed"] }) {
           {tiles.map((t, i) => (
             <ClayBox key={i} clay={ctx.clay} kind="tile" w={tileW} h={Math.round(tileH * scale)}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                <ComboEmoji sprites={ctx.sprites} combo={t.emoji} width={tileW - 24} size={emojiSize} overlap={4} />
+                <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={t.emoji} img={t.img} width={tileW - 24} size={emojiSize} overlap={4} />
                 <Rich text={t.ticker || " "} sprites={ctx.sprites} size={Math.min(tickerSize, fitLine(t.ticker, [tickerSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
               </div>
             </ClayBox>
@@ -251,7 +253,7 @@ export function Token({ ctx, f }: { ctx: Ctx; f: Fields["token"] }) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 48 }}>
       <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 40 }}>
-        <ComboEmoji sprites={ctx.sprites} combo={f.combo} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
+        <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={f.combo} img={f.img} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Rich text={pairText} sprites={ctx.sprites} size={pairSize} color={INK} lineHeight={1} />
           {creator ? <Rich text={creator} sprites={ctx.sprites} size={creatorSize} color={INK_SOFT} font={FONT.body} lineHeight={1.3} /> : null}
@@ -293,7 +295,7 @@ export function Airdrop({ ctx, f }: { ctx: Ctx; f: Fields["airdrop"] }) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 40 }}>
       <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 40 }}>
-        <ComboEmoji sprites={ctx.sprites} combo={f.combo} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
+        <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={f.combo} img={f.img} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14 }}>
           {label ? (
             <ClayBox clay={ctx.clay} kind="pill" w={Math.ceil(lineWidth(label, 24, NUNITO_800, 0.16)) + 64} h={pillH}>
@@ -343,7 +345,7 @@ export function Airdrops({ ctx, f }: { ctx: Ctx; f: Fields["airdrops"] }) {
           {items.map((it, i) => (
             <ClayBox key={i} clay={ctx.clay} kind="drop" w={tileW} h={Math.round(tileH * scale)}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: Math.round(8 * scale) }}>
-                <ComboEmoji sprites={ctx.sprites} combo={it.emoji} width={tileW - 24} size={emojiSize} overlap={4} />
+                <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={it.emoji} img={it.img} width={tileW - 24} size={emojiSize} overlap={4} />
                 <Rich text={it.ticker || " "} sprites={ctx.sprites} size={Math.min(tickerSize, fitLine(it.ticker, [tickerSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
                 <Rich text={it.figure || " "} sprites={ctx.sprites} size={Math.min(figureSize, fitLine(it.figure, [figureSize], tileW - 20))} color={INK} lineHeight={1.1} />
                 <Rich text={it.holders || " "} sprites={ctx.sprites} size={Math.min(holdersSize, fitLine(it.holders, [holdersSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
@@ -358,10 +360,12 @@ export function Airdrops({ ctx, f }: { ctx: Ctx; f: Fields["airdrops"] }) {
 }
 
 /** Every emoji grapheme a spec needs (plain, and those drawn with a shadow), resolved before the synchronous render. */
-export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string[] } {
+export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string[]; pictures: string[] } {
   const texts: string[] = [];
   const combos: string[] = [];
   const shadowed: string[] = [];
+  const pictures: string[] = [];
+  const pic = (u?: string) => u && pictures.push(u);
   switch (spec.template) {
     case "announcement": {
       const f = spec.fields as Fields["announcement"];
@@ -372,6 +376,7 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       const f = spec.fields as Fields["pair"];
       shadowed.push(f.combo);
       texts.push(f.label);
+      pic(f.img);
       break;
     }
     case "leaderboard": {
@@ -379,6 +384,7 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       for (const r of f.rows) {
         shadowed.push(r.emoji);
         texts.push(r.pair, r.figure, f.title);
+        pic(r.img);
       }
       break;
     }
@@ -388,6 +394,7 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       for (const i of f.items) {
         combos.push(i.emoji);
         texts.push(i.ticker);
+        pic(i.img);
       }
       break;
     }
@@ -397,6 +404,7 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       for (const t of f.tiles) {
         combos.push(t.emoji);
         texts.push(t.ticker);
+        pic(t.img);
       }
       break;
     }
@@ -409,12 +417,14 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       const f = spec.fields as Fields["token"];
       shadowed.push(f.combo);
       texts.push(f.combo, f.ticker, f.creator, ...f.stats.flatMap((st) => [st.label, st.value]));
+      pic(f.img);
       break;
     }
     case "airdrop": {
       const f = spec.fields as Fields["airdrop"];
       shadowed.push(f.combo);
       texts.push(f.combo, f.ticker, f.label, f.figure, f.sub, ...f.stats.flatMap((st) => [st.label, st.value]));
+      pic(f.img);
       break;
     }
     case "airdrops": {
@@ -423,13 +433,14 @@ export function emojiNeeded(spec: CardSpec): { plain: string[]; shadowed: string
       for (const it of f.items) {
         combos.push(it.emoji);
         texts.push(it.ticker, it.figure, it.holders);
+        pic(it.img);
       }
       break;
     }
   }
   // Combos are drawn grapheme by grapheme; text fields are tokenised the same way in Rich.
   const g = (list: string[]) => list.flatMap((c) => graphemes(c)).filter((x) => x.trim());
-  return { plain: [...g(combos), ...g(texts)], shadowed: g(shadowed) };
+  return { plain: [...g(combos), ...g(texts)], shadowed: g(shadowed), pictures };
 }
 
 export function renderTemplate(spec: CardSpec, ctx: Ctx): ReactNode {

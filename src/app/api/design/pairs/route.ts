@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin";
 import { hasSupabase, supabaseServer, type MojiRow } from "@/lib/supabase";
 import { NETWORK } from "@/lib/network";
+import { isMeme } from "@/lib/meme-coin";
+import { subjectOf } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +13,17 @@ export async function GET() {
   if (!hasSupabase()) return NextResponse.json({ pairs: [] });
   const { data, error } = await supabaseServer()
     .from("mojis")
-    .select("display, stock_ticker, launched_at, volume7d_usd")
+    .select("display, stock_ticker, launched_at, kind, name, symbol, meme_url")
     .eq("network", NETWORK)
     .not("token_address", "is", null)
     .order("launched_at", { ascending: false })
     .limit(500);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const rows = (data ?? []) as Pick<MojiRow, "display" | "stock_ticker" | "launched_at" | "volume7d_usd">[];
-  return NextResponse.json({ pairs: rows.map((r) => ({ combo: r.display, ticker: r.stock_ticker, launched_at: r.launched_at })) });
+  const rows = (data ?? []) as Pick<MojiRow, "display" | "stock_ticker" | "launched_at" | "kind" | "name" | "symbol" | "meme_url">[];
+  return NextResponse.json({
+    pairs: rows.map((r) => {
+      const s = subjectOf(r);
+      return { combo: s.emoji, ticker: r.stock_ticker, launched_at: r.launched_at, meme: isMeme(r), name: r.name ?? null, ...(s.img ? { img: s.img } : {}) };
+    }),
+  });
 }

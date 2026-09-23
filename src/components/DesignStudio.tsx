@@ -229,9 +229,10 @@ export function DesignStudio() {
             <PairPicker
               busy={status?.kind === "busy"}
               onPick={(p) => {
-                if (template === "pair") update("pair", { combo: p.combo, ticker: p.ticker });
+                const img = p.img;
+                if (template === "pair") update("pair", { combo: p.combo, ticker: p.ticker, img });
                 else {
-                  update("token", { combo: p.combo, ticker: p.ticker });
+                  update("token", { combo: p.combo, ticker: p.ticker, img });
                   void fillFromData(p);
                 }
               }}
@@ -362,7 +363,18 @@ function DropPicker({ onPick, busy }: { onPick: (d: RecentDrop) => void; busy?: 
   );
 }
 
-type PairRow = { combo: string; ticker: string; launched_at: string };
+type PairRow = { combo: string; ticker: string; launched_at: string; meme?: boolean; name?: string | null; img?: string };
+
+/** A picture attached to a subject: a thumbnail, click to drop it (the emoji or ticker text is drawn instead). */
+function Thumb({ src, onClear }: { src?: string; onClear: () => void }) {
+  if (!src) return null;
+  return (
+    <button type="button" onClick={onClear} title="picture attached, click to remove" className="press shrink-0 overflow-hidden" style={{ width: 34, height: 34, borderRadius: 10 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" width={34} height={34} className="h-full w-full object-cover" />
+    </button>
+  );
+}
 let pairsCache: PairRow[] | null = null;
 
 /** Every launched pair as chips, newest first, with a filter box once the list is long. Loaded once per page. */
@@ -398,8 +410,14 @@ function PairPicker({ onPick, busy }: { onPick: (p: PairRow) => void; busy?: boo
       {pairs && pairs.length > 12 && <input className="clay-input" style={inputStyle} value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter by ticker or emoji" aria-label="filter pairs" />}
       <div className="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto scroll-y pb-1">
         {shown.map((p) => (
-          <Chip key={`${p.combo}-${p.ticker}-${p.launched_at}`} onClick={() => onPick(p)} disabled={busy} title={new Date(p.launched_at).toLocaleString()}>
-            {p.combo} ${p.ticker}
+          <Chip key={`${p.combo}-${p.ticker}-${p.launched_at}`} onClick={() => onPick(p)} disabled={busy} title={`${p.name ? `${p.name} · ` : ""}${new Date(p.launched_at).toLocaleString()}`}>
+            <span className="inline-flex items-center gap-1.5">
+              {p.img ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.img} alt="" width={18} height={18} className="rounded-[5px] object-cover" style={{ width: 18, height: 18 }} />
+              ) : null}
+              {p.combo} ${p.ticker}
+            </span>
           </Chip>
         ))}
         {pairs && !shown.length && <span className="text-[12px] text-ink-soft">{pairs.length ? "no match" : "no launches yet"}</span>}
@@ -452,7 +470,12 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
       const f = fields.pair;
       return (
         <>
-          <Input label="combo" value={f.combo} onChange={(e) => update("pair", { combo: e.target.value })} />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input label="combo" value={f.combo} onChange={(e) => update("pair", { combo: e.target.value })} />
+            </div>
+            <Thumb src={f.img} onClear={() => update("pair", { img: undefined })} />
+          </div>
           <Input label="ticker" value={f.ticker} onChange={(e) => update("pair", { ticker: e.target.value })} placeholder="AAPL" />
           <Input label="pill label (optional)" value={f.label} onChange={(e) => update("pair", { label: e.target.value })} placeholder="JUST CLAIMED" />
         </>
@@ -467,7 +490,10 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
           <Label>rows</Label>
           {f.rows.map((r, i) => (
             <div key={i} className="grid grid-cols-[72px_1fr_1fr] gap-2">
-              <input className="clay-input" style={inputStyle} value={r.emoji} onChange={(e) => setRow(i, { emoji: e.target.value })} placeholder="🐕" aria-label={`row ${i + 1} emoji`} />
+              <div className="flex items-center gap-1">
+                <Thumb src={r.img} onClear={() => setRow(i, { img: undefined })} />
+                <input className="clay-input min-w-0" style={inputStyle} value={r.emoji} onChange={(e) => setRow(i, { emoji: e.target.value })} placeholder="🐕" aria-label={`row ${i + 1} emoji`} />
+              </div>
               <input className="clay-input" style={inputStyle} value={r.pair} onChange={(e) => setRow(i, { pair: e.target.value })} placeholder="$NVDA" aria-label={`row ${i + 1} pair`} />
               <input className="clay-input" style={inputStyle} value={r.figure} onChange={(e) => setRow(i, { figure: e.target.value })} placeholder="$4,120" aria-label={`row ${i + 1} figure`} />
             </div>
@@ -490,7 +516,7 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
         <>
           <Input label="title" value={f.title} onChange={(e) => update("claimed", { title: e.target.value })} />
           <ItemList label="combos" items={f.tiles} min={LIMITS.claimedMin} max={LIMITS.claimedMax} onChange={(tiles) => update("claimed", { tiles })} tickerHint="ticker" />
-          <Input label="count" value={f.count} onChange={(e) => update("claimed", { count: e.target.value })} placeholder="1,842 claimed" />
+          <Input label="count" value={f.count} onChange={(e) => update("claimed", { count: e.target.value })} placeholder="1,842 launched" />
         </>
       );
     }
@@ -508,7 +534,12 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
       const f = fields.airdrop;
       return (
         <>
-          <Input label="pair" hint="pick an airdrop below, or type 🪟 / MSFT and fill from data" value={`${f.combo}${f.ticker ? ` / ${f.ticker}` : ""}`} onChange={(e) => update("airdrop", parsePair(e.target.value))} placeholder="🪟 / MSFT" />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input label="pair" hint="pick an airdrop below, or type 🪟 / MSFT and fill from data" value={`${f.combo}${f.ticker ? ` / ${f.ticker}` : ""}`} onChange={(e) => update("airdrop", parsePair(e.target.value))} placeholder="🪟 / MSFT" />
+            </div>
+            <Thumb src={f.img} onClear={() => update("airdrop", { img: undefined })} />
+          </div>
           <Input label="pill label (optional)" value={f.label} onChange={(e) => update("airdrop", { label: e.target.value })} placeholder="🪂 AIRDROP" />
           <Input label="figure" value={f.figure} onChange={(e) => update("airdrop", { figure: e.target.value })} placeholder="$1,240" />
           <Input label="summary line (optional)" value={f.sub} onChange={(e) => update("airdrop", { sub: e.target.value })} placeholder="0.5 $MSFT airdropped to 100 holders · Sep 14" />
@@ -530,7 +561,10 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
           </span>
           {f.items.map((it, i) => (
             <div key={i} className="grid grid-cols-[60px_1fr_1fr_1fr_32px] gap-1.5">
-              <input className="clay-input" style={inputStyle} value={it.emoji} onChange={(e) => set(i, { emoji: e.target.value })} placeholder="🍎" aria-label={`airdrop ${i + 1} emoji`} />
+              <div className="flex items-center gap-1">
+                <Thumb src={it.img} onClear={() => set(i, { img: undefined })} />
+                <input className="clay-input min-w-0" style={inputStyle} value={it.emoji} onChange={(e) => set(i, { emoji: e.target.value })} placeholder="🍎" aria-label={`airdrop ${i + 1} emoji`} />
+              </div>
               <input className="clay-input" style={inputStyle} value={it.ticker} onChange={(e) => set(i, { ticker: e.target.value })} placeholder="$AAPL" aria-label={`airdrop ${i + 1} ticker`} />
               <input className="clay-input" style={inputStyle} value={it.figure} onChange={(e) => set(i, { figure: e.target.value })} placeholder="$167" aria-label={`airdrop ${i + 1} paid`} />
               <input className="clay-input" style={inputStyle} value={it.holders} onChange={(e) => set(i, { holders: e.target.value })} placeholder="17 holders" aria-label={`airdrop ${i + 1} holders`} />
@@ -549,13 +583,18 @@ function FieldsEditor({ template, fields, update }: { template: Template; fields
       const setStat = (i: number, patch: Partial<Stat>) => update("token", { stats: f.stats.map((st, j) => (j === i ? { ...st, ...patch } : st)) });
       return (
         <>
-          <Input
-            label="pair"
-            hint="type it like 🪟 / MSFT, then fill from data"
-            value={`${f.combo}${f.ticker ? ` / ${f.ticker}` : ""}`}
-            onChange={(e) => update("token", parsePair(e.target.value))}
-            placeholder="🪟 / MSFT"
-          />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input
+                label="pair"
+                hint="type it like 🪟 / MSFT, then fill from data"
+                value={`${f.combo}${f.ticker ? ` / ${f.ticker}` : ""}`}
+                onChange={(e) => update("token", parsePair(e.target.value))}
+                placeholder="🪟 / MSFT"
+              />
+            </div>
+            <Thumb src={f.img} onClear={() => update("token", { img: undefined })} />
+          </div>
           <Input label="creator line (optional)" value={f.creator} onChange={(e) => update("token", { creator: e.target.value })} placeholder="launched by @handle · 3 days ago" />
           <span className="flex items-center justify-between">
             <Label>stats</Label>
@@ -599,7 +638,10 @@ function ItemList({ label, items, min, max, onChange, tickerHint }: { label: str
       </span>
       {items.map((it, i) => (
         <div key={i} className="grid grid-cols-[72px_1fr_36px] gap-2">
-          <input ref={i === items.length - 1 ? lastEmoji : undefined} className="clay-input" style={inputStyle} value={it.emoji} onChange={(e) => set(i, { emoji: e.target.value })} placeholder="🦖" aria-label={`item ${i + 1} emoji`} />
+          <div className="flex items-center gap-1">
+            <Thumb src={it.img} onClear={() => set(i, { img: undefined })} />
+            <input ref={i === items.length - 1 ? lastEmoji : undefined} className="clay-input min-w-0" style={inputStyle} value={it.emoji} onChange={(e) => set(i, { emoji: e.target.value })} placeholder="🦖" aria-label={`item ${i + 1} emoji`} />
+          </div>
           <input className="clay-input" style={inputStyle} value={it.ticker} onChange={(e) => set(i, { ticker: e.target.value })} placeholder={tickerHint} aria-label={`item ${i + 1} ${tickerHint}`} />
           <button type="button" className="press clay-pill heading bg-sky-50 text-ink-soft disabled:opacity-40" onClick={() => onChange(items.filter((_, j) => j !== i))} disabled={items.length <= 1} aria-label={`remove item ${i + 1}`}>
             ×

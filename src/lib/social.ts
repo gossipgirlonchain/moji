@@ -6,6 +6,7 @@ import { EXTENSION_POOL, normalizeCombo } from "./emoji";
 import { getPriceSeries } from "./market";
 import { dateShort, timeAgo } from "./format";
 import type { DropRow } from "./drops/types";
+import { isMeme } from "./meme-coin";
 import { dollar, type Fields, type Template } from "./card/params";
 
 /**
@@ -21,6 +22,21 @@ export function money(v: number): string {
   return `$${Math.round(v).toLocaleString("en-US")}`;
 }
 const n = (v: number | string | null | undefined) => Number(v ?? 0) || 0;
+
+/**
+ * Who a row is about, in card terms. A moji is its emoji combo; a meme is its `$TICKER` (drawn as text) plus
+ * its picture. `pairTicker` is the line under it: the paired stock or token for a moji, the meme's own ticker
+ * for a meme (its pair is already in the picture's caption on the site).
+ */
+export function subjectOf(m: Pick<MojiRow, "display" | "kind" | "meme_url" | "symbol">): { emoji: string; img?: string } {
+  const emoji = isMeme(m) ? `$${(m.symbol ?? m.display.replace(/^\$/, "")).toUpperCase()}` : m.display;
+  return m.meme_url ? { emoji, img: m.meme_url } : { emoji };
+}
+export function pairTicker(m: Pick<MojiRow, "display" | "kind" | "symbol" | "stock_ticker" | "meme_url">): string {
+  // A meme with a picture needs its ticker under it; one without already shows the ticker as its subject, so name the pair.
+  if (isMeme(m)) return m.meme_url ? dollar(m.symbol ?? m.display) : dollar(m.stock_ticker);
+  return dollar(m.stock_ticker);
+}
 const earned = (m: MojiRow) => n(m.fees_claimed_usd) + n(m.fees_unclaimed_usd);
 
 /** Ranking metrics for the leaderboard. */
@@ -60,7 +76,7 @@ export async function leaderboardFill(metric: Metric = "fees"): Promise<Partial<
   const m = METRICS[metric];
   const top = metric === "fees" ? await topEarnersFast(3) : (await livePools(m.col, 50)).sort((a, b) => m.value(b) - m.value(a)).slice(0, 3);
   if (!top.length) return {};
-  const rows = top.map((r) => ({ emoji: r.display, pair: dollar(r.stock_ticker), figure: money(m.value(r)) }));
+  const rows = top.map((r) => ({ ...subjectOf(r), pair: pairTicker(r), figure: money(m.value(r)) }));
   while (rows.length < 3) rows.push({ emoji: "", pair: "", figure: "" }); // keep three editable rows
   return { title: m.title, rows };
 }
@@ -68,7 +84,9 @@ export async function leaderboardFill(metric: Metric = "fees"): Promise<Partial<
 /** pair: the most recent launch, as a "just claimed" card. */
 export async function pairFill(): Promise<Partial<Fields["pair"]>> {
   const [m] = await livePools("launched_at", 1);
-  return m ? { combo: m.display, ticker: dollar(m.stock_ticker).slice(1), label: "JUST CLAIMED" } : {};
+  if (!m) return {};
+  const s = subjectOf(m);
+  return { combo: s.emoji, ticker: dollar(m.stock_ticker).slice(1), label: isMeme(m) ? "JUST LAUNCHED" : "JUST CLAIMED", ...(s.img ? { img: s.img } : {}) };
 }
 
 /** open: 8 emoji from the curated pool that nobody has claimed yet on this network. */
@@ -88,13 +106,13 @@ export async function claimedFill(): Promise<Partial<Fields["claimed"]>> {
   const since = new Date(Date.now() - 7 * 86400_000).toISOString();
   const sb = supabaseServer();
   const [{ data }, { count }] = await Promise.all([
-    sb.from("mojis").select("display, stock_ticker").eq("network", NETWORK).gte("launched_at", since).order("launched_at", { ascending: false }).limit(12),
+    sb.from("mojis").select("display, stock_ticker, kind, symbol, meme_url").eq("network", NETWORK).gte("launched_at", since).order("launched_at", { ascending: false }).limit(12),
     sb.from("mojis").select("id", { count: "exact", head: true }).eq("network", NETWORK).gte("launched_at", since),
   ]);
-  const rows = (data ?? []) as Pick<MojiRow, "display" | "stock_ticker">[];
+  const rows = (data ?? []) as Pick<MojiRow, "display" | "stock_ticker" | "kind" | "symbol" | "meme_url">[];
   const total = count ?? rows.length;
-  if (!rows.length) return { count: "0 claimed" };
-  return { tiles: rows.map((r) => ({ emoji: r.display, ticker: dollar(r.stock_ticker) })), count: `${total.toLocaleString("en-US")} claimed` };
+  if (!rows.length) return { count: "0 launched" };
+  return { tiles: rows.map((r) => ({ ...subjectOf(r), ticker: pairTicker(r) })), count: `${total.toLocaleString("en-US")} launched` };
 }
 
 /** The biggest 7 day price move among the pools with the most 7 day volume; falls back to the volume leader. */
@@ -157,8 +175,10 @@ export async function tokenFill(combo: string, ticker: string): Promise<Partial<
   const m = await getMoji(combo, ticker.trim().replace(/^\$/, "") || null);
   if (!m) return null;
   const who = m.creator_handle ? `launched by @${m.creator_handle}` : "launched";
+  const s = subjectOf(m);
   return {
-    combo: m.display,
+    combo: s.emoji,
+    ...(s.img ? { img: s.img } : {}),
     ticker: m.stock_ticker,
     creator: `${who} · ${timeAgo(m.launched_at)}`,
     stats: [
@@ -191,10 +211,10 @@ export async function recentDrops(limit = 30): Promise<RecentDrop[]> {
   const drops = (data ?? []) as DropRow[];
   if (!drops.length) return [];
   const [{ data: mojis }, { data: payouts }] = await Promise.all([
-    sb.from("mojis").select("id, display, stock_ticker").in("id", [...new Set(drops.map((d) => d.moji_id))]),
+    sb.from("mojis").select("id, display, stock_ticker, kind, symbol, meme_url").in("id", [...new Set(drops.map((d) => d.moji_id))]),
     sb.from("drop_payouts").select("drop_id, amount_usd").in("drop_id", drops.map((d) => d.id)).not("tx_hash", "is", null).limit(5000),
   ]);
-  const byMoji = new Map(((mojis ?? []) as Pick<MojiRow, "id" | "display" | "stock_ticker">[]).map((m) => [m.id, m]));
+  const byMoji = new Map(((mojis ?? []) as Pick<MojiRow, "id" | "display" | "stock_ticker" | "kind" | "symbol" | "meme_url">[]).map((m) => [m.id, m]));
   const paid = new Map<string, number[]>();
   for (const p of (payouts ?? []) as { drop_id: string; amount_usd: number }[]) paid.set(p.drop_id, [...(paid.get(p.drop_id) ?? []), n(p.amount_usd)]);
   return drops.flatMap((d) => {
@@ -217,7 +237,8 @@ export async function recentDrops(limit = 30): Promise<RecentDrop[]> {
         when,
         paidUsd: n(d.sent_usd),
         fields: {
-          combo: m.display,
+          combo: subjectOf(m).emoji,
+          ...(m.meme_url ? { img: m.meme_url } : {}),
           ticker: m.stock_ticker,
           label: "🪂 AIRDROP",
           figure: n(d.sent_usd) > 0 ? money(n(d.sent_usd)) : dropAmount(d),
@@ -250,7 +271,7 @@ export async function airdropsFill(): Promise<Partial<Fields["airdrops"]> | null
   const week = all.filter((d) => new Date(d.when).getTime() >= since);
   const chosen = (week.length ? week : all).slice(0, 8);
   const total = chosen.reduce((acc, d) => acc + (d.paidUsd ?? 0), 0);
-  const items = chosen.map((d) => ({ emoji: d.fields.combo, ticker: dollar(d.fields.ticker), figure: d.fields.figure, holders: `${d.fields.stats[0]?.value ?? "?"} holder${d.fields.stats[0]?.value === "1" ? "" : "s"}` }));
+  const items = chosen.map((d) => ({ emoji: d.fields.combo, ...(d.fields.img ? { img: d.fields.img } : {}), ticker: dollar(d.fields.ticker), figure: d.fields.figure, holders: `${d.fields.stats[0]?.value ?? "?"} holder${d.fields.stats[0]?.value === "1" ? "" : "s"}` }));
   const nDrops = week.length || chosen.length;
   return {
     title: week.length ? "airdrops this week" : "recent airdrops",

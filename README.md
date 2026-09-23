@@ -202,7 +202,7 @@ queue always produce the same pixels.
   | `pair` | `combo`, `ticker`, `label?` (pill, e.g. `JUST CLAIMED`) |
   | `leaderboard` | `title`, `row=emoji\|pair\|figure` x3 |
   | `open` | `title`, `item=emoji\|ticker` x6 to 8 |
-  | `claimed` | `title`, `tile=emoji\|ticker` x8 to 12, `count` |
+  | `claimed` | `title`, `tile=emoji\|ticker\|img?` x8 to 12, `count` (the "launched this week" roundup) |
   | `bignumber` | `pair`, `figure`, `label?` |
   | `token` | `combo`, `ticker`, `creator?`, `stat=label\|value` x2 to 4 |
   | `airdrop` | `combo`, `ticker`, `label?` (pill), `figure`, `sub?`, `stat=label\|value` x2 to 4 |
@@ -221,6 +221,10 @@ queue always produce the same pixels.
   fill), and for the airdrop card the recent airdrops that paid holders (from the `drops` and `drop_payouts`
   tables: USD paid, amount and token, holders paid, median and biggest payout, the hold rule), shown as chips
   that fill the card in one click, and the airdrops roundup (every airdrop of the last 7 days plus the total).
+- **Memes.** Every subject slot takes an emoji combo, a meme's `$TICKER` (drawn as text), or a picture: `img`
+  on the pair, token and airdrop cards, and a third `\|img` part on rows, items and tiles. Pictures are
+  fetched server side from the Supabase project (WebP and GIF are re-encoded to PNG with sharp, since resvg
+  cannot read them), cropped square and cached. Fills attach a meme's picture automatically.
 - **Rendering.** `next/og` (satori + resvg) like the token and OG images, with Fredoka 600 and Nunito 800
   self hosted in `src/assets/fonts`. Colors, radii and the clay shadows come from `src/config/design.ts`,
   a TypeScript mirror of `:root` in `globals.css` (`npm run check:tokens` keeps them in sync). Emoji are
