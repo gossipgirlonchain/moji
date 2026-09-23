@@ -12,16 +12,20 @@ import { stockPriceServer, nativePriceUsd } from "./market";
 import { buildParams } from "./doppler";
 import { publicClientFor, transportFor } from "./rpc";
 import { verifyLaunchTx } from "./launch-verify";
-import { recordLaunch } from "./record-launch";
+import { recordLaunch, type LaunchIdentity } from "./record-launch";
 import { validateCombo } from "./emoji";
 import { validateMeme } from "./meme-coin";
+import { canonicalSponsorMessage } from "./sponsor-message";
+export { canonicalSponsorMessage };
 import { CURVE_DEFAULTS } from "@/config/curve";
 import { WALLET_CLAIMS_OPEN } from "@/config/limits";
 
 /**
- * Sponsored launches: moji pays the gas for an agent's launch. Not a faucet: no ETH is ever sent to the agent.
- * The sponsor wallet sends the Airlock create itself with the agent as creator and fee beneficiary, after the
- * agent signs a message proving it owns the wallet. Gas is only ever spent on a real launch that burns a combo.
+ * Sponsored launches: moji pays the gas for every launch on Robinhood Chain, from the app and from agents alike.
+ * Not a faucet: no ETH is ever sent to the launcher. The sponsor wallet sends the Airlock create itself with the
+ * launcher as creator and fee beneficiary, after the launcher signs a message proving it owns the wallet. Gas is
+ * only ever spent on a real launch that burns a combo. A developer buy cannot be sponsored (the Bundler pulls the
+ * numeraire from the tx sender), so launches with one are sent by the creator.
  *
  * Env: SPONSOR_PRIVATE_KEY (a hot wallet holding only the budget), SPONSOR_BUDGET_USD (default 100),
  * SPONSOR_DAILY_MAX (default 10 launches per UTC day). Inert without the key.
@@ -41,10 +45,6 @@ export function sponsorAddress(): Address | null {
 }
 
 /** For a meme, `combo` is `$PEPE` and `name` (the title) is part of the signed message, so the sponsor cannot retitle it. */
-export function canonicalSponsorMessage(p: { creator: string; combo: string; pair: string; chainId: number; ts: number; name?: string | null }): string {
-  return `moji sponsored launch v1\n${JSON.stringify({ chainId: p.chainId, combo: p.combo, creator: p.creator.toLowerCase(), ...(p.name ? { name: p.name } : {}), pair: p.pair.toLowerCase(), ts: p.ts })}`;
-}
-
 export type SponsorStatus = { enabled: boolean; sponsor: string | null; chainIds: number[]; budgetUsd: number; spentUsd: number; remainingUsd: number; today: number; dailyMax: number; balanceNative: string | null; open: boolean };
 
 async function spent(): Promise<{ spentUsd: number; today: number }> {
@@ -69,16 +69,19 @@ export async function sponsorStatus(): Promise<SponsorStatus> {
     } catch {}
   }
   const remainingUsd = Math.max(0, SPONSOR_BUDGET_USD - spentUsd);
-  return { enabled: SPONSOR_ENABLED, sponsor, chainIds: [...SPONSOR_CHAINS], budgetUsd: SPONSOR_BUDGET_USD, spentUsd, remainingUsd, today, dailyMax: SPONSOR_DAILY_MAX, balanceNative, open: SPONSOR_ENABLED && WALLET_CLAIMS_OPEN && remainingUsd > 0 && today < SPONSOR_DAILY_MAX };
+  return { enabled: SPONSOR_ENABLED, sponsor, chainIds: [...SPONSOR_CHAINS], budgetUsd: SPONSOR_BUDGET_USD, spentUsd, remainingUsd, today, dailyMax: SPONSOR_DAILY_MAX, balanceNative, open: SPONSOR_ENABLED && remainingUsd > 0 && today < SPONSOR_DAILY_MAX };
 }
 
-export type SponsorRequest = { combo?: string; kind?: "moji" | "meme"; name?: string; symbol?: string; pair: string; chainId?: number; creator: string; ts: number; signature: string; mcap?: number };
+export type SponsorRequest = { combo?: string; kind?: "moji" | "meme"; name?: string; symbol?: string; pair: string; chainId?: number; creator: string; ts: number; signature: string; mcap?: number; feeRecipient?: string | null };
 export type SponsorResult = { ok: true; txHash: Hex; gasUsd: number; moji: Record<string, unknown>; href: string; url: string } | { ok: false; error: string; code: string; status: number };
 
-/** Verify, check budget and slots, send the launch from the sponsor wallet, wait, record. */
-export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult> {
+/**
+ * Verify, check budget and slots, send the launch from the sponsor wallet, wait, record.
+ * `who` is the launcher's identity: the app's X user (the route verified the Privy token) or a wallet / agent.
+ */
+export async function sponsorLaunch(req: SponsorRequest, who: LaunchIdentity = { kind: "agent", did: null, handle: null }): Promise<SponsorResult> {
   if (!SPONSOR_ENABLED) return { ok: false, error: "Sponsored launches are not configured", code: "SPONSOR_CLOSED", status: 403 };
-  if (!WALLET_CLAIMS_OPEN) return { ok: false, error: "Wallet launches are closed", code: "WALLET_CLAIMS_CLOSED", status: 403 };
+  if (who.kind !== "x" && !WALLET_CLAIMS_OPEN) return { ok: false, error: "Wallet launches are closed", code: "WALLET_CLAIMS_CLOSED", status: 403 };
   let v: Extract<ReturnType<typeof validateCombo>, { ok: true }>;
   let meme: { name: string; symbol: string } | null = null;
   if (req.kind === "meme") {
@@ -98,9 +101,12 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
   if (!stock) return { ok: false, error: "Pair must be a listed stock or token on this chain", code: "PAIR_NOT_LISTED", status: 400 };
   if (!isAddress(req.creator ?? "")) return { ok: false, error: "creator must be a 0x address", code: "BAD_INPUT", status: 400 };
   const creator = req.creator as Address;
+  const feeRecipientRaw = req.feeRecipient ?? null;
+  if (feeRecipientRaw && !isAddress(feeRecipientRaw)) return { ok: false, error: "feeRecipient must be a 0x address", code: "BAD_INPUT", status: 400 };
+  const feeRecipient = feeRecipientRaw && feeRecipientRaw.toLowerCase() !== creator.toLowerCase() ? (feeRecipientRaw as Address) : null;
   const ts = Number(req.ts);
   if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > SIGNATURE_WINDOW_MS) return { ok: false, error: "ts must be the current time in ms (signature is good for 10 minutes)", code: "STALE_SIGNATURE", status: 400 };
-  const message = canonicalSponsorMessage({ creator, combo: v.display, pair: stock.address, chainId: chain.chainId, ts, name: meme?.name });
+  const message = canonicalSponsorMessage({ creator, combo: v.display, pair: stock.address, chainId: chain.chainId, ts, name: meme?.name, feeRecipient });
   const good = await verifyMessage({ address: creator, message, signature: (req.signature ?? "0x") as Hex }).catch(() => false);
   if (!good) return { ok: false, error: "signature does not match the sponsored launch message", code: "BAD_SIGNATURE", status: 403 };
   const mcapStart = req.mcap ? Number(req.mcap) : CURVE_DEFAULTS.mcapStart;
@@ -108,13 +114,11 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
   if (!hasSupabase()) return { ok: false, error: "no db", code: "SERVER_MISCONFIGURED", status: 500 };
 
   // Slots, the combo, and the budget, before anything is sent.
-  const quota = await launchQuota({ address: creator });
+  const quota = await launchQuota(who.did ? { did: who.did } : { address: creator });
   if (quota.blocked) return { ok: false, error: quota.message ?? "Launch cap reached", code: "NO_SLOTS", status: 429 };
   const taken = await isClaimed(v.normalized, chain.chainId, stock.address);
   if (taken.claimed) return { ok: false, error: `${v.display} is already paired to ${stock.ticker} on ${chain.short}`, code: "CLAIMED", status: 409 };
   const sb = supabaseServer();
-  const { count: mine } = await sb.from("sponsored_launches").select("id", { count: "exact", head: true }).eq("network", NETWORK).ilike("creator", creator).in("status", ["pending", "sent"]);
-  if ((mine ?? 0) > 0) return { ok: false, error: "this wallet already had a sponsored launch", code: "SPONSOR_USED", status: 429 };
   const status = await sponsorStatus();
   if (!status.open) return { ok: false, error: status.remainingUsd <= 0 ? "the sponsor budget is spent" : status.today >= SPONSOR_DAILY_MAX ? "today's sponsored launches are used up, try tomorrow" : "sponsored launches are closed", code: "SPONSOR_BUDGET", status: 429 };
 
@@ -127,7 +131,7 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
   let gasUsd = 0;
   let rowId: string | null = null;
   try {
-    const params = await buildParams({ chain, stock, combo: v.display, ...(meme ?? {}), creator, curve: { ...CURVE_DEFAULTS, mcapStart }, stockPriceUsd });
+    const params = await buildParams({ chain, stock, combo: v.display, ...(meme ?? {}), feeRecipient: feeRecipient ?? undefined, creator, curve: { ...CURVE_DEFAULTS, mcapStart }, stockPriceUsd });
     const sdk = new DopplerSDK({ publicClient, chainId: chain.chainId });
     const [prepared, gasPrice] = await Promise.all([sdk.factory.prepareCreateMulticurve(params, { account: account.address }), publicClient.getGasPrice()]);
     const gas = prepared.gasEstimate.status === "estimated" ? prepared.gasEstimate.gas : 3_500_000n;
@@ -150,9 +154,9 @@ export async function sponsorLaunch(req: SponsorRequest): Promise<SponsorResult>
     }
     await sb.from("sponsored_launches").update({ status: "sent", tx_hash: txHash, gas_usd: gasUsd, token_address: prepared.prediction.tokenAddress }).eq("id", rowId);
 
-    const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash, tokenAddress: prepared.prediction.tokenAddress, creatorAddress: creator, numeraire: stock.address, sender: account.address });
+    const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash, tokenAddress: prepared.prediction.tokenAddress, creatorAddress: creator, numeraire: stock.address, sender: account.address, feeRecipient });
     if (!proof.ok) return { ok: false, error: `Launch not verified on-chain: ${proof.reason}`, code: "TX_NOT_VERIFIED", status: 422 };
-    const rec = await recordLaunch({ v, meme, chain, stock, tokenAddress: prepared.prediction.tokenAddress, poolId: prepared.prediction.poolId, txHash, supply: String(CURVE_DEFAULTS.supply), creatorAddress: creator, who: { kind: "agent", did: null, handle: null }, sponsor: account.address });
+    const rec = await recordLaunch({ v, meme, feeRecipient, chain, stock, tokenAddress: prepared.prediction.tokenAddress, poolId: prepared.prediction.poolId, txHash, supply: String(CURVE_DEFAULTS.supply), creatorAddress: creator, who, sponsor: account.address });
     if (!rec.ok) return rec;
     return { ok: true, txHash, gasUsd, moji: rec.moji, href: rec.href, url: rec.url };
   } catch (e) {

@@ -19,3 +19,8 @@ alter table public.mojis add column if not exists kind text not null default 'mo
 alter table public.mojis add column if not exists name text;
 alter table public.mojis add column if not exists symbol text;
 create index if not exists mojis_kind_idx on public.mojis (kind);
+
+-- Who earns the creator's 70% fee share when the creator pointed it at someone else at launch (an X user's
+-- wallet, any address). Null means the creator. The chain is the source of truth (launch-verify.ts checks the
+-- pool's beneficiaries); this column just lets the site say so.
+alter table public.mojis add column if not exists fee_recipient text;

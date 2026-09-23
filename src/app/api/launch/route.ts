@@ -31,6 +31,8 @@ type Body = {
   creatorAddress: string;
   /** Wallet path only: the launcher says it is an autonomous agent. Shown as 🤖 on the moji. */
   agent?: boolean;
+  /** who earns the creator's fee share when it is not the creator (must match the pool's beneficiaries on-chain) */
+  feeRecipient?: string | null;
 };
 
 type Identity = { kind: "x"; did: string; handle: string | null } | { kind: "wallet" | "agent"; did: null; handle: null };
@@ -86,6 +88,8 @@ export async function POST(req: Request) {
     return fail("Bad token address or tx hash", "BAD_INPUT", 400);
   }
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.creatorAddress ?? "")) return fail("Bad creator address", "BAD_INPUT", 400);
+  const feeRecipient = body.feeRecipient && !/^0x[0-9a-fA-F]{40}$/.test(body.feeRecipient) ? undefined : body.feeRecipient && body.feeRecipient.toLowerCase() !== body.creatorAddress.toLowerCase() ? body.feeRecipient : null;
+  if (feeRecipient === undefined) return fail("Bad fee recipient address", "BAD_INPUT", 400);
 
   // Who is claiming. A bearer token means the app's Privy + X path; none means the wallet path.
   const auth = req.headers.get("authorization");
@@ -112,7 +116,7 @@ export async function POST(req: Request) {
   if (quota.blocked) return fail(quota.message ?? "Launch cap reached", quota.rule === "dead" ? "DEAD_CAP" : "NO_SLOTS", 429);
 
   // The chain is the source of truth for what was launched: creator, token, pair, fee beneficiaries, integrator.
-  const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash: body.txHash as `0x${string}`, tokenAddress: body.tokenAddress as `0x${string}`, creatorAddress: body.creatorAddress as `0x${string}`, numeraire: stock.address });
+  const proof = await verifyLaunchTx({ chainId: chain.chainId, txHash: body.txHash as `0x${string}`, tokenAddress: body.tokenAddress as `0x${string}`, creatorAddress: body.creatorAddress as `0x${string}`, numeraire: stock.address, feeRecipient: feeRecipient as `0x${string}` | null });
   if (!proof.ok) return fail(`Launch not verified on-chain: ${proof.reason}`, proof.reason.includes("not found") ? "TX_NOT_FOUND" : "TX_NOT_VERIFIED", 422);
 
   const sb = supabaseServer();
@@ -128,7 +132,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const rec = await recordLaunch({ v, meme, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
+  const rec = await recordLaunch({ v, meme, feeRecipient, chain, stock, tokenAddress: body.tokenAddress, poolId: body.poolId ?? null, txHash: body.txHash, supply: body.supply ?? null, creatorAddress: body.creatorAddress, who });
   if (!rec.ok) return fail(rec.error, rec.code, rec.status);
   return NextResponse.json({ moji: rec.moji, href: rec.href, url: rec.url, handle: who.handle, creatorKind: who.kind });
 }

@@ -5,7 +5,8 @@ import { isXExempt } from "@/config/whitelist";
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
-import { useAccount, useBalance } from "wagmi";
+import { useAccount, useBalance, useSignMessage } from "wagmi";
+import { canonicalSponsorMessage } from "@/lib/sponsor-message";
 import { formatEther, parseEther, type Address, type EIP1193Provider } from "viem";
 import { Button } from "@/components/ui";
 import type { MojiChain } from "@/config/chains";
@@ -36,22 +37,46 @@ type Props = {
   kind?: LaunchKind;
   name?: string;
   symbol?: string;
+  /** who earns the creator's fee share, when not the launcher */
+  feeRecipient?: Address | null;
+  /** developer buy in numeraire wei, bundled into the launch tx */
+  devBuyIn?: bigint | null;
 };
 
 type Phase = "idle" | "pricing" | "signing" | "confirming" | "recording" | "done";
 
-export function LaunchAction({ chain, stock, combo, available, curve, meme, details, kind = "moji", name, symbol }: Props) {
+export function LaunchAction({ chain, stock, combo, available, curve, meme, details, kind = "moji", name, symbol, feeRecipient, devBuyIn }: Props) {
   const isMeme = kind === "meme";
   const tokenMeta = isMeme ? { name: name || combo, symbol: symbol || combo.slice(1) } : {};
+  const extras = { feeRecipient: feeRecipient ?? undefined, devBuyIn: devBuyIn && devBuyIn > 0n ? devBuyIn : undefined };
   const router = useRouter();
   const { ready, authenticated, user, login, linkTwitter, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [phase, setPhase] = useState<Phase>("idle");
+  // Robinhood Chain: moji pays the gas. The sponsor wallet sends the launch; the user only signs a message.
+  // A developer buy cannot ride along (the Bundler pulls the stock from the tx sender), so those launches are self-sent.
+  const [sponsorOpen, setSponsorOpen] = useState(false);
+  useEffect(() => {
+    if (chain.chainId !== 4663) {
+      setSponsorOpen(false);
+      return;
+    }
+    let alive = true;
+    fetch("/api/launch/sponsored", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { open?: boolean }) => alive && setSponsorOpen(Boolean(j.open)))
+      .catch(() => alive && setSponsorOpen(false));
+    return () => {
+      alive = false;
+    };
+  }, [chain.chainId]);
+  const sponsored = sponsorOpen && !extras.devBuyIn;
   const [error, setError] = useState<string | null>(null);
   const [gasEstimate, setGasEstimate] = useState<bigint | null>(null);
-  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string; memeUrl: string | null; memeError: string | null } | null>(null);
+  const [done, setDone] = useState<{ href: string; url: string; combo: string; ticker: string; ca: string; memeUrl: string | null; memeError: string | null; bought?: bigint } | null>(null);
   const hasX = Boolean(user?.twitter?.username) || isXExempt(address);
   // Dead-moji cap: ask the server whether this account may launch right now.
   const [quota, setQuota] = useState<{ blocked: boolean; message: string | null; dead: number; max: number } | null>(null);
@@ -101,7 +126,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
       try {
         const provider = (await wallet.getEthereumProvider()) as EIP1193Provider;
         const price = await stockPriceUsd(stock);
-        const g = await estimateLaunchGasWei({ chain, stock, combo, ...tokenMeta, creator: address as Address, provider, curve, stockPriceUsd: price });
+        const g = await estimateLaunchGasWei({ chain, stock, combo, ...tokenMeta, ...extras, creator: address as Address, provider, curve, stockPriceUsd: price });
         if (alive) setGasEstimate(g);
       } catch {}
     })();
@@ -109,7 +134,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, stock, available, wallet, chain, combo, curve, tokenMeta.name, tokenMeta.symbol]);
+  }, [address, stock, available, wallet, chain, combo, curve, tokenMeta.name, tokenMeta.symbol, extras.feeRecipient, extras.devBuyIn]);
 
   const ok = Boolean(stock && available && combo);
 
@@ -117,32 +142,63 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
     if (!wallet || !address || !stock || !chain.viem) return;
     setError(null);
     try {
-      setPhase("pricing");
-      const provider = await ensureChain(wallet, chain.viem);
-      const price = await stockPriceUsd(stock);
-
-      setPhase("signing");
-      const res = await launchMoji({ chain, stock, combo, ...tokenMeta, creator: address as Address, provider, curve, stockPriceUsd: price });
-
-      setPhase("recording");
+      let res: { tokenAddress: string; devBuyOut?: bigint };
+      let j: { href?: string; url?: string; error?: string };
       const token = await getAccessToken();
-      const r = await fetch("/api/launch", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({
-          combo,
-          ...(isMeme ? { kind: "meme", name: tokenMeta.name, symbol: tokenMeta.symbol } : {}),
-          chainId: chain.chainId,
-          stockAddress: stock.address,
-          tokenAddress: res.tokenAddress,
-          poolId: res.poolId,
-          txHash: res.txHash,
-          supply: res.supply,
-          creatorAddress: address,
-        }),
-      });
-      const j = (await r.json()) as { href?: string; url?: string; error?: string };
-      if (!r.ok) throw new Error(j.error ?? "Could not record launch");
+      if (sponsored) {
+        // moji pays the gas: sign the launch message, the server sends the create and records it in one go.
+        setPhase("signing");
+        const ts = Date.now();
+        const message = canonicalSponsorMessage({ creator: address, combo, pair: stock.address, chainId: chain.chainId, ts, name: isMeme ? tokenMeta.name : null, feeRecipient: extras.feeRecipient ?? null });
+        const signature = await signMessageAsync({ message });
+        setPhase("confirming");
+        const r = await fetch("/api/launch/sponsored", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            combo,
+            ...(isMeme ? { kind: "meme", name: tokenMeta.name, symbol: tokenMeta.symbol } : {}),
+            ...(extras.feeRecipient ? { feeRecipient: extras.feeRecipient } : {}),
+            pair: stock.address,
+            chainId: chain.chainId,
+            creator: address,
+            ts,
+            signature,
+            mcap: curve.mcapStart,
+          }),
+        });
+        j = (await r.json()) as { href?: string; url?: string; error?: string; moji?: { token_address?: string } };
+        if (!r.ok) throw new Error(j.error ?? "Sponsored launch failed");
+        res = { tokenAddress: (j as { moji?: { token_address?: string } }).moji?.token_address ?? "" };
+      } else {
+        setPhase("pricing");
+        const provider = await ensureChain(wallet, chain.viem);
+        const price = await stockPriceUsd(stock);
+
+        setPhase("signing");
+        const launched = await launchMoji({ chain, stock, combo, ...tokenMeta, ...extras, creator: address as Address, provider, curve, stockPriceUsd: price });
+        res = launched;
+
+        setPhase("recording");
+        const r = await fetch("/api/launch", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            combo,
+            ...(isMeme ? { kind: "meme", name: tokenMeta.name, symbol: tokenMeta.symbol } : {}),
+            ...(extras.feeRecipient ? { feeRecipient: extras.feeRecipient } : {}),
+            chainId: chain.chainId,
+            stockAddress: stock.address,
+            tokenAddress: launched.tokenAddress,
+            poolId: launched.poolId,
+            txHash: launched.txHash,
+            supply: launched.supply,
+            creatorAddress: address,
+          }),
+        });
+        j = (await r.json()) as { href?: string; url?: string; error?: string };
+        if (!r.ok) throw new Error(j.error ?? "Could not record launch");
+      }
       // The picture rides along after the row exists (creator-only upload). Best effort: the token page can add it later.
       let memeUrl: string | null = null;
       let memeError: string | null = null;
@@ -166,7 +222,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
       }
       setPhase("done");
       const href = j.href ?? `/m/${encodeURIComponent(combo)}`;
-      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker, ca: res.tokenAddress, memeUrl, memeError });
+      setDone({ href, url: j.url ?? `${SITE_URL}${href}`, combo, ticker: stock.ticker, ca: res.tokenAddress, memeUrl, memeError, bought: res.devBuyOut });
       router.prefetch(href);
     } catch (e) {
       setPhase("idle");
@@ -204,6 +260,7 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
           {isMeme && tokenMeta.name ? `${tokenMeta.name} · ` : ""}
           {done.combo} / {done.ticker} is live.
         </p>
+        {done.bought && done.bought > 0n ? <p className="text-[13px] text-ink-soft">and you bought {Number(formatEther(done.bought)).toLocaleString(undefined, { maximumFractionDigits: 0 })} {done.combo} in the same transaction.</p> : null}
         {done.memeError && <p className="text-[12px] text-coral">picture not saved ({done.memeError}). add it from your {isMeme ? "meme" : "moji"} page.</p>}
         <PostIt combo={done.combo} ticker={done.ticker} url={done.url} ca={done.ca} size="lg" />
         <Link href={done.href} className="press clay heading block w-full bg-sky-500 px-6 py-3.5 text-[17px] text-white">
@@ -238,14 +295,14 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
 
   const busy = phase !== "idle";
   const label = busy
-    ? { pricing: "Pricing…", signing: "Sign in your wallet…", confirming: "Confirming…", recording: isMeme ? "Claiming ticker…" : "Claiming combo…", done: "Launched!" }[phase]
-    : !hasGas && address
+    ? { pricing: "Pricing…", signing: extras.devBuyIn ? "Sign in your wallet (approval, then launch)…" : "Sign in your wallet…", confirming: "Confirming…", recording: isMeme ? "Claiming ticker…" : "Claiming combo…", done: "Launched!" }[phase]
+    : !hasGas && address && !sponsored
       ? "Not enough gas"
       : `LAUNCH ${preview}`;
 
   return (
     <div className="flex flex-col gap-4">
-      {address && !hasGas && (
+      {address && !hasGas && !sponsored && (
         <FundWalletCard
           address={address}
           chain={chain}
@@ -253,9 +310,10 @@ export function LaunchAction({ chain, stock, combo, available, curve, meme, deta
           needed={Number(formatEther(needed)).toFixed(5)}
         />
       )}
-      <Button size="lg" onClick={onLaunch} disabled={!ok || !hasGas || busy} className="pop pop-4">
+      <Button size="lg" onClick={onLaunch} disabled={!ok || (!hasGas && !sponsored) || busy} className="pop pop-4">
         {label}
       </Button>
+      {sponsored && <p className="-mt-2 text-center text-[12px] text-mint">gas is on moji on Robinhood Chain. one signature, no ETH needed.</p>}
       {error && (
         <p className="clay-sm bg-white px-4 py-3 text-center text-[13px] text-coral" role="alert">
           {error}

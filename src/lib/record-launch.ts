@@ -14,6 +14,8 @@ export type RecordInput = {
   v: Extract<ComboValidation, { ok: true }>;
   /** a meme (title + ticker) instead of an emoji combo: stored as kind = 'meme', no rendered emoji image */
   meme?: { name: string; symbol: string } | null;
+  /** who earns the creator's fee share when it is not the creator (verified on-chain before this) */
+  feeRecipient?: string | null;
   chain: MojiChain;
   stock: Stock;
   tokenAddress: string;
@@ -58,6 +60,7 @@ export async function recordLaunch(input: RecordInput): Promise<RecordResult> {
     creator_address: input.creatorAddress,
     metadata_url: metadataUrl,
     ...(input.meme ? { kind: "meme", name: input.meme.name, symbol: input.meme.symbol } : {}),
+    ...(input.feeRecipient ? { fee_recipient: input.feeRecipient.toLowerCase() } : {}),
   };
   let { data, error } = await sb.from("mojis").insert({ ...row, creator_kind: who.kind }).select("*").single();
   // Before supabase/agents.sql is applied the column does not exist (PGRST204): record the launch without it.

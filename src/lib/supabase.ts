@@ -71,6 +71,8 @@ export type MojiRow = {
   name?: string | null;
   /** meme ticker without the $ */
   symbol?: string | null;
+  /** who earns the creator's 70% fee share when it is not the creator (supabase/memes.sql) */
+  fee_recipient?: string | null;
   /** creator's blurb and links (supabase/memes.sql), edited with the meme */
   description?: string | null;
   x_url?: string | null;

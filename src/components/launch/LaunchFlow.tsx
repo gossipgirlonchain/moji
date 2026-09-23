@@ -21,6 +21,8 @@ import { MemeDetailsFields } from "@/components/MemeDetailsFields";
 import { EMPTY_DETAILS, type MemeDetails } from "@/lib/meme-details";
 import { validateMeme, type LaunchKind } from "@/lib/meme-coin";
 import { MemeSlots } from "./MemeSlots";
+import { CreatorFeesCard, DevBuyCard } from "./LaunchExtras";
+import type { Address } from "viem";
 
 /**
  * Two things launch here: a moji (1 to 3 emoji paired to a stock or token) or a meme, a traditional memecoin
@@ -36,6 +38,8 @@ export function LaunchFlow() {
   const [curve, setCurve] = useState<CurveDefaults>(CURVE_DEFAULTS);
   const [meme, setMeme] = useState<File | null>(null);
   const [details, setDetails] = useState<MemeDetails>(EMPTY_DETAILS);
+  const [feeRecipient, setFeeRecipient] = useState<Address | null>(null);
+  const [devBuyIn, setDevBuyIn] = useState<bigint | null>(null);
 
   // Easter egg: BNB turns the page gold. The palette is CSS variables on <html>, so one attribute retints
   // everything; `theme-fade` eases the colors and a soft gold gradient behind the page fades in with them.
@@ -152,12 +156,19 @@ export function LaunchFlow() {
         </Card>
       )}
 
+      {chain.key !== "solana" && (
+        <>
+          <CreatorFeesCard value={feeRecipient} onChange={setFeeRecipient} />
+          <DevBuyCard chain={chain} stock={stock} value={devBuyIn} onChange={setDevBuyIn} />
+        </>
+      )}
+
       {chain.key === "solana" ? (
         <Button size="lg" disabled className="pop pop-4">
           Solana soon
         </Button>
       ) : PRIVY_ENABLED ? (
-        <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} meme={meme} details={details} kind={kind} name={name.trim()} symbol={symbol} />
+        <LaunchAction chain={chain} stock={stock} combo={combo} available={available} curve={curve} meme={meme} details={details} kind={kind} name={name.trim()} symbol={symbol} feeRecipient={feeRecipient} devBuyIn={devBuyIn} />
       ) : (
         <LaunchActionDisabled combo={combo} stock={stock} available={available} />
       )}
@@ -165,7 +176,7 @@ export function LaunchFlow() {
       <Advanced value={curve} onChange={setCurve} />
 
       <p className="text-center text-[12px] text-ink-soft">
-        one wallet signature. you pay gas.
+        one wallet signature. gas is on moji on Robinhood Chain; elsewhere you pay it.
       </p>
     </main>
   );

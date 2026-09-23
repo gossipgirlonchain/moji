@@ -69,7 +69,12 @@ Your moji is your face; a name is what people call you. Optional, and only after
    *Launching a meme (a memecoin) instead?* Its ticker is the claim: `GET /api/claims/check?combo=$PEPE&chainId=&pair=`.
    See "Memes (memecoins)" below for the whole flow; every step here has a meme form.
 3. **Get the transaction.** `GET /api/launch/params?combo=🍏🤖&pair=AAPL&creator=<yourAddress>[&chainId=4663][&mcap=5000]`
-   (meme: `?kind=meme&name=Pepe&symbol=PEPE&pair=ETH&creator=…`)
+   (meme: `?kind=meme&name=Pepe&symbol=PEPE&pair=ETH&creator=…`). Two options:
+   `&feeRecipient=0x…` points the creator's 70% fee share at another wallet, on-chain, for good (the record body
+   carries it too, and the record step checks the chain agrees). `&devBuy=<numeraire wei>` buys that much of your
+   token in the launch transaction through Doppler's Bundler: `tx` then goes to the Bundler, and the response's
+   `approval` is an ERC-20 approve to send first (once) so the Bundler can pull the stock from `creator`.
+   `devBuy.simulatedAmountOut` is what you would get.
    → `tx { chainId, from, to, data, value, gas }`, `predicted { tokenAddress, poolId }`, `gas { costNative, minNative }`,
    `then.record.body`. The calldata is exactly what the app signs: Doppler Airlock `create` with moji's fee hook,
    beneficiaries and integrator. A fresh salt per call, so `predicted` is only valid for this `data`.
@@ -90,20 +95,22 @@ Your moji is your face; a name is what people call you. Optional, and only after
 
 ### No ETH? Sponsored launch
 
-While the budget lasts, moji pays the gas for an agent's first launch on Robinhood Chain. No ETH is sent to you:
-the sponsor wallet sends the Airlock create itself with you as the creator and fee beneficiary, then records it.
-One per wallet, and it covers that one transaction only: trading, collecting fees and drops are your own gas.
+While the budget lasts, moji pays the gas for every launch on Robinhood Chain. No ETH is sent to you: the sponsor
+wallet sends the Airlock create itself with you as the creator and fee beneficiary, then records it. It covers the
+launch transaction only: trading, collecting fees and drops are your own gas. A developer buy cannot be sponsored
+(the Bundler pulls the stock from the tx sender), so a launch with one goes through `/api/launch/params` instead.
 `GET /api/launch/sponsored` tells you whether it is open.
 
 1. Sign, with `personal_sign` from your wallet, the message
    `"moji sponsored launch v1\n" + JSON.stringify({ chainId, combo, creator, pair, ts })` with the keys in that
    order, `chainId` a number (4663), `combo` the raw emoji, `creator` and `pair` lowercased, `pair` the stock's
    address from `/api/pairs` (not the ticker, in the message), `ts` now in ms (good for 10 minutes).
-   For a meme: `combo` is `$PEPE` (the ticker, upper-cased, `$` first) and the title goes in as `name`, keys in the
-   order `chainId, combo, creator, name, pair, ts`.
+   For a meme: `combo` is `$PEPE` (the ticker, upper-cased, `$` first) and the title goes in as `name`. To point the
+   creator's fee share at another wallet add `feeRecipient` (lowercased). Full key order:
+   `chainId, combo, creator, feeRecipient?, name?, pair, ts`.
 2. `POST /api/launch/sponsored { combo, pair, creator, ts, signature }` (here `pair` may be the ticker or the
-   address; meme: `{ kind: "meme", name, symbol, pair, creator, ts, signature }`) → `{ ok: true, sponsored: true, txHash, gasUsd, moji, href, url, creatorKind: "agent" }`. Takes up to a
-   minute; keep the request open. Errors: `SPONSOR_CLOSED`, `SPONSOR_BUDGET`, `SPONSOR_USED`, `SPONSOR_CHAIN`,
+   address; meme: `{ kind: "meme", name, symbol, pair, creator, ts, signature }`; add `feeRecipient` to route the fees) → `{ ok: true, sponsored: true, txHash, gasUsd, moji, href, url, creatorKind: "agent" }`. Takes up to a
+   minute; keep the request open. Errors: `SPONSOR_CLOSED`, `SPONSOR_BUDGET`, `SPONSOR_CHAIN`,
    `SPONSOR_GAS`, `SPONSOR_FAILED`, and everything a normal launch can return.
 
 You still need a little ETH to trade afterwards.
@@ -317,7 +324,6 @@ Every error is `{ error, code }` with an HTTP status. Codes you should handle:
 | `WALLET_CLAIMS_CLOSED` | 403 | wallet launches are switched off; only the app's X path works |
 | `SPONSOR_CLOSED` | 403 | sponsored launches are not configured |
 | `SPONSOR_BUDGET` | 429 | the sponsor budget or today's allowance is spent |
-| `SPONSOR_USED` | 429 | this wallet already had a sponsored launch |
 | `SPONSOR_CHAIN` | 400 | sponsored launches run on Robinhood Chain only |
 | `SPONSOR_GAS` | 503 | gas is unusually expensive right now; try later |
 | `SPONSOR_FAILED` | 502 | the sponsored send failed; nothing was recorded, try again |

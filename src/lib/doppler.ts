@@ -15,6 +15,10 @@ export type LaunchInput = {
   /** memes: token name (the title) and symbol (the ticker); mojis leave these out */
   name?: string;
   symbol?: string;
+  /** who earns the creator's 70% fee share; the creator unless set (an X user's wallet, any address) */
+  feeRecipient?: Address;
+  /** developer buy: exact numeraire amount (wei of the paired stock or token) bought atomically with the launch through Doppler's Bundler */
+  devBuyIn?: bigint;
   creator: Address;
   provider: EIP1193Provider;
   curve?: CurveDefaults;
@@ -23,6 +27,8 @@ export type LaunchInput = {
 };
 
 export type LaunchResult = {
+  /** tokens received by the developer buy, when there was one */
+  devBuyOut?: bigint;
   tokenAddress: Address;
   poolId: `0x${string}`;
   txHash: `0x${string}`;
@@ -52,7 +58,8 @@ export async function buildParams(input: Omit<LaunchInput, "provider">) {
   const curve = input.curve ?? CURVE_DEFAULTS;
   const publicClient = createPublicClient({ chain: input.chain.viem!, transport: transportFor(input.chain.viem!) });
   const protocolOwner = await getAirlockOwner(publicClient);
-  const beneficiaries = buildBeneficiaries(input.creator, protocolOwner);
+  const earner = input.feeRecipient ?? input.creator;
+  const beneficiaries = buildBeneficiaries(earner, protocolOwner);
   assertSharesSumToWad(beneficiaries, protocolOwner); // fail loudly before anything is signed
   if (!MOJI_INTEGRATOR) throw new Error("NEXT_PUBLIC_MOJI_INTEGRATOR / NEXT_PUBLIC_MOJI_TREASURY is not set");
 
@@ -94,12 +101,15 @@ export async function buildParams(input: Omit<LaunchInput, "provider">) {
         numeraireFeesToBeneficiaryWad: WAD,
         numeraireFeesToLpWad: 0n,
       },
-      buybackDestination: input.creator,
+      buybackDestination: earner,
     })
     .withGovernance({ type: "noOp" })
     .withMigration({ type: "noOp" })
     .withIntegrator(MOJI_INTEGRATOR) // attribution in the Doppler app + Airlock integrator fees
     .withUserAddress(input.creator)
+    // Developer buy: the Bundler creates the market and swaps `devBuyIn` of the numeraire into the token in the same
+    // tx, tokens straight to the creator (no vesting). The SDK sends the one-time Bundler approval first when needed.
+    .withDevBuy(input.devBuyIn && input.devBuyIn > 0n ? { exactAmountIn: input.devBuyIn, recipient: input.creator, vesting: { permissionlessClaim: false, vestingDuration: 0n, cliffDuration: 0n } } : undefined)
     .build();
 }
 
@@ -135,6 +145,7 @@ export async function launchMoji(input: LaunchInput): Promise<LaunchResult> {
     tokenAddress: res.tokenAddress,
     poolId: res.poolId,
     txHash: res.transactionHash,
+    devBuyOut: res.devBuy?.amountOut,
     supply: String((input.curve ?? CURVE_DEFAULTS).supply),
   };
 }
