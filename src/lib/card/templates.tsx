@@ -7,7 +7,7 @@ import { Emoji, SHADOW, type Sprites } from "./emoji";
 import { ClayBox, ClayCard, type ClayBg, type ClaySet } from "./clay";
 import type { Pictures } from "./picture";
 import { dollar, type CardSpec, type Fields } from "./params";
-import { ComboEmoji, Rich, fitBlock, fitLine, lineWidth } from "./text";
+import { ComboEmoji, Rich, countLines, fitBlock, fitLine, lineWidth } from "./text";
 import { FREDOKA_600, NUNITO_800 } from "./metrics";
 
 /**
@@ -16,6 +16,13 @@ import { FREDOKA_600, NUNITO_800 } from "./metrics";
  * 80px, content inside 88px padding, the wordmark footer, and the seeded emoji scatter on top.
  * Layout adapts to the two canvases (1200x1200 and 1600x900) from the content box size alone.
  */
+
+/** "🍎 / $AAPL" for a moji; a meme reads "$MUMU / MUSEBOOK" (its own ticker carries the dollar sign). */
+function pairLine(combo: string, ticker: string): string {
+  const c = combo.trim();
+  const t = ticker.trim().replace(/^\$/, "").toUpperCase();
+  return c.startsWith("$") ? `${c} / ${t}` : `${c} / ${t ? `$${t}` : "$"}`;
+}
 
 /** The only gradient in the system: --sky-100 lifting to near white at the top left. */
 export const LIFT = `radial-gradient(120% 120% at 0% 0%, #EEF8FE 0%, ${SKY[100]} 58%, ${SKY[100]} 100%)`;
@@ -84,6 +91,17 @@ function Header({ text, ctx }: { text: string; ctx: Ctx }) {
   return <Rich text={text} sprites={ctx.sprites} size={fitLine(text, [76, 68, 60, 52], ctx.contentW)} color={INK} lineHeight={1} />;
 }
 
+/** A tile's caption in Nunito: one line shrunk to fit, or wrapped onto two centred lines when the grid allows it. */
+function TileLine({ text, sprites, size, width, lines }: { text: string; sprites: Sprites; size: number; width: number; lines: number }) {
+  const t = text.trim() || " ";
+  const safe = width - 8; // measured widths run a touch narrow for tight caps; keep clear of the tile edge
+  const oneLine = fitLine(t, [size, size - 2, size - 4], safe, NUNITO_800, 0, 14);
+  if (lines > 1 && lineWidth(t, size, NUNITO_800) > safe) {
+    return <Rich text={t} sprites={sprites} size={Math.max(14, size - 2)} color={INK_SOFT} font={FONT.body} lineHeight={1.2} align="center" wrap style={{ width, justifyContent: "center" }} />;
+  }
+  return <Rich text={t} sprites={sprites} size={Math.min(size, oneLine)} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />;
+}
+
 /* 1. announcement: headline (max 8 words) + optional subline, centred. Long copy wraps to 3 lines then shrinks. */
 export function Announcement({ ctx, f }: { ctx: Ctx; f: Fields["announcement"] }) {
   const maxW = ctx.contentW - 80;
@@ -103,8 +121,7 @@ export function Announcement({ ctx, f }: { ctx: Ctx; f: Fields["announcement"] }
 export function Pair({ ctx, f }: { ctx: Ctx; f: Fields["pair"] }) {
   const label = f.label.trim().toUpperCase();
   const pillH = label ? 28 * 1.2 + 40 : 0;
-  // "🍎 / $AAPL" for a moji; a meme reads "$MUMU / MUSEBOOK" (its own ticker carries the dollar sign).
-  const pairText = f.combo.trim().startsWith("$") ? `${f.combo.trim()} / ${f.ticker.trim().replace(/^\$/, "").toUpperCase()}` : `${f.combo.trim()} / ${dollar(f.ticker) || "$"}`;
+  const pairText = pairLine(f.combo, f.ticker);
   const pairSize = fitLine(pairText, [92, 84, 76, 68, 60, 52, 44], ctx.contentW);
   const hero = Math.max(160, Math.min(300, ctx.contentH - (label ? pillH + 44 : 0) - pairSize * 1.08 - 44));
   return (
@@ -187,7 +204,10 @@ export function Claimed({ ctx, f }: { ctx: Ctx; f: Fields["claimed"] }) {
   const gap = 24;
   const tileW = Math.floor((ctx.contentW - (cols - 1) * gap) / cols);
   const rowsN = Math.ceil(n / cols);
-  const tileH = 22 + 52 + 10 + 22 * 1.2 + 22;
+  // A meme's line ("$MUMU / MUSEBOOK") may need two lines at this width; every tile grows so the grid stays even.
+  const lineW = tileW - 24;
+  const tickerLines = Math.min(2, Math.max(1, ...tiles.map((t) => countLines(t.ticker, 18, lineW, NUNITO_800))));
+  const tileH = 22 + 52 + 10 + 22 * 1.2 * tickerLines + 22;
   const availH = ctx.contentH - 76;
   const countSize = fitLine(f.count, ctx.wide ? [84, 72, 60] : [96, 84, 72, 60], ctx.contentW);
   const countGap = ctx.wide ? 36 : 48;
@@ -204,7 +224,7 @@ export function Claimed({ ctx, f }: { ctx: Ctx; f: Fields["claimed"] }) {
             <ClayBox key={i} clay={ctx.clay} kind="tile" w={tileW} h={Math.round(tileH * scale)}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                 <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={t.emoji} img={t.img} width={tileW - 24} size={emojiSize} overlap={4} />
-                <Rich text={t.ticker || " "} sprites={ctx.sprites} size={Math.min(tickerSize, fitLine(t.ticker, [tickerSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
+                <TileLine text={t.ticker} sprites={ctx.sprites} size={tickerSize} width={lineW} lines={tickerLines} />
               </div>
             </ClayBox>
           ))}
@@ -236,8 +256,8 @@ export function Token({ ctx, f }: { ctx: Ctx; f: Fields["token"] }) {
   const stats = f.stats.filter((s) => s.label.trim() || s.value.trim()).slice(0, 4);
   const n = Math.max(1, stats.length);
   const hero = ctx.wide ? 140 : 168;
-  // The hero already shows the combo, so the text is just the ticker.
-  const pairText = dollar(f.ticker) || "$";
+  // The hero already shows an emoji combo, so a moji's text is just the ticker; a meme's hero is a picture, so it names both.
+  const pairText = f.combo.trim().startsWith("$") ? pairLine(f.combo, f.ticker) : dollar(f.ticker) || "$";
   const textW = ctx.contentW - hero - 40;
   const pairSize = fitLine(pairText, [92, 84, 76, 68, 60, 52], textW);
   const creator = f.creator.trim();
@@ -281,10 +301,12 @@ export function Airdrop({ ctx, f }: { ctx: Ctx; f: Fields["airdrop"] }) {
   const textW = ctx.contentW - hero - 40;
   const label = f.label.trim().toUpperCase();
   const pillH = label ? 24 * 1.2 + 32 : 0;
-  const figureSize = fitLine(f.figure, ctx.wide ? [108, 96, 84, 72] : [132, 120, 108, 96, 84], textW);
+  const pairText = f.combo.trim() ? pairLine(f.combo, f.ticker) : "";
+  const pairSize = pairText ? fitLine(pairText, [40, 36, 32, 28], textW) : 0;
+  const figureSize = fitLine(f.figure, ctx.wide ? [96, 84, 72, 64] : [120, 108, 96, 84], textW);
   const sub = f.sub.trim();
   const subSize = sub ? fitLine(sub, [32, 28, 24, 20], textW, NUNITO_800) : 0;
-  const headH = Math.max(hero, (label ? pillH + 14 : 0) + figureSize + (sub ? subSize * 1.3 + 12 : 0));
+  const headH = Math.max(hero, (label ? pillH + 14 : 0) + (pairText ? pairSize * 1.1 + 10 : 0) + figureSize + (sub ? subSize * 1.3 + 12 : 0));
   const gap = 24;
   const cols = ctx.wide || n <= 2 ? n : 2;
   const rows = Math.ceil(n / cols);
@@ -296,12 +318,13 @@ export function Airdrop({ ctx, f }: { ctx: Ctx; f: Fields["airdrop"] }) {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 40 }}>
       <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 40 }}>
         <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={f.combo} img={f.img} width={hero} size={hero} shadow={SHADOW.row} overlap={12} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
           {label ? (
             <ClayBox clay={ctx.clay} kind="pill" w={Math.ceil(lineWidth(label, 24, NUNITO_800, 0.16)) + 64} h={pillH}>
               <Rich text={label} sprites={ctx.sprites} size={24} color={MINT} font={FONT.body} lineHeight={1.2} letterSpacingEm={0.16} />
             </ClayBox>
           ) : null}
+          {pairText ? <Rich text={pairText} sprites={ctx.sprites} size={pairSize} color={SKY[600]} lineHeight={1.1} /> : null}
           <Rich text={f.figure} sprites={ctx.sprites} size={figureSize} color={INK} lineHeight={1} letterSpacingEm={-0.01} />
           {sub ? <Rich text={sub} sprites={ctx.sprites} size={subSize} color={INK_SOFT} font={FONT.body} lineHeight={1.3} /> : null}
         </div>
@@ -328,7 +351,9 @@ export function Airdrops({ ctx, f }: { ctx: Ctx; f: Fields["airdrops"] }) {
   const gap = 24;
   const tileW = Math.floor((ctx.contentW - (cols - 1) * gap) / cols);
   const rowsN = Math.ceil(n / cols);
-  const tileH = 216;
+  const lineW = tileW - 24;
+  const tickerLines = Math.min(2, Math.max(1, ...items.map((it) => countLines(it.ticker, 18, lineW, NUNITO_800))));
+  const tileH = 216 + (tickerLines - 1) * 22 * 1.2;
   const availH = ctx.contentH - 76;
   const countSize = fitLine(f.count, ctx.wide ? [72, 60, 52, 44] : [84, 72, 60, 52], ctx.contentW);
   const countGap = ctx.wide ? 36 : 48;
@@ -346,7 +371,7 @@ export function Airdrops({ ctx, f }: { ctx: Ctx; f: Fields["airdrops"] }) {
             <ClayBox key={i} clay={ctx.clay} kind="drop" w={tileW} h={Math.round(tileH * scale)}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: Math.round(8 * scale) }}>
                 <ComboEmoji sprites={ctx.sprites} pictures={ctx.pictures} combo={it.emoji} img={it.img} width={tileW - 24} size={emojiSize} overlap={4} />
-                <Rich text={it.ticker || " "} sprites={ctx.sprites} size={Math.min(tickerSize, fitLine(it.ticker, [tickerSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
+                <TileLine text={it.ticker} sprites={ctx.sprites} size={tickerSize} width={lineW} lines={tickerLines} />
                 <Rich text={it.figure || " "} sprites={ctx.sprites} size={Math.min(figureSize, fitLine(it.figure, [figureSize], tileW - 20))} color={INK} lineHeight={1.1} />
                 <Rich text={it.holders || " "} sprites={ctx.sprites} size={Math.min(holdersSize, fitLine(it.holders, [holdersSize], tileW - 20, NUNITO_800))} color={INK_SOFT} font={FONT.body} lineHeight={1.2} />
               </div>

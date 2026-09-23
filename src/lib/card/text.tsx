@@ -76,7 +76,7 @@ export function countLines(text: string, size: number, maxWidth: number, font = 
 }
 
 /** Largest size from the scale that fits on one line, never below `min`. */
-export function fitLine(text: string, sizes: number[], maxWidth: number, font = FREDOKA_600, letterSpacingEm = 0, min = 24): number {
+export function fitLine(text: string, sizes: number[], maxWidth: number, font = FREDOKA_600, letterSpacingEm = 0, min = 12): number {
   for (const s of sizes) if (lineWidth(text, s, font, letterSpacingEm) <= maxWidth) return s;
   const last = sizes[sizes.length - 1];
   return Math.max(min, Math.floor((last * maxWidth) / Math.max(1, lineWidth(text, last, font, letterSpacingEm))));

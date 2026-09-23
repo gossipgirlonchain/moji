@@ -33,8 +33,8 @@ export function subjectOf(m: Pick<MojiRow, "display" | "kind" | "meme_url" | "sy
   return m.meme_url ? { emoji, img: m.meme_url } : { emoji };
 }
 export function pairTicker(m: Pick<MojiRow, "display" | "kind" | "symbol" | "stock_ticker" | "meme_url">): string {
-  // A meme with a picture needs its ticker under it; one without already shows the ticker as its subject, so name the pair.
-  if (isMeme(m)) return m.meme_url ? dollar(m.symbol ?? m.display) : dollar(m.stock_ticker);
+  // A moji's subject is its emoji, so the line is the paired ticker. A meme's line names both: "$MUMU / MUSEBOOK".
+  if (isMeme(m)) return `${dollar(m.symbol ?? m.display)} / ${(m.stock_ticker ?? "").replace(/^\$/, "").toUpperCase()}`;
   return dollar(m.stock_ticker);
 }
 const earned = (m: MojiRow) => n(m.fees_claimed_usd) + n(m.fees_unclaimed_usd);

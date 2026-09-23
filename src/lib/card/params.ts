@@ -99,7 +99,7 @@ export const SAMPLE: { [T in Template]: Fields[T] } = {
   claimed: {
     title: "launched this week",
     tiles: [
-      { emoji: "🪙", ticker: "$GLD" },
+      { emoji: "$MUMU", ticker: "$MUMU / MUSEBOOK" },
       { emoji: "☕", ticker: "$SBUX" },
       { emoji: "✈️", ticker: "$DAL" },
       { emoji: "🏠", ticker: "$ZG" },
