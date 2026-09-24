@@ -105,7 +105,6 @@ export const CAPTION_GRADIENT = "linear-gradient(to top, rgba(18, 64, 92, 0.86) 
  */
 export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number; compact?: boolean; window?: VolWindow }) {
   const vol = window ? volumeFor(m, window) : Number(m.volume24_usd ?? 0);
-  const fees = Number(m.fees_claimed_usd ?? 0) + Number(m.fees_unclaimed_usd ?? 0);
   const pictured = Boolean(m.meme_url) || m.display.startsWith("$");
   const box = `press relative flex aspect-square flex-col items-center justify-center overflow-hidden text-center ${compact ? "clay-sm bg-sky-50" : "clay bg-white"} ${pop !== undefined ? `pop pop-${pop}` : ""}`;
   const numbers = (over: boolean) => (
@@ -114,12 +113,6 @@ export function MojiTile({ m, pop, compact, window }: { m: MojiRow; pop?: number
       {(window || compact) && vol > 0 && (
         <span className={`text-[11px] ${over ? "text-white/85" : "text-ink-soft"}`}>
           vol{window ? ` ${window}` : ""} {usd(vol)}
-          {window && fees > 0 ? (
-            <>
-              {" · "}
-              <span className={over ? "text-white" : "text-mint"}>{usd(fees)} fees</span>
-            </>
-          ) : null}
         </span>
       )}
     </>
