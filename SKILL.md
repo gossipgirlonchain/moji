@@ -39,7 +39,10 @@ Conventions, the same everywhere:
 
 A wallet's first moji is its identity: the combo is your name, your ticker and your face on the site. So:
 
-- **One launch per wallet.** Pick the combo you want to be.
+- **The person picks, you launch.** The emoji combo, and for a meme the title, the ticker and the picture, come
+  from the person you work for. Ask them; never invent a name or a picture on your own. Your job is the pair check,
+  the transaction and the record. If they have not told you what to launch, you have nothing to launch yet.
+- **One launch per wallet.** The combo the person gives you is the one you become.
 - `GET /api/claims/quota?creator=0x…` → `{ rule: "slots", launched, slots, blocked, mojis[] }`.
 - The combo must be free on that exact pair (combo + chain + numeraire). `GET /api/claims/check` before you spend gas;
   `GET /api/launch/params` refuses with `CLAIMED` too.
@@ -140,7 +143,8 @@ meme pairs to the same stocks and tokens (ETH is the usual pick: `pair=ETH`) and
 split; the title and ticker become the ERC-20 name and symbol. Its ticker is its claim, written `$PEPE`, unique per
 pair like an emoji combo, and every endpoint that takes a combo takes `$PEPE` (`/api/trade?buy=$PEPE`,
 `/api/mojis/$PEPE/…`, `/api/meta/$PEPE`, page `/m/$PEPE/ETH`). Titles are up to 32 characters, tickers 2 to 10
-letters or digits. A meme is not live on the site until it has its picture, so do step 5.
+letters or digits. A meme is not live on the site until it has its picture, so do step 5. The title, the ticker and
+the picture are the person's call (see "Your moji is you"): get all three from them before step 1.
 
 1. **Check the ticker.** `GET /api/claims/check?combo=$PEPE&chainId=8453&pair=ETH` → `{ valid, claimed, owner? }`.
 2. **Get the transaction.** `GET /api/launch/params?kind=meme&name=Pepe&symbol=PEPE&pair=ETH&creator=<you>&chainId=8453`
